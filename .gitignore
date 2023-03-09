@@ -1,0 +1,10 @@
+.DS_Store
+.idea/
+artifacts/
+build/
+cache/
+coverage.json
+coverage/
+node_modules/
+types/
+yarn-error.log
