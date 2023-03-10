@@ -65,11 +65,10 @@ contract MockOrderController is Ownable {
         return _userOrderIds[_msgSender()].length;
     }
 
-    function getUserOrderIds(uint256 from, uint256 length)
-        external
-        view
-        returns (uint256[] memory)
-    {
+    function getUserOrderIds(
+        uint256 from,
+        uint256 length
+    ) external view returns (uint256[] memory) {
         uint256[] memory userOrderIds = _userOrderIds[_msgSender()];
         if (_userOrderIds[_msgSender()].length > 1000) {
             uint256 cnt = 0;
@@ -85,20 +84,9 @@ contract MockOrderController is Ownable {
         return userOrderIds;
     }
 
-    function getOrderInfo(uint256 _id)
-        external
-        view
-        returns (
-            uint256,
-            uint256,
-            uint256,
-            uint256,
-            address,
-            address,
-            address,
-            bool
-        )
-    {
+    function getOrderInfo(
+        uint256 _id
+    ) external view returns (uint256, uint256, uint256, uint256, address, address, address, bool) {
         Order memory order = _orders[_id];
         return (
             order.id,

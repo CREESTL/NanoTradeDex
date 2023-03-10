@@ -69,11 +69,10 @@ contract OrderController is Ownable, ReentrancyGuard {
         return _userOrderIds[_msgSender()].length;
     }
 
-    function getUserOrderIds(uint256 from, uint256 length)
-        external
-        view
-        returns (uint256[] memory)
-    {
+    function getUserOrderIds(
+        uint256 from,
+        uint256 length
+    ) external view returns (uint256[] memory) {
         uint256[] memory userOrderIds = _userOrderIds[_msgSender()];
         if (_userOrderIds[_msgSender()].length > 1000) {
             uint256 cnt;
@@ -89,20 +88,12 @@ contract OrderController is Ownable, ReentrancyGuard {
         return userOrderIds;
     }
 
-    function getOrderInfo(uint256 _id)
+    function getOrderInfo(
+        uint256 _id
+    )
         external
         view
-        returns (
-            uint256,
-            uint256,
-            uint256,
-            uint256,
-            uint256,
-            address,
-            address,
-            address,
-            bool
-        )
+        returns (uint256, uint256, uint256, uint256, uint256, address, address, address, bool)
     {
         Order memory order = _orders[_id];
         return (
@@ -143,7 +134,7 @@ contract OrderController is Ownable, ReentrancyGuard {
         _feeBalances[token] = 0;
     }
 
-    function min(uint256 a, uint256 b) internal pure returns(uint256) {
+    function min(uint256 a, uint256 b) internal pure returns (uint256) {
         return a < b ? a : b;
     }
 
@@ -201,7 +192,8 @@ contract OrderController is Ownable, ReentrancyGuard {
                 matchedReceived = min(matchedOrderAmountLeftToFill, amountB - totalPaid);
                 matchedOrder.fees += _getFee(matchedReceived);
 
-                uint256 transferAmountA = (matchedReceived * matchedOrderAmountB) / matchedOrderAmountA;
+                uint256 transferAmountA = (matchedReceived * matchedOrderAmountB) /
+                    matchedOrderAmountA;
                 totalPayout += transferAmountA;
 
                 newOrder.amountLeftToFill -= transferAmountA;
@@ -209,12 +201,12 @@ contract OrderController is Ownable, ReentrancyGuard {
             } else {
                 // we can take all Alf and matched order will still not be closed
                 // calculate delta B max
-                uint256 transferAmountB =
-                min(
+                uint256 transferAmountB = min(
                     amountB - totalPaid,
                     (newOrder.amountLeftToFill * matchedOrderAmountA) / matchedOrderAmountB
                 );
-                uint256 amountFilled = transferAmountB * matchedOrderAmountB / matchedOrderAmountA;
+                uint256 amountFilled = (transferAmountB * matchedOrderAmountB) /
+                    matchedOrderAmountA;
                 matchedOrder.fees += _getFee(transferAmountB);
 
                 totalPayout += amountFilled;
