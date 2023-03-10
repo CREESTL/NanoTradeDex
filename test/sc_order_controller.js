@@ -1,60 +1,120 @@
 /* eslint-disable no-underscore-dangle */
 /* eslint-disable max-len */
-const { BN, ether } = require('@openzeppelin/test-helpers');
-const { expect } = require('chai');
+const { BN, ether } = require("@openzeppelin/test-helpers");
+const { expect } = require("chai");
 
-const MockOrderController = artifacts.require('MockOrderController');
-const OrderController = artifacts.require('OrderController');
+const MockOrderController = artifacts.require("MockOrderController");
+const OrderController = artifacts.require("OrderController");
 
-const FiatTokenV2 = artifacts.require('FiatTokenV2'); // USDC
-const TetherToken = artifacts.require('TetherToken'); // USDT
-const WBTC = artifacts.require('WBTC'); // WBTC
-const Mock = artifacts.require('MockERC20');
+const FiatTokenV2 = artifacts.require("FiatTokenV2"); // USDC
+const TetherToken = artifacts.require("TetherToken"); // USDT
+const WBTC = artifacts.require("WBTC"); // WBTC
+const Mock = artifacts.require("MockERC20");
 
-const usd = (n) => new BN(web3.utils.toWei(n, 'Mwei')); // decimals 6
-const btc = (n) => (new BN(web3.utils.toWei(n, 'Gwei'))).div(new BN('10')); // decimals 8
+const usd = (n) => new BN(web3.utils.toWei(n, "Mwei")); // decimals 6
+const btc = (n) => new BN(web3.utils.toWei(n, "Gwei")).div(new BN("10")); // decimals 8
 
-contract('OrdersController', ([owner, alice, bob]) => {
+contract("OrdersController", ([owner, alice, bob]) => {
   beforeEach(async () => {
-    this.mockOrderController = await MockOrderController.new(25, { from: owner });
+    this.mockOrderController = await MockOrderController.new(25, {
+      from: owner,
+    });
     this.orderController = await OrderController.new(25, { from: owner });
-    this.dai = await Mock.new('DAI', 'DAI', ether('100000000000'), { from: alice });
+    this.dai = await Mock.new("DAI", "DAI", ether("100000000000"), {
+      from: alice,
+    });
 
     // deploy and configure USDT
-    this.usdt = await TetherToken.new(usd('1000000'), 'Tether USD', 'USDT', 6);
+    this.usdt = await TetherToken.new(usd("1000000"), "Tether USD", "USDT", 6);
 
     // deploy and configure USDC
     this.usdc = await FiatTokenV2.new({ from: bob });
-    await this.usdc.initialize('USD Coin', 'USDC', 'USD', 6, bob, bob, bob, bob, { from: bob });
-    await this.usdc.configureMinter(bob, usd('1000000'), { from: bob });
-    await this.usdc.mint(bob, usd('1000000'), { from: bob });
+    await this.usdc.initialize(
+      "USD Coin",
+      "USDC",
+      "USD",
+      6,
+      bob,
+      bob,
+      bob,
+      bob,
+      { from: bob }
+    );
+    await this.usdc.configureMinter(bob, usd("1000000"), { from: bob });
+    await this.usdc.mint(bob, usd("1000000"), { from: bob });
 
     // deploy and configure WBTC
     this.wbtc = await WBTC.new({ from: alice });
-    await this.wbtc.mint(alice, btc('1000000'), { from: alice });
+    await this.wbtc.mint(alice, btc("1000000"), { from: alice });
 
     // await this.usdt.approve(this.mockOrderController.address, new BN('1000000'));
-    await this.usdc.approve(this.mockOrderController.address, usd('50000'), { from: bob });
-    await this.wbtc.approve(this.mockOrderController.address, btc('10'), { from: alice });
-    await this.usdt.approve(this.mockOrderController.address, usd('50000'));
+    await this.usdc.approve(this.mockOrderController.address, usd("50000"), {
+      from: bob,
+    });
+    await this.wbtc.approve(this.mockOrderController.address, btc("10"), {
+      from: alice,
+    });
+    await this.usdt.approve(this.mockOrderController.address, usd("50000"));
 
-    await this.usdc.approve(this.orderController.address, usd('50000'), { from: bob });
-    await this.wbtc.approve(this.orderController.address, btc('10'), { from: alice });
-    await this.dai.approve(this.orderController.address, ether('100000000000'), { from: alice });
+    await this.usdc.approve(this.orderController.address, usd("50000"), {
+      from: bob,
+    });
+    await this.wbtc.approve(this.orderController.address, btc("10"), {
+      from: alice,
+    });
+    await this.dai.approve(
+      this.orderController.address,
+      ether("100000000000"),
+      { from: alice }
+    );
   });
 
-  it('check fee in events', async () => {
-    await this.orderController.createOrder(this.dai.address, this.usdc.address, ether('1'), usd('100'), { from: bob });
-    const id1 = await this.orderController.getOrderId((await this.orderController.getOrderIdLength()) - 1);
+  it("check fee in events", async () => {
+    await this.orderController.createOrder(
+      this.dai.address,
+      this.usdc.address,
+      ether("1"),
+      usd("100"),
+      { from: bob }
+    );
+    const id1 = await this.orderController.getOrderId(
+      (await this.orderController.getOrderIdLength()) - 1
+    );
 
-    await this.orderController.createOrder(this.dai.address, this.usdc.address, ether('1'), usd('100'), { from: bob });
-    const id2 = await this.orderController.getOrderId((await this.orderController.getOrderIdLength()) - 1);
+    await this.orderController.createOrder(
+      this.dai.address,
+      this.usdc.address,
+      ether("1"),
+      usd("100"),
+      { from: bob }
+    );
+    const id2 = await this.orderController.getOrderId(
+      (await this.orderController.getOrderIdLength()) - 1
+    );
 
-    await this.orderController.createOrder(this.dai.address, this.usdc.address, ether('1'), usd('100'), { from: bob });
-    const id3 = await this.orderController.getOrderId((await this.orderController.getOrderIdLength()) - 1);
+    await this.orderController.createOrder(
+      this.dai.address,
+      this.usdc.address,
+      ether("1"),
+      usd("100"),
+      { from: bob }
+    );
+    const id3 = await this.orderController.getOrderId(
+      (await this.orderController.getOrderIdLength()) - 1
+    );
 
-    const matchHash = await this.orderController.matchOrders([id1, id2, id3], this.usdc.address, this.dai.address, usd('250'), ether('2.5'), false, { from: alice });
-    const id4 = await this.orderController.getOrderId((await this.orderController.getOrderIdLength()) - 1);
+    const matchHash = await this.orderController.matchOrders(
+      [id1, id2, id3],
+      this.usdc.address,
+      this.dai.address,
+      usd("250"),
+      ether("2.5"),
+      false,
+      { from: alice }
+    );
+    const id4 = await this.orderController.getOrderId(
+      (await this.orderController.getOrderIdLength()) - 1
+    );
     console.log(matchHash.logs[1].args.fee.toString());
     // expect(matchHash.logs[1].args.fee).to.be.bignumber.equal(usd('25'));
     console.log(matchHash.logs[2].args.fee.toString());
@@ -71,18 +131,52 @@ contract('OrdersController', ([owner, alice, bob]) => {
     // expect(await this.wbtc.balanceOf(bob)).to.be.bignumber.equal(btc('2.49375'));
   });
 
-  it('real test case check', async () => {
-    await this.orderController.createOrder(this.dai.address, this.usdc.address, ether('1'), usd('99.9'), { from: bob });
-    const id1 = await this.orderController.getOrderId((await this.orderController.getOrderIdLength()) - 1);
+  it("real test case check", async () => {
+    await this.orderController.createOrder(
+      this.dai.address,
+      this.usdc.address,
+      ether("1"),
+      usd("99.9"),
+      { from: bob }
+    );
+    const id1 = await this.orderController.getOrderId(
+      (await this.orderController.getOrderIdLength()) - 1
+    );
 
-    await this.orderController.createOrder(this.dai.address, this.usdc.address, ether('1'), usd('99.8'), { from: bob });
-    const id2 = await this.orderController.getOrderId((await this.orderController.getOrderIdLength()) - 1);
+    await this.orderController.createOrder(
+      this.dai.address,
+      this.usdc.address,
+      ether("1"),
+      usd("99.8"),
+      { from: bob }
+    );
+    const id2 = await this.orderController.getOrderId(
+      (await this.orderController.getOrderIdLength()) - 1
+    );
 
-    await this.orderController.createOrder(this.dai.address, this.usdc.address, ether('1'), usd('99.7'), { from: bob });
-    const id3 = await this.orderController.getOrderId((await this.orderController.getOrderIdLength()) - 1);
+    await this.orderController.createOrder(
+      this.dai.address,
+      this.usdc.address,
+      ether("1"),
+      usd("99.7"),
+      { from: bob }
+    );
+    const id3 = await this.orderController.getOrderId(
+      (await this.orderController.getOrderIdLength()) - 1
+    );
 
-    const matchHash = await this.orderController.matchOrders([id1, id2, id3], this.usdc.address, this.dai.address, usd('300'), ether('3'), true, { from: alice });
-    const id4 = await this.orderController.getOrderId((await this.orderController.getOrderIdLength()) - 1);
+    const matchHash = await this.orderController.matchOrders(
+      [id1, id2, id3],
+      this.usdc.address,
+      this.dai.address,
+      usd("300"),
+      ether("3"),
+      true,
+      { from: alice }
+    );
+    const id4 = await this.orderController.getOrderId(
+      (await this.orderController.getOrderIdLength()) - 1
+    );
   });
 
   // it('check createOrder wbtc-usdc', async () => {

@@ -1,6 +1,6 @@
 /**
  *Submitted for verification at Etherscan.io on 2018-11-24
-*/
+ */
 
 pragma solidity 0.4.24;
 
@@ -13,8 +13,11 @@ pragma solidity 0.4.24;
  */
 contract ERC20Basic {
     function totalSupply() public view returns (uint256);
+
     function balanceOf(address _who) public view returns (uint256);
+
     function transfer(address _to, uint256 _value) public returns (bool);
+
     event Transfer(address indexed from, address indexed to, uint256 value);
 }
 
@@ -25,10 +28,9 @@ contract ERC20Basic {
  * @dev Math operations with safety checks that throw on error
  */
 library SafeMath {
-
     /**
-    * @dev Multiplies two numbers, throws on overflow.
-    */
+     * @dev Multiplies two numbers, throws on overflow.
+     */
     function mul(uint256 _a, uint256 _b) internal pure returns (uint256 c) {
         // Gas optimization: this is cheaper than asserting 'a' not being zero, but the
         // benefit is lost if 'b' is also tested.
@@ -43,8 +45,8 @@ library SafeMath {
     }
 
     /**
-    * @dev Integer division of two numbers, truncating the quotient.
-    */
+     * @dev Integer division of two numbers, truncating the quotient.
+     */
     function div(uint256 _a, uint256 _b) internal pure returns (uint256) {
         // assert(_b > 0); // Solidity automatically throws when dividing by 0
         // uint256 c = _a / _b;
@@ -53,16 +55,16 @@ library SafeMath {
     }
 
     /**
-    * @dev Subtracts two numbers, throws on overflow (i.e. if subtrahend is greater than minuend).
-    */
+     * @dev Subtracts two numbers, throws on overflow (i.e. if subtrahend is greater than minuend).
+     */
     function sub(uint256 _a, uint256 _b) internal pure returns (uint256) {
         assert(_b <= _a);
         return _a - _b;
     }
 
     /**
-    * @dev Adds two numbers, throws on overflow.
-    */
+     * @dev Adds two numbers, throws on overflow.
+     */
     function add(uint256 _a, uint256 _b) internal pure returns (uint256 c) {
         c = _a + _b;
         assert(c >= _a);
@@ -84,17 +86,17 @@ contract BasicToken is ERC20Basic {
     uint256 internal totalSupply_;
 
     /**
-    * @dev Total number of tokens in existence
-    */
+     * @dev Total number of tokens in existence
+     */
     function totalSupply() public view returns (uint256) {
         return totalSupply_;
     }
 
     /**
-    * @dev Transfer token for a specified address
-    * @param _to The address to transfer to.
-    * @param _value The amount to be transferred.
-    */
+     * @dev Transfer token for a specified address
+     * @param _to The address to transfer to.
+     * @param _value The amount to be transferred.
+     */
     function transfer(address _to, uint256 _value) public returns (bool) {
         require(_value <= balances[msg.sender]);
         require(_to != address(0));
@@ -106,14 +108,13 @@ contract BasicToken is ERC20Basic {
     }
 
     /**
-    * @dev Gets the balance of the specified address.
-    * @param _owner The address to query the the balance of.
-    * @return An uint256 representing the amount owned by the passed address.
-    */
+     * @dev Gets the balance of the specified address.
+     * @param _owner The address to query the the balance of.
+     * @return An uint256 representing the amount owned by the passed address.
+     */
     function balanceOf(address _owner) public view returns (uint256) {
         return balances[_owner];
     }
-
 }
 
 // File: openzeppelin-solidity/contracts/token/ERC20/ERC20.sol
@@ -123,18 +124,13 @@ contract BasicToken is ERC20Basic {
  * @dev see https://github.com/ethereum/EIPs/issues/20
  */
 contract ERC20 is ERC20Basic {
-    function allowance(address _owner, address _spender)
-    public view returns (uint256);
+    function allowance(address _owner, address _spender) public view returns (uint256);
 
-    function transferFrom(address _from, address _to, uint256 _value)
-    public returns (bool);
+    function transferFrom(address _from, address _to, uint256 _value) public returns (bool);
 
     function approve(address _spender, uint256 _value) public returns (bool);
-    event Approval(
-        address indexed owner,
-        address indexed spender,
-        uint256 value
-    );
+
+    event Approval(address indexed owner, address indexed spender, uint256 value);
 }
 
 // File: openzeppelin-solidity/contracts/token/ERC20/StandardToken.sol
@@ -147,9 +143,7 @@ contract ERC20 is ERC20Basic {
  * Based on code by FirstBlood: https://github.com/Firstbloodio/token/blob/master/smart_contract/FirstBloodToken.sol
  */
 contract StandardToken is ERC20, BasicToken {
-
-    mapping (address => mapping (address => uint256)) internal allowed;
-
+    mapping(address => mapping(address => uint256)) internal allowed;
 
     /**
      * @dev Transfer tokens from one address to another
@@ -157,14 +151,7 @@ contract StandardToken is ERC20, BasicToken {
      * @param _to address The address which you want to transfer to
      * @param _value uint256 the amount of tokens to be transferred
      */
-    function transferFrom(
-        address _from,
-        address _to,
-        uint256 _value
-    )
-    public
-    returns (bool)
-    {
+    function transferFrom(address _from, address _to, uint256 _value) public returns (bool) {
         require(_value <= balances[_from]);
         require(_value <= allowed[_from][msg.sender]);
         require(_to != address(0));
@@ -197,14 +184,7 @@ contract StandardToken is ERC20, BasicToken {
      * @param _spender address The address which will spend the funds.
      * @return A uint256 specifying the amount of tokens still available for the spender.
      */
-    function allowance(
-        address _owner,
-        address _spender
-    )
-    public
-    view
-    returns (uint256)
-    {
+    function allowance(address _owner, address _spender) public view returns (uint256) {
         return allowed[_owner][_spender];
     }
 
@@ -217,15 +197,8 @@ contract StandardToken is ERC20, BasicToken {
      * @param _spender The address which will spend the funds.
      * @param _addedValue The amount of tokens to increase the allowance by.
      */
-    function increaseApproval(
-        address _spender,
-        uint256 _addedValue
-    )
-    public
-    returns (bool)
-    {
-        allowed[msg.sender][_spender] = (
-        allowed[msg.sender][_spender].add(_addedValue));
+    function increaseApproval(address _spender, uint256 _addedValue) public returns (bool) {
+        allowed[msg.sender][_spender] = (allowed[msg.sender][_spender].add(_addedValue));
         emit Approval(msg.sender, _spender, allowed[msg.sender][_spender]);
         return true;
     }
@@ -239,13 +212,7 @@ contract StandardToken is ERC20, BasicToken {
      * @param _spender The address which will spend the funds.
      * @param _subtractedValue The amount of tokens to decrease the allowance by.
      */
-    function decreaseApproval(
-        address _spender,
-        uint256 _subtractedValue
-    )
-    public
-    returns (bool)
-    {
+    function decreaseApproval(address _spender, uint256 _subtractedValue) public returns (bool) {
         uint256 oldValue = allowed[msg.sender][_spender];
         if (_subtractedValue >= oldValue) {
             allowed[msg.sender][_spender] = 0;
@@ -255,7 +222,6 @@ contract StandardToken is ERC20, BasicToken {
         emit Approval(msg.sender, _spender, allowed[msg.sender][_spender]);
         return true;
     }
-
 }
 
 // File: openzeppelin-solidity/contracts/token/ERC20/DetailedERC20.sol
@@ -288,13 +254,8 @@ contract DetailedERC20 is ERC20 {
 contract Ownable {
     address public owner;
 
-
     event OwnershipRenounced(address indexed previousOwner);
-    event OwnershipTransferred(
-        address indexed previousOwner,
-        address indexed newOwner
-    );
-
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     /**
      * @dev The Ownable constructor sets the original `owner` of the contract to the sender
@@ -355,7 +316,6 @@ contract MintableToken is StandardToken, Ownable {
 
     bool public mintingFinished = false;
 
-
     modifier canMint() {
         require(!mintingFinished);
         _;
@@ -372,15 +332,7 @@ contract MintableToken is StandardToken, Ownable {
      * @param _amount The amount of tokens to mint.
      * @return A boolean that indicates if the operation was successful.
      */
-    function mint(
-        address _to,
-        uint256 _amount
-    )
-    public
-    hasMintPermission
-    canMint
-    returns (bool)
-    {
+    function mint(address _to, uint256 _amount) public hasMintPermission canMint returns (bool) {
         totalSupply_ = totalSupply_.add(_amount);
         balances[_to] = balances[_to].add(_amount);
         emit Mint(_to, _amount);
@@ -406,7 +358,6 @@ contract MintableToken is StandardToken, Ownable {
  * @dev Token that can be irreversibly burned (destroyed).
  */
 contract BurnableToken is BasicToken {
-
     event Burn(address indexed burner, uint256 value);
 
     /**
@@ -440,7 +391,6 @@ contract Pausable is Ownable {
     event Unpause();
 
     bool public paused = false;
-
 
     /**
      * @dev Modifier to make a function callable only when the contract is not paused.
@@ -482,15 +432,7 @@ contract Pausable is Ownable {
  * @dev StandardToken modified with pausable transfers.
  **/
 contract PausableToken is StandardToken, Pausable {
-
-    function transfer(
-        address _to,
-        uint256 _value
-    )
-    public
-    whenNotPaused
-    returns (bool)
-    {
+    function transfer(address _to, uint256 _value) public whenNotPaused returns (bool) {
         return super.transfer(_to, _value);
     }
 
@@ -498,44 +440,25 @@ contract PausableToken is StandardToken, Pausable {
         address _from,
         address _to,
         uint256 _value
-    )
-    public
-    whenNotPaused
-    returns (bool)
-    {
+    ) public whenNotPaused returns (bool) {
         return super.transferFrom(_from, _to, _value);
     }
 
-    function approve(
-        address _spender,
-        uint256 _value
-    )
-    public
-    whenNotPaused
-    returns (bool)
-    {
+    function approve(address _spender, uint256 _value) public whenNotPaused returns (bool) {
         return super.approve(_spender, _value);
     }
 
     function increaseApproval(
         address _spender,
         uint _addedValue
-    )
-    public
-    whenNotPaused
-    returns (bool success)
-    {
+    ) public whenNotPaused returns (bool success) {
         return super.increaseApproval(_spender, _addedValue);
     }
 
     function decreaseApproval(
         address _spender,
         uint _subtractedValue
-    )
-    public
-    whenNotPaused
-    returns (bool success)
-    {
+    ) public whenNotPaused returns (bool success) {
         return super.decreaseApproval(_spender, _subtractedValue);
     }
 }
@@ -585,34 +508,15 @@ contract Claimable is Ownable {
  * which allows you to call the safe operations as `token.safeTransfer(...)`, etc.
  */
 library SafeERC20 {
-    function safeTransfer(
-        ERC20Basic _token,
-        address _to,
-        uint256 _value
-    )
-    internal
-    {
+    function safeTransfer(ERC20Basic _token, address _to, uint256 _value) internal {
         require(_token.transfer(_to, _value));
     }
 
-    function safeTransferFrom(
-        ERC20 _token,
-        address _from,
-        address _to,
-        uint256 _value
-    )
-    internal
-    {
+    function safeTransferFrom(ERC20 _token, address _from, address _to, uint256 _value) internal {
         require(_token.transferFrom(_from, _to, _value));
     }
 
-    function safeApprove(
-        ERC20 _token,
-        address _spender,
-        uint256 _value
-    )
-    internal
-    {
+    function safeApprove(ERC20 _token, address _spender, uint256 _value) internal {
         require(_token.approve(_spender, _value));
     }
 }
@@ -636,19 +540,25 @@ contract CanReclaimToken is Ownable {
         uint256 balance = _token.balanceOf(this);
         _token.safeTransfer(owner, balance);
     }
-
 }
 
 // File: contracts/utils/OwnableContract.sol
 
 // empty block is used as this contract just inherits others.
-contract OwnableContract is CanReclaimToken, Claimable { } /* solhint-disable-line no-empty-blocks */
+contract OwnableContract is CanReclaimToken, Claimable {
+
+} /* solhint-disable-line no-empty-blocks */
 
 // File: contracts/token/WBTC.sol
 
-contract WBTC is StandardToken, DetailedERC20("Wrapped BTC", "WBTC", 8),
-MintableToken, BurnableToken, PausableToken, OwnableContract {
-
+contract WBTC is
+    StandardToken,
+    DetailedERC20("Wrapped BTC", "WBTC", 8),
+    MintableToken,
+    BurnableToken,
+    PausableToken,
+    OwnableContract
+{
     function burn(uint value) public onlyOwner {
         super.burn(value);
     }
