@@ -16,7 +16,7 @@
 function cancelOrder(uint256 id) external nonpayable
 ```
 
-Cancels the order with the given ID
+Cancels the limit order with the given ID.         Only limit orders can be cancelled
 
 
 
@@ -24,12 +24,12 @@ Cancels the order with the given ID
 
 | Name | Type | Description |
 |---|---|---|
-| id | uint256 | The ID of the order to cancel |
+| id | uint256 | The ID of the limit order to cancel |
 
 ### createOrder
 
 ```solidity
-function createOrder(address tokenA, address tokenB, uint256 amountA, uint256 amountB, enum IOrderController.OrderType type_, enum IOrderController.OrderSide side, uint256 limit, bool isCancellable) external nonpayable
+function createOrder(address tokenA, address tokenB, uint256 amountA, uint256 amountB, enum IOrderController.OrderType type_, uint256 limit, bool isCancellable) external nonpayable
 ```
 
 Creates an order with specified parameters
@@ -45,14 +45,13 @@ Creates an order with specified parameters
 | amountA | uint256 | The amount of purchased tokens |
 | amountB | uint256 | The amount of sold tokens |
 | type_ | enum IOrderController.OrderType | The type of the order |
-| side | enum IOrderController.OrderSide | The side of the order |
 | limit | uint256 | The limit amount of the order (for limit orders only) |
 | isCancellable | bool | True if order is cancellable. Otherwise - false |
 
 ### getOrder
 
 ```solidity
-function getOrder(uint256 _id) external view returns (address, address, address, uint256, uint256, uint256, enum IOrderController.OrderType, enum IOrderController.OrderSide, uint256, bool, enum IOrderController.OrderStatus)
+function getOrder(uint256 _id) external view returns (address, address, address, uint256, uint256, uint256, uint256, enum IOrderController.OrderType, uint256, bool, enum IOrderController.OrderStatus)
 ```
 
 Returns information about the given order
@@ -72,11 +71,11 @@ Returns information about the given order
 | _0 | address | The creator of the order |
 | _1 | address | The address of the token that is purchased |
 | _2 | address | The address of the token that is sold |
-| _3 | uint256 | The amount of purchased tokens |
-| _4 | uint256 | The amount of sold tokens |
-| _5 | uint256 | The amount of tokens left for order to be closed |
-| _6 | enum IOrderController.OrderType | The type of the order |
-| _7 | enum IOrderController.OrderSide | The side of the order |
+| _3 | uint256 | The initial amount of purchased tokens |
+| _4 | uint256 | The initial amount of sold tokens |
+| _5 | uint256 | The current amount of purchased tokens |
+| _6 | uint256 | The current amount of sold tokens |
+| _7 | enum IOrderController.OrderType | The type of the order |
 | _8 | uint256 | The limit amount of the order (for limit orders only) |
 | _9 | bool | True if order is cancellable. Otherwise - false |
 | _10 | enum IOrderController.OrderStatus | The current status of the order |
@@ -212,7 +211,7 @@ Indicates that a new order has been created.
 ### OrderMatched
 
 ```solidity
-event OrderMatched(uint256 id, uint256 matchedId, uint256 amountReceived, uint256 amountPaid, uint256 amountLeftToFill, uint256 fee, uint256 feeRate)
+event OrderMatched(uint256 id, uint256 matchedId, uint256 amountReceived, uint256 amountPaid, uint256 fee, uint256 feeRate)
 ```
 
 Indicates that two orders have matched
@@ -227,7 +226,6 @@ Indicates that two orders have matched
 | matchedId  | uint256 | undefined |
 | amountReceived  | uint256 | undefined |
 | amountPaid  | uint256 | undefined |
-| amountLeftToFill  | uint256 | undefined |
 | fee  | uint256 | undefined |
 | feeRate  | uint256 | undefined |
 
