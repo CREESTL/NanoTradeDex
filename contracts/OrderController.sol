@@ -8,16 +8,18 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "./interfaces/IOrderController.sol";
 
+/// @title Contract that controlls creation and execution of market and limit orders
 contract OrderController is IOrderController, Ownable, ReentrancyGuard {
 
     using Counters for Counters.Counter;
     using SafeERC20 for IERC20;
 
-    Counters.Counter internal _orderId;
+    /// @notice Percentage of each order being paid as fee (in basis points)
     uint256 public feeRate;
+    /// @dev Incrementing IDs of orders
+    Counters.Counter internal _orderId;
     /// @dev Order's index is (order's ID - 1)
     mapping(uint256 => Order) internal _orders;
-    mapping(address => uint256) internal _feeBalances;
     /// @dev Mapping from user address to the array of orders IDs he created
     // TODO add getters for that
     mapping(address => uint256[]) internal _usersToOrders;
@@ -26,8 +28,9 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     uint256 private constant HUNDRED_PERCENT = 10000;
 
 
+    /// @notice Sets the inital fee rate for orders
     constructor(uint256 fee) {
-        require(fee < HUNDRED_PERCENT, "OC:BAD_FEE");
+        require(fee < HUNDRED_PERCENT, "OC: Fee too low!");
         feeRate = fee;
     }
 
@@ -74,10 +77,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         );
     }
 
-    function getAccumulatedFeeBalance(address token) external view onlyOwner returns (uint256) {
-        return _feeBalances[token];
-    }
-
+    /// @notice See {IOrderController-createOrder}
     function createOrder(
         address tokenA,
         address tokenB,
@@ -101,28 +101,31 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         );
     }
 
+    /// @notice See {IOrderController-cancelOrder}
     function cancelOrder(uint256 id) external {
         Order storage order = _orders[id];
-        require(msg.sender == order.user, "OC:NOT_AUTHORIZED");
-        require(order.status != OrderStatus.Cancelled, "OC:ALREADY_CANCELED");
+        require(msg.sender == order.user, "OC: Now the order creator!");
+        require(order.status != OrderStatus.Cancelled, "OC: Already cancelled!");
         order.status = OrderStatus.Cancelled;
         uint256 transferAmount = (order.amountB * order.amountLeftToFill) / order.amountA;
         IERC20(order.tokenB).safeTransfer(order.user, transferAmount);
         emit OrderCancelled(order.id);
     }
 
+    /// @notice See {IOrderController-setFee}
     function setFee(uint256 newFeeRate) external onlyOwner {
-        require(newFeeRate != feeRate, "OC:OLD_FEE_VALUE");
+        require(newFeeRate != feeRate, "OC: Fee rates must differ!");
         emit FeeRateChanged(feeRate, newFeeRate);
         feeRate = newFeeRate;
     }
 
+    /// @notice See {IOrderController-withdrawFee}
     function withdrawFee(address token) external onlyOwner {
-        IERC20(token).safeTransfer(msg.sender, _feeBalances[token]);
-        _feeBalances[token] = 0;
+        // TODO body
     }
 
 
+    /// @notice See {IOrderController-matchOrders}
     function matchOrders(
         uint256[] calldata matchedOrderIds,
         address tokenA,
@@ -134,18 +137,29 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     }
 
 
+    /// @dev Calculates fee based on the amount of tokens
+    /// @param amount The amount of transferred tokens
+    /// @return retAmount The fee amount that should be paid for order creation and tokens transfer
     function _getFee(uint256 amount) private view returns (uint256 retAmount) {
         retAmount = (amount * feeRate) / HUNDRED_PERCENT;
     }
 
+    /// @dev Subtracts the fee from transferred tokens amount
+    /// @param amount The amount of transferred tokens
+    /// @return retAmount The transferred amount minus the fee
     function _subFee(uint256 amount) private view returns (uint256 retAmount) {
         retAmount = amount - _getFee(amount);
     }
 
+    /// @dev Finds the minimum of two values
+    /// @param a The first value
+    /// @param b The second value
+    /// @return The minimum of two values
     function min(uint256 a, uint256 b) private pure returns (uint256) {
         return a < b ? a : b;
     }
 
+    /// @notice See {IOrderController-createOrder}
     function _createOrder(
         address user,
         address tokenA,
