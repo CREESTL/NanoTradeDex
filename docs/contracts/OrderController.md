@@ -29,7 +29,7 @@ See {IOrderController-cancelOrder}
 ### createOrder
 
 ```solidity
-function createOrder(address tokenA, address tokenB, uint256 amountA, uint256 amountB, enum IOrderController.OrderType type_, enum IOrderController.OrderSide side, uint256 limit, bool isCancellable) external nonpayable
+function createOrder(address tokenA, address tokenB, uint256 amountAInitial, uint256 amountBInitial, enum IOrderController.OrderType type_, uint256 limit, bool isCancellable) external nonpayable
 ```
 
 See {IOrderController-createOrder}
@@ -42,10 +42,9 @@ See {IOrderController-createOrder}
 |---|---|---|
 | tokenA | address | undefined |
 | tokenB | address | undefined |
-| amountA | uint256 | undefined |
-| amountB | uint256 | undefined |
+| amountAInitial | uint256 | undefined |
+| amountBInitial | uint256 | undefined |
 | type_ | enum IOrderController.OrderType | undefined |
-| side | enum IOrderController.OrderSide | undefined |
 | limit | uint256 | undefined |
 | isCancellable | bool | undefined |
 
@@ -69,7 +68,7 @@ Percentage of each order being paid as fee (in basis points)
 ### getOrder
 
 ```solidity
-function getOrder(uint256 _id) external view returns (address, address, address, uint256, uint256, uint256, enum IOrderController.OrderType, enum IOrderController.OrderSide, uint256, bool, enum IOrderController.OrderStatus)
+function getOrder(uint256 _id) external view returns (address, address, address, uint256, uint256, uint256, uint256, enum IOrderController.OrderType, uint256, bool, enum IOrderController.OrderStatus)
 ```
 
 See {IOrderController-getOrder}
@@ -92,8 +91,8 @@ See {IOrderController-getOrder}
 | _3 | uint256 | undefined |
 | _4 | uint256 | undefined |
 | _5 | uint256 | undefined |
-| _6 | enum IOrderController.OrderType | undefined |
-| _7 | enum IOrderController.OrderSide | undefined |
+| _6 | uint256 | undefined |
+| _7 | enum IOrderController.OrderType | undefined |
 | _8 | uint256 | undefined |
 | _9 | bool | undefined |
 | _10 | enum IOrderController.OrderStatus | undefined |
@@ -123,7 +122,7 @@ See {IOrderController-getUserOrders}
 ### matchOrders
 
 ```solidity
-function matchOrders(uint256[] matchedOrderIds, address tokenA, address tokenB, uint256 amountA, uint256 amountB, bool isMarket) external nonpayable
+function matchOrders(uint256[] matchedOrderIds, address tokenA, address tokenB, uint256 amountAInitial, uint256 amountBInitial, bool isMarket) external nonpayable
 ```
 
 See {IOrderController-matchOrders}
@@ -137,8 +136,8 @@ See {IOrderController-matchOrders}
 | matchedOrderIds | uint256[] | undefined |
 | tokenA | address | undefined |
 | tokenB | address | undefined |
-| amountA | uint256 | undefined |
-| amountB | uint256 | undefined |
+| amountAInitial | uint256 | undefined |
+| amountBInitial | uint256 | undefined |
 | isMarket | bool | undefined |
 
 ### owner
@@ -273,7 +272,7 @@ Indicates that a new order has been created.
 ### OrderMatched
 
 ```solidity
-event OrderMatched(uint256 id, uint256 matchedId, uint256 amountReceived, uint256 amountPaid, uint256 amountLeftToFill, uint256 fee, uint256 feeRate)
+event OrderMatched(uint256 id, uint256 matchedId, uint256 amountReceived, uint256 amountPaid, uint256 fee, uint256 feeRate)
 ```
 
 Indicates that two orders have matched
@@ -288,7 +287,6 @@ Indicates that two orders have matched
 | matchedId  | uint256 | undefined |
 | amountReceived  | uint256 | undefined |
 | amountPaid  | uint256 | undefined |
-| amountLeftToFill  | uint256 | undefined |
 | fee  | uint256 | undefined |
 | feeRate  | uint256 | undefined |
 

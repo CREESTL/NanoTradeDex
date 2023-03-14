@@ -10,7 +10,6 @@ import "./interfaces/IOrderController.sol";
 
 /// @title Contract that controlls creation and execution of market and limit orders
 contract OrderController is IOrderController, Ownable, ReentrancyGuard {
-
     using Counters for Counters.Counter;
     using SafeERC20 for IERC20;
 
@@ -27,7 +26,6 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     /// @dev 100% in basis points (1 bp = 1 / 100 of 1%)
     uint256 private constant HUNDRED_PERCENT = 10000;
 
-
     /// @notice Sets the inital fee rate for orders
     constructor(uint256 fee) {
         require(fee < HUNDRED_PERCENT, "OC: Fee too low!");
@@ -35,9 +33,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     }
 
     /// @notice See {IOrderController-getUserOrders}
-    function getUserOrders(
-        address user
-    ) external view returns (uint256[] memory) {
+    function getUserOrders(address user) external view returns (uint256[] memory) {
         return _usersToOrders[user];
     }
 
@@ -54,8 +50,8 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
             uint256,
             uint256,
             uint256,
+            uint256,
             OrderType,
-            OrderSide,
             uint256,
             bool,
             OrderStatus
@@ -66,11 +62,11 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
             order.user,
             order.tokenA,
             order.tokenB,
-            order.amountA,
-            order.amountB,
-            order.amountLeftToFill,
+            order.amountAInitial,
+            order.amountBInitial,
+            order.amountACurrent,
+            order.amountBCurrent,
             order.type_,
-            order.side,
             order.limit,
             order.isCancellable,
             order.status
@@ -81,10 +77,9 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     function createOrder(
         address tokenA,
         address tokenB,
-        uint256 amountA,
-        uint256 amountB,
+        uint256 amountAInitial,
+        uint256 amountBInitial,
         OrderType type_,
-        OrderSide side,
         uint256 limit,
         bool isCancellable
     ) external nonReentrant {
@@ -92,24 +87,17 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
             msg.sender,
             tokenA,
             tokenB,
-            amountA,
-            amountB,
+            amountAInitial,
+            amountBInitial,
             type_,
-            side,
             limit,
             isCancellable
         );
     }
 
     /// @notice See {IOrderController-cancelOrder}
-    function cancelOrder(uint256 id) external {
-        Order storage order = _orders[id];
-        require(msg.sender == order.user, "OC: Now the order creator!");
-        require(order.status != OrderStatus.Cancelled, "OC: Already cancelled!");
-        order.status = OrderStatus.Cancelled;
-        uint256 transferAmount = (order.amountB * order.amountLeftToFill) / order.amountA;
-        IERC20(order.tokenB).safeTransfer(order.user, transferAmount);
-        emit OrderCancelled(order.id);
+    function cancelOrder(uint256 id) external nonReentrant {
+        _cancelOrder(id);
     }
 
     /// @notice See {IOrderController-setFee}
@@ -124,18 +112,15 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         // TODO body
     }
 
-
     /// @notice See {IOrderController-matchOrders}
     function matchOrders(
         uint256[] calldata matchedOrderIds,
         address tokenA,
         address tokenB,
-        uint256 amountA,
-        uint256 amountB,
+        uint256 amountAInitial,
+        uint256 amountBInitial,
         bool isMarket
-    ) external nonReentrant {
-    }
-
+    ) external nonReentrant {}
 
     /// @dev Calculates fee based on the amount of tokens
     /// @param amount The amount of transferred tokens
@@ -159,15 +144,13 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         return a < b ? a : b;
     }
 
-    /// @notice See {IOrderController-createOrder}
     function _createOrder(
         address user,
         address tokenA,
         address tokenB,
-        uint256 amountA,
-        uint256 amountB,
+        uint256 amountAInitial,
+        uint256 amountBInitial,
         OrderType type_,
-        OrderSide side,
         uint256 limit,
         bool isCancellable
     ) private {
@@ -178,40 +161,44 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         address activeToken;
         // The amount of tokens being sold / bought
         uint256 activeAmount;
-        // For market orders one of `amounts` should be zero
         if (type_ == OrderType.Market) {
-            // When buying tokens, `amountB` should be zero
-            if (side == OrderSide.Buy) {
-                require(amountA != 0, "OC: Cannot buy zero tokens!");
-                require(amountB == 0, "OC: Selling amount should be zero!");
-                activeAmount = amountA;
-                activeToken = tokenA;
-            }
-            // When selling tokens, `amountA` should be zero
-            if (side == OrderSide.Sell) {
-                require(amountB != 0, "OC: Cannot sell zero tokens!");
-                require(amountA == 0, "OC: Buying amount should be zero!");
-                activeAmount = amountB;
+            // For market orders one of `amounts` should be zero
+            require(
+                (amountAInitial == 0) || (amountBInitial == 0),
+                "OC: Invalid token amounts for market order!"
+            );
+            require(
+                !((amountAInitial == 0) && (amountBInitial == 0)),
+                "OC: One amount must be not zero!"
+            );
+            // If `amountAInitial` is 0, this is a selling order
+            if (amountAInitial == 0) {
+                activeAmount = amountBInitial;
                 activeToken = tokenB;
             }
+            // If `amountBInitial` is 0, this is a buying order
+            if (amountBInitial == 0) {
+                activeAmount = amountAInitial;
+                activeToken = tokenA;
+            }
+        }
+
         // For limit orders both `amounts` should not be zero
-        } else {
+        if (type_ == OrderType.Limit) {
             // TODO more checks here???
-            require((amountA != 0) && (amountB != 0), "OC: Invalid token amounts for limit order!");
-            if (side == OrderSide.Buy) {
-                activeAmount = amountA;
-                activeToken = tokenA;
-            }
-            if (side == OrderSide.Sell) {
-                activeAmount = amountB;
-                activeToken = tokenB;
-            }
+            require(
+                (amountAInitial != 0) && (amountBInitial != 0),
+                "OC: Invalid token amounts for limit order!"
+            );
             require(limit != 0, "OC: Limit cannot be zero!");
+            // In limit orders `tokenB` is always the one that is locked
+            activeToken = tokenB;
+            activeAmount = amountBInitial;
         }
 
         // TODO is this correct formula???
         // Calculate the fee amount for the order
-        uint256 fee = activeAmount * feeRate / HUNDRED_PERCENT;
+        uint256 fee = (activeAmount * feeRate) / HUNDRED_PERCENT;
 
         // NOTICE: first order gets the ID of 1
         _orderId.increment();
@@ -222,11 +209,12 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
             user,
             tokenA,
             tokenB,
-            amountA,
-            amountB,
-            amountA,
+            amountAInitial,
+            amountBInitial,
+            // Current values are equal to inital at the start
+            amountAInitial,
+            amountAInitial,
             type_,
-            side,
             limit,
             isCancellable,
             OrderStatus.Active,
@@ -234,19 +222,38 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         );
         _usersToOrders[user].push(id);
 
-
-        emit OrderCreated(
-            id
-        );
-
+        emit OrderCreated(id);
 
         // Sold / bought tokens are transferred to the contract
         IERC20(activeToken).safeTransfer(user, activeAmount);
         // Fee is also transferred to the contract
         // TODO transfer it strate to admins wallet instead???
         IERC20(activeToken).safeTransferFrom(user, address(this), fee);
+    }
 
+    function _cancelOrder(uint256 id) private {
+        Order storage order = _orders[id];
+        require(order.isCancellable, "OC: Order is non-cancellable!");
+        require(order.type_ == OrderType.Limit, "OC: Not a limit order!");
+        require(
+            (order.status == OrderStatus.Active) || (order.status == OrderStatus.PartiallyClosed),
+            "OC: Invalid order status!"
+        );
+        require(msg.sender == order.user, "OC: Not the order creator!");
+        // Only the status of the order gets changed
+        // The order itself does not get deleted
+        order.status = OrderStatus.Cancelled;
+        // Only limit orders can be cancelled
+        // Active token for limit orders in always `tokenB`
+        address activeToken = order.tokenB;
+        // Only the amount of `tokenB` left in the order should be returned
+        // In order was partially executed, then this amount is less then `amountBInitial`
+        uint256 leftAmount = order.amountBCurrent;
 
+        emit OrderCancelled(order.id);
 
+        // TODO why this formula was used?
+        /* uint256 transferAmount = (order.amountBInitial * order.amountLeftToFill) / order.amountAInitial; */
+        IERC20(activeToken).safeTransfer(order.user, leftAmount);
     }
 }
