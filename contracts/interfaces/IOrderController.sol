@@ -7,16 +7,23 @@ import "@uniswap/lib/contracts/libraries/TransferHelper.sol";
 
 interface IOrderController {
 
+    /// @dev The type of the order (Market of Limit)
     enum OrderType {
         Market,
         Limit
     }
 
+    /// @dev The side of the order (Buy or Sell)
     enum OrderSide {
         Buy,
         Sell
     }
 
+    /// @dev The status of the order
+    /// @dev Active: created and waiting for matching
+    ///      PartiallyClosed: only part of the order was matched and executed
+    ///      Closed: the whole order was matched and executed
+    ///      Cancelled: the whole order was cancelled
     enum OrderStatus {
         Active,
         PartiallyClosed,
@@ -24,6 +31,7 @@ interface IOrderController {
         Cancelled
     }
 
+    /// @dev The structure of the single order
     struct Order {
         // The ID (number) of the order
         uint256 id;
@@ -58,11 +66,15 @@ interface IOrderController {
     }
 
     /// @notice Indicates that a new order has been created.
+    /// @param id The ID of the created order
     /// @dev No need to pass all order fields here. It's easier to use getter by ID
     event OrderCreated(
         uint256 indexed id
     );
 
+    // TODO change that
+    // TODO add field description
+    /// @notice Indicates that two orders have matched
     event OrderMatched(
         uint256 id,
         uint256 matchedId, // 0 for initiator
@@ -73,10 +85,13 @@ interface IOrderController {
         uint256 feeRate // current fee rate, it can be changed
     );
 
+    /// @notice Indicates that order fee rate was changed
+    /// @param oldFeeRate The old fee rate
+    /// @param newFeeRate The new set fee rate
     event FeeRateChanged(uint256 oldFeeRate, uint256 newFeeRate);
 
+    /// @notice Indicates that the order was cancelled
     event OrderCancelled(uint256 id);
-
 
     /// @notice Returns the list of IDs of orders user has created
     /// @param user The address of the user
@@ -116,23 +131,16 @@ interface IOrderController {
             OrderStatus
         );
 
-    function getAccumulatedFeeBalance(address token) external view returns (uint256);
 
-    function cancelOrder(uint256 id) external;
-
-    function setFee(uint256 newFeeRate) external;
-
-    function withdrawFee(address token) external;
-
-    function matchOrders(
-        uint256[] calldata matchedOrderIds,
-        address tokenA,
-        address tokenB,
-        uint256 amountA,
-        uint256 amountB,
-        bool isMarket
-    ) external;
-
+    /// @notice Creates an order with specified parameters
+    /// @param tokenA The address of the token that is purchased
+    /// @param tokenB The address of the token that is sold
+    /// @param amountA The amount of purchased tokens
+    /// @param amountB The amount of sold tokens
+    /// @param type_ The type of the order
+    /// @param side The side of the order
+    /// @param limit The limit amount of the order (for limit orders only)
+    /// @param isCancellable True if order is cancellable. Otherwise - false
     function createOrder(
         address tokenA,
         address tokenB,
@@ -143,4 +151,34 @@ interface IOrderController {
         uint256 limit,
         bool isCancellable
     ) external;
+
+    /// @notice Cancels the order with the given ID
+    /// @param id The ID of the order to cancel
+    function cancelOrder(uint256 id) external;
+
+    /// @notice Sets a new fee rate
+    /// @param newFeeRate A new fee rate
+    function setFee(uint256 newFeeRate) external;
+
+    // TODO parameters will change in the future
+    /// @notice Withdraws fees accumulated by orders of one token
+    /// @param token The address of the token to withdraw fees of
+    function withdrawFee(address token) external;
+
+    // TODO will change in the future
+    /// @notice Executes matched orders
+    /// @param matchedOrderIds The list of IDs of matched orders
+    /// @param tokenA The address of the token that is purchased
+    /// @param tokenB The address of the token that is sold
+    /// @param amountA The amount of purchased tokens
+    /// @param amountB The amount of sold tokens
+    function matchOrders(
+        uint256[] calldata matchedOrderIds,
+        address tokenA,
+        address tokenB,
+        uint256 amountA,
+        uint256 amountB,
+        bool isMarket
+    ) external;
+
 }
