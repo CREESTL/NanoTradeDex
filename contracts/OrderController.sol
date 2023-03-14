@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "./interfaces/IOrderController.sol";
+import "./interfaces/IBentureProducedToken.sol";
 
 /// @title Contract that controlls creation and execution of market and limit orders
 contract OrderController is IOrderController, Ownable, ReentrancyGuard {
@@ -73,6 +74,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         );
     }
 
+
     /// @notice See {IOrderController-createOrder}
     function createOrder(
         address tokenA,
@@ -98,6 +100,40 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     /// @notice See {IOrderController-cancelOrder}
     function cancelOrder(uint256 id) external nonReentrant {
         _cancelOrder(id);
+    }
+
+    /// @notice See {IOrderController-startSaleSingle}
+    function startSaleSingle(
+        address tokenB,
+        address tokenA,
+        uint256 amountB,
+        uint256 price
+    )
+        external
+        nonReentrant
+    {
+        // TODO remove this check?
+        // Only admin of the `tokenB` project can start the ICO of tokens
+        require(IBentureProducedToken(tokenB).checkAdmin(msg.sender), "OC: Not an admin of the project");
+        // Price is the amount of tokenB paid for 1 tokenA
+        uint256 amountA = amountB * price;
+
+        emit SaleStarted(tokenB);
+
+        _createOrder(
+            msg.sender,
+            // Switch addresses' places
+            tokenA,
+            tokenB,
+            amountA,
+            amountB,
+            OrderType.Limit,
+            // TODO place 0 here for some time. Should there be a limit at all???
+            0,
+            // Sale orders are non-cancellable
+            false
+        );
+
     }
 
     /// @notice See {IOrderController-setFee}
@@ -155,7 +191,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         bool isCancellable
     ) private {
         require(user != address(0), "OC: Invalid user address!");
-        require(tokenA != address(0), "OC: Cannot buy native tokens!");
+        require(tokenA != address(0), "OC: Cannot buy/sell native tokens!");
         // TODO add check that tokenB was created in factory???
         // The token being sold / bought
         address activeToken;

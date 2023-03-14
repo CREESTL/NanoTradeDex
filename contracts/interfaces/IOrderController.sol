@@ -77,6 +77,10 @@ interface IOrderController {
     /// @param newFeeRate The new set fee rate
     event FeeRateChanged(uint256 oldFeeRate, uint256 newFeeRate);
 
+    /// @notice Indicates that a single series sale has started
+    /// @param token The address of the token being sold
+    event SaleStarted(address token);
+
     /// @notice Indicates that the order was cancelled
     event OrderCancelled(uint256 id);
 
@@ -139,6 +143,18 @@ interface IOrderController {
     ///         Only limit orders can be cancelled
     /// @param id The ID of the limit order to cancel
     function cancelOrder(uint256 id) external;
+
+    /// @notice Starts a single series sale of project tokens
+    /// @param tokenB The address of the token that is sold
+    /// @param tokenA The address of the token that is received
+    /// @param amountB The amount of sold tokens
+    /// @param price The amount of `tokenB` paid for a single `tokenA`
+    function startSaleSingle(
+        address tokenB,
+        address tokenA,
+        uint256 amountB,
+        uint256 price
+    ) external ;
 
     /// @notice Sets a new fee rate
     /// @param newFeeRate A new fee rate
