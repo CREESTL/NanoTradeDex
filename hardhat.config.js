@@ -30,7 +30,7 @@ module.exports = {
       url: "http://127.0.0.1:8545",
     },
     polygon_mainnet: {
-      url: `https://rpc-mainnet.maticvigil.com/`,
+        url: `https://polygon-rpc.com`,
       accounts: [ACC_PRIVATE_KEY],
     },
     polygon_testnet: {
