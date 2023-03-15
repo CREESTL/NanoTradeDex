@@ -24,41 +24,67 @@ interface IOrderController {
         Cancelled
     }
 
+
+    /// @dev The side of the order
+    ///      Order side defines active tokens of the order
+    enum OrderSide {
+        Buy,
+        Sell
+    }
+
     /// @dev The structure of the single order
     struct Order {
         // The ID (number) of the order
         uint256 id;
         // The address which created an order
         address user;
-        // The address of the tokens that is being bought
+        // The address of the tokens that is purchased
         address tokenA;
-        // The address of the tokens that is being sold
+        // The address of the tokens that is sold
         address tokenB;
-        // The initial amount of tokens that are being bought
-        uint256 amountAInitial;
-        // The initial amount of tokens that are being sold
-        uint256 amountBInitial;
-        // The current amount of tokens that are being bought
-        uint256 amountACurrent;
-        // The current amount of tokens that are being sold
-        uint256 amountBCurrent;
+        // The initial amount of active tokens
+        // Active tokens are defined by order side
+        // If it's a "sell" order, then `tokenB` is active
+        // If it's a "buy" order, then `tokenA` is active
+        uint256 amountInitial;
+        // The current amount of active tokens
         // Partial order execution is supported
+        uint256 amountCurrent;
         // Order type (market or limit)
         OrderType type_;
+        // Order side (buy or sell)
+        OrderSide side;
         // Only for limit orders. Zero for market orders
         uint256 limit;
         // Cancellability
         bool isCancellable;
         // Status
         OrderStatus status;
-        // The amount of `tokenA` or `tokenB` paid as fee
+        // The amount of active tokens paid as fee
         uint256 fee;
     }
 
     /// @notice Indicates that a new order has been created.
-    /// @param id The ID of the created order
-    /// @dev No need to pass all order fields here. It's easier to use getter by ID
-    event OrderCreated(uint256 indexed id);
+    /// @param id The ID of the order
+    /// @param user The creator of the order
+    /// @param tokenA The address of the token that is purchased
+    /// @param tokenB The address of the token that is sold
+    /// @param amount The amount of active tokens
+    /// @param type_ The type of the order
+    /// @param side The side of the order
+    /// @param limit The limit amount of the order (for limit orders only)
+    /// @param isCancellable True if order is cancellable. Otherwise - false
+    event OrderCreated(
+        uint256 indexed id,
+        address user,
+        address indexed tokenA,
+        address indexed tokenB,
+        uint256 amount,
+        OrderType type_,
+        OrderSide side,
+        uint256 limit,
+        bool isCancellable
+    );
 
     // TODO change that
     // TODO add field description
@@ -94,11 +120,10 @@ interface IOrderController {
     /// @return The creator of the order
     /// @return The address of the token that is purchased
     /// @return The address of the token that is sold
-    /// @return The initial amount of purchased tokens
-    /// @return The initial amount of sold tokens
-    /// @return The current amount of purchased tokens
-    /// @return The current amount of sold tokens
+    /// @return The initial amount of active tokens
+    /// @return The current amount of active tokens
     /// @return The type of the order
+    /// @return The side of the order
     /// @return The limit amount of the order (for limit orders only)
     /// @return True if order is cancellable. Otherwise - false
     /// @return The current status of the order
@@ -113,9 +138,8 @@ interface IOrderController {
             address,
             uint256,
             uint256,
-            uint256,
-            uint256,
             OrderType,
+            OrderSide,
             uint256,
             bool,
             OrderStatus
@@ -124,17 +148,17 @@ interface IOrderController {
     /// @notice Creates an order with specified parameters
     /// @param tokenA The address of the token that is purchased
     /// @param tokenB The address of the token that is sold
-    /// @param amountA The amount of purchased tokens
-    /// @param amountB The amount of sold tokens
+    /// @param amount The amount of active tokens
     /// @param type_ The type of the order
+    /// @param side The side of the order (buy / sell)
     /// @param limit The limit amount of the order (for limit orders only)
     /// @param isCancellable True if order is cancellable. Otherwise - false
     function createOrder(
         address tokenA,
         address tokenB,
-        uint256 amountA,
-        uint256 amountB,
+        uint256 amount,
         OrderType type_,
+        OrderSide side,
         uint256 limit,
         bool isCancellable
     ) external;
