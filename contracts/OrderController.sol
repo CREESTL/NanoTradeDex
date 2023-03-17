@@ -132,6 +132,31 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         _cancelOrder(id, msgHash, signature);
     }
 
+
+    /// @notice See {IOrderController-setFee}
+    function setFee(uint256 newFeeRate) external onlyOwner {
+        require(newFeeRate != feeRate, "OC: Fee rates must differ!");
+        emit FeeRateChanged(feeRate, newFeeRate);
+        feeRate = newFeeRate;
+    }
+
+    /// @notice See {IOrderController-withdrawFee}
+    function withdrawFee(address token) external onlyOwner {
+        // TODO body
+    }
+
+    /// @notice See {IOrderController-matchOrders}
+    function matchOrders(
+        uint256[] calldata matchedOrderIds,
+        address tokenA,
+        address tokenB,
+        uint256 amountAInitial,
+        uint256 amountBInitial,
+        bool isMarket,
+        bytes32 msgHash,
+        bytes calldata signature
+    ) external nonReentrant {}
+
     /// @notice See {IOrderController-startSaleSingle}
     function startSaleSingle(
         address tokenA,
@@ -140,7 +165,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         uint256 price,
         bytes32 msgHash,
         bytes calldata signature
-    ) external nonReentrant onlyBackend(msgHash, signature, backendAcc) {
+    ) public nonReentrant onlyBackend(msgHash, signature, backendAcc) {
         // Only admin of the sold token (`tokenB`) project can start the ICO of tokens
         require(
             IBentureProducedToken(tokenB).checkAdmin(msg.sender),
@@ -167,29 +192,33 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         );
     }
 
-    /// @notice See {IOrderController-setFee}
-    function setFee(uint256 newFeeRate) external onlyOwner {
-        require(newFeeRate != feeRate, "OC: Fee rates must differ!");
-        emit FeeRateChanged(feeRate, newFeeRate);
-        feeRate = newFeeRate;
-    }
-
-    /// @notice See {IOrderController-withdrawFee}
-    function withdrawFee(address token) external onlyOwner {
-        // TODO body
-    }
-
-    /// @notice See {IOrderController-matchOrders}
-    function matchOrders(
-        uint256[] calldata matchedOrderIds,
+    /// @notice See {IOrderController-startSaleMultiple}
+    function startSaleMultiple(
         address tokenA,
         address tokenB,
-        uint256 amountAInitial,
-        uint256 amountBInitial,
-        bool isMarket,
+        uint256[] memory amounts,
+        uint256[] memory prices,
         bytes32 msgHash,
         bytes calldata signature
-    ) external nonReentrant {}
+    ) public nonReentrant onlyBackend(msgHash, signature, backendAcc) {
+
+        require(amounts.length == prices.length, "OC: Arrays length differs!");
+
+        for (uint256 i = 0; i < amounts.length; i++) {
+            // TODO check for 2/3 of block gas limit here???
+            startSaleSingle(
+                tokenA,
+                tokenB,
+                amounts[i],
+                prices[i],
+                msgHash,
+                signature
+            );
+        }
+
+        // SaleStarted event is emitted for each sale from the list
+        // No need to emit any other events here
+    }
 
     /// @notice See {IOrderController-setBackend}
     function setBackend(address acc) public onlyOwner {

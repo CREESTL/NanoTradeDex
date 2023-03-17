@@ -201,6 +201,22 @@ interface IOrderController {
         bytes calldata signature
     ) external;
 
+    /// @notice Starts a multiple series sale of project tokens
+    /// @param tokenA The address of the token that is received
+    /// @param tokenB The address of the token that is sold
+    /// @param amounts The list of amounts of sold tokens. One for each series
+    /// @param prices The list of prices of sold tokens. One for each series
+    /// @param msgHash The hash of the message signed by backend
+    /// @param signature The signature used to sign the hash of the message
+    function startSaleMultiple(
+        address tokenA,
+        address tokenB,
+        uint256[] memory amounts,
+        uint256[] memory prices,
+        bytes32 msgHash,
+        bytes calldata signature
+    ) external;
+
     /// @notice Sets a new fee rate
     /// @param newFeeRate A new fee rate
     function setFee(uint256 newFeeRate) external;
