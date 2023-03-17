@@ -158,6 +158,13 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         }
     }
 
+
+    /// @notice See {IOrderController-withdrawAllFees}
+    function withdrawAllFees() external onlyOwner {
+        // TODO finished here
+
+    }
+
     /// @notice See {IOrderController-matchOrders}
     function matchOrders(
         uint256[] calldata matchedOrderIds,
