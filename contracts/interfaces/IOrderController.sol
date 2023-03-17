@@ -230,6 +230,9 @@ interface IOrderController {
     /// @param tokens The list of addresses of active tokens of the order
     function withdrawFees(address[] memory tokens) external;
 
+    /// @notice Withdraws all fees accumulated by creation of orders
+    function withdrawAllFees() external;
+
     // TODO will change in the future
     /// @notice Executes matched orders
     /// @param matchedOrderIds The list of IDs of matched orders
