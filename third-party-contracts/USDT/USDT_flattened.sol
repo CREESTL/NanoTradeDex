@@ -94,7 +94,10 @@ contract ERC20Basic {
  * @dev see https://github.com/ethereum/EIPs/issues/20
  */
 contract ERC20 is ERC20Basic {
-    function allowance(address owner, address spender) public constant returns (uint);
+    function allowance(
+        address owner,
+        address spender
+    ) public constant returns (uint);
 
     function transferFrom(address from, address to, uint value) public;
 
@@ -172,7 +175,11 @@ contract StandardToken is BasicToken, ERC20 {
      * @param _to address The address which you want to transfer to
      * @param _value uint the amount of tokens to be transferred
      */
-    function transferFrom(address _from, address _to, uint _value) public onlyPayloadSize(3 * 32) {
+    function transferFrom(
+        address _from,
+        address _to,
+        uint _value
+    ) public onlyPayloadSize(3 * 32) {
         var _allowance = allowed[_from][msg.sender];
 
         // Check is not needed because sub(_allowance, _value) will already throw if this condition is not met
@@ -200,7 +207,10 @@ contract StandardToken is BasicToken, ERC20 {
      * @param _spender The address which will spend the funds.
      * @param _value The amount of tokens to be spent.
      */
-    function approve(address _spender, uint _value) public onlyPayloadSize(2 * 32) {
+    function approve(
+        address _spender,
+        uint _value
+    ) public onlyPayloadSize(2 * 32) {
         // To change the approve amount you first have to reduce the addresses`
         //  allowance to zero by calling `approve(_spender, 0)` if it is not
         //  already 0 to mitigate the race condition described here:
@@ -217,7 +227,10 @@ contract StandardToken is BasicToken, ERC20 {
      * @param _spender address The address which will spend the funds.
      * @return A uint specifying the amount of tokens still available for the spender.
      */
-    function allowance(address _owner, address _spender) public constant returns (uint remaining) {
+    function allowance(
+        address _owner,
+        address _spender
+    ) public constant returns (uint remaining) {
         return allowed[_owner][_spender];
     }
 }
@@ -267,7 +280,9 @@ contract Pausable is Ownable {
 
 contract BlackList is Ownable, BasicToken {
     /////// Getters to allow the same blacklist to be used also by other contracts (including upgraded Tether) ///////
-    function getBlackListStatus(address _maker) external constant returns (bool) {
+    function getBlackListStatus(
+        address _maker
+    ) external constant returns (bool) {
         return isBlackListed[_maker];
     }
 
@@ -307,7 +322,12 @@ contract UpgradedStandardToken is StandardToken {
     // and they must ensure msg.sender to be the contract address
     function transferByLegacy(address from, address to, uint value) public;
 
-    function transferFromByLegacy(address sender, address from, address spender, uint value) public;
+    function transferFromByLegacy(
+        address sender,
+        address from,
+        address spender,
+        uint value
+    ) public;
 
     function approveByLegacy(address from, address spender, uint value) public;
 }
@@ -326,7 +346,12 @@ contract TetherToken is Pausable, StandardToken, BlackList {
     // @param _name Token Name
     // @param _symbol Token symbol
     // @param _decimals Token decimals
-    function TetherToken(uint _initialSupply, string _name, string _symbol, uint _decimals) public {
+    function TetherToken(
+        uint _initialSupply,
+        string _name,
+        string _symbol,
+        uint _decimals
+    ) public {
         _totalSupply = _initialSupply;
         name = _name;
         symbol = _symbol;
@@ -339,14 +364,23 @@ contract TetherToken is Pausable, StandardToken, BlackList {
     function transfer(address _to, uint _value) public whenNotPaused {
         require(!isBlackListed[msg.sender]);
         if (deprecated) {
-            return UpgradedStandardToken(upgradedAddress).transferByLegacy(msg.sender, _to, _value);
+            return
+                UpgradedStandardToken(upgradedAddress).transferByLegacy(
+                    msg.sender,
+                    _to,
+                    _value
+                );
         } else {
             return super.transfer(_to, _value);
         }
     }
 
     // Forward ERC20 methods to upgraded contract if this one is deprecated
-    function transferFrom(address _from, address _to, uint _value) public whenNotPaused {
+    function transferFrom(
+        address _from,
+        address _to,
+        uint _value
+    ) public whenNotPaused {
         require(!isBlackListed[_from]);
         if (deprecated) {
             return
@@ -371,7 +405,10 @@ contract TetherToken is Pausable, StandardToken, BlackList {
     }
 
     // Forward ERC20 methods to upgraded contract if this one is deprecated
-    function approve(address _spender, uint _value) public onlyPayloadSize(2 * 32) {
+    function approve(
+        address _spender,
+        uint _value
+    ) public onlyPayloadSize(2 * 32) {
         if (deprecated) {
             return
                 UpgradedStandardToken(upgradedAddress).approveByLegacy(
@@ -385,7 +422,10 @@ contract TetherToken is Pausable, StandardToken, BlackList {
     }
 
     // Forward ERC20 methods to upgraded contract if this one is deprecated
-    function allowance(address _owner, address _spender) public constant returns (uint remaining) {
+    function allowance(
+        address _owner,
+        address _spender
+    ) public constant returns (uint remaining) {
         if (deprecated) {
             return StandardToken(upgradedAddress).allowance(_owner, _spender);
         } else {

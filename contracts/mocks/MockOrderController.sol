@@ -86,7 +86,20 @@ contract MockOrderController is Ownable {
 
     function getOrderInfo(
         uint256 _id
-    ) external view returns (uint256, uint256, uint256, uint256, address, address, address, bool) {
+    )
+        external
+        view
+        returns (
+            uint256,
+            uint256,
+            uint256,
+            uint256,
+            address,
+            address,
+            address,
+            bool
+        )
+    {
         Order memory order = _orders[_id];
         return (
             order.id,
@@ -100,7 +113,9 @@ contract MockOrderController is Ownable {
         );
     }
 
-    function getAccumulatedFeeBalance(address token) external view onlyOwner returns (uint256) {
+    function getAccumulatedFeeBalance(
+        address token
+    ) external view onlyOwner returns (uint256) {
         return _feeBalances[token];
     }
 
@@ -111,7 +126,8 @@ contract MockOrderController is Ownable {
     function cancelOrder(uint256 id) external {
         Order storage order = _orders[id];
         require(_msgSender() == order.user, "OC:NOT_AUTHORIZED");
-        uint256 transferAmount = (order.amountB * order.amountLeftToFill) / order.amountA;
+        uint256 transferAmount = (order.amountB * order.amountLeftToFill) /
+            order.amountA;
         TransferHelper.safeTransfer(order.tokenB, order.user, transferAmount);
         order.isCancelled = true;
         emit OrderCancelled(order.id);
@@ -156,7 +172,8 @@ contract MockOrderController is Ownable {
             Order storage matchedOrder = _orders[matchedOrderIds[i]];
             uint256 matchedOrderAmountB = matchedOrder.amountB;
             uint256 matchedOrderAmountA = matchedOrder.amountA;
-            uint256 matchedOrderAmountLeftToFill = matchedOrder.amountLeftToFill;
+            uint256 matchedOrderAmountLeftToFill = matchedOrder
+                .amountLeftToFill;
 
             require(
                 matchedOrder.tokenB == tokenA && matchedOrder.tokenA == tokenB,
@@ -165,7 +182,8 @@ contract MockOrderController is Ownable {
 
             if (!isMarket) {
                 require(
-                    amountA * matchedOrderAmountA <= amountB * matchedOrderAmountB,
+                    amountA * matchedOrderAmountA <=
+                        amountB * matchedOrderAmountB,
                     "OC:BAD_PRICE_MATCH"
                 );
             }
@@ -178,8 +196,8 @@ contract MockOrderController is Ownable {
                 newOrder.amountLeftToFill * matchedOrderAmountA >=
                 matchedOrderAmountLeftToFill * matchedOrderAmountB
             ) {
-                uint256 transferAmount = (matchedOrderAmountLeftToFill * matchedOrderAmountB) /
-                    matchedOrderAmountA;
+                uint256 transferAmount = (matchedOrderAmountLeftToFill *
+                    matchedOrderAmountB) / matchedOrderAmountA;
                 uint256 fee = _getFee(matchedOrderAmountLeftToFill);
 
                 assembly {
@@ -208,8 +226,8 @@ contract MockOrderController is Ownable {
                 //     _getFee(transferAmount)
                 // );
             } else {
-                uint256 transferAmount = (newOrder.amountLeftToFill * matchedOrderAmountA) /
-                    matchedOrderAmountB;
+                uint256 transferAmount = (newOrder.amountLeftToFill *
+                    matchedOrderAmountA) / matchedOrderAmountB;
                 uint256 fee = _getFee(transferAmount);
 
                 totalPayout += newOrder.amountLeftToFill;
@@ -251,12 +269,27 @@ contract MockOrderController is Ownable {
         // );
 
         if (newOrder.amountLeftToFill > 100 && !isMarket) {
-            uint256 transferAmount = (newOrder.amountLeftToFill * amountB) / amountA;
-            TransferHelper.safeTransferFrom(tokenB, _msgSender(), address(this), transferAmount);
+            uint256 transferAmount = (newOrder.amountLeftToFill * amountB) /
+                amountA;
+            TransferHelper.safeTransferFrom(
+                tokenB,
+                _msgSender(),
+                address(this),
+                transferAmount
+            );
         }
 
-        TransferHelper.safeTransfer(tokenA, _msgSender(), _getAmountSubFee(totalPayout));
-        TransferHelper.safeTransferFrom(tokenB, _msgSender(), address(this), totalFee);
+        TransferHelper.safeTransfer(
+            tokenA,
+            _msgSender(),
+            _getAmountSubFee(totalPayout)
+        );
+        TransferHelper.safeTransferFrom(
+            tokenB,
+            _msgSender(),
+            address(this),
+            totalFee
+        );
         _feeBalances[tokenA] += _getFee(totalPayout);
         _feeBalances[tokenB] += totalFee;
     }
@@ -286,9 +319,20 @@ contract MockOrderController is Ownable {
         address user,
         bool isMarket
     ) private returns (uint256) {
-        uint256 id = uint256(keccak256(abi.encodePacked(block.timestamp, user, _nonce)));
+        uint256 id = uint256(
+            keccak256(abi.encodePacked(block.timestamp, user, _nonce))
+        );
         _nonce++;
-        _orders[id] = Order(id, amountA, amountB, amountLeftToFill, tokenA, tokenB, user, false);
+        _orders[id] = Order(
+            id,
+            amountA,
+            amountB,
+            amountLeftToFill,
+            tokenA,
+            tokenB,
+            user,
+            false
+        );
         _orderIds.push(id);
         _userOrderIds[user].push(id);
         emit OrderCreated(id, amountA, amountB, tokenA, tokenB, user, isMarket);
@@ -305,7 +349,20 @@ contract MockOrderController is Ownable {
         bool isMarket
     ) public {
         uint256 transferAmount = (amountLeftToFill * amountB) / amountA;
-        _generateOrderId(tokenA, tokenB, amountA, amountB, amountLeftToFill, user, isMarket);
-        TransferHelper.safeTransferFrom(tokenB, user, address(this), transferAmount);
+        _generateOrderId(
+            tokenA,
+            tokenB,
+            amountA,
+            amountB,
+            amountLeftToFill,
+            user,
+            isMarket
+        );
+        TransferHelper.safeTransferFrom(
+            tokenB,
+            user,
+            address(this),
+            transferAmount
+        );
     }
 }

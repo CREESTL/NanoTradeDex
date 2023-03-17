@@ -24,7 +24,6 @@ interface IOrderController {
         Cancelled
     }
 
-
     /// @dev The side of the order
     ///      Order side defines active tokens of the order
     enum OrderSide {
@@ -117,7 +116,9 @@ interface IOrderController {
     /// @notice Returns the list of IDs of orders user has created
     /// @param user The address of the user
     /// @return The list of IDs of orders user has created
-    function getUserOrders(address user) external view returns (uint256[] memory);
+    function getUserOrders(
+        address user
+    ) external view returns (uint256[] memory);
 
     /// @notice Returns information about the given order
     /// @param _id The ID of the order to search
@@ -198,7 +199,7 @@ interface IOrderController {
         uint256 price,
         bytes32 msgHash,
         bytes calldata signature
-    ) external ;
+    ) external;
 
     /// @notice Sets a new fee rate
     /// @param newFeeRate A new fee rate
