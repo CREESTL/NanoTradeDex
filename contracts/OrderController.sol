@@ -50,9 +50,9 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     }
 
     /// @notice Sets the inital fee rate for orders
-    constructor(uint256 fee) {
-        require(fee < HUNDRED_PERCENT, "OC: Fee too low!");
-        feeRate = fee;
+    constructor() {
+        // Default fee rate is 0.1% (1 BP)
+        feeRate = 1;
     }
 
     /// @notice See {IOrderController-getUserOrders}
