@@ -37,7 +37,11 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     /// @dev 100% in basis points (1 bp = 1 / 100 of 1%)
     uint256 private constant HUNDRED_PERCENT = 10000;
 
-    modifier onlyBackend(bytes32 msgHash, bytes calldata signature, address user) {
+    modifier onlyBackend(
+        bytes32 msgHash,
+        bytes calldata signature,
+        address user
+    ) {
         require(
             _verifyBackendSignature(msgHash, signature, user),
             "OC: Only backend can call this function!"
@@ -52,7 +56,9 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     }
 
     /// @notice See {IOrderController-getUserOrders}
-    function getUserOrders(address user) external view returns (uint256[] memory) {
+    function getUserOrders(
+        address user
+    ) external view returns (uint256[] memory) {
         return _usersToOrders[user];
     }
 
@@ -90,7 +96,6 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         );
     }
 
-
     /// @notice See {IOrderController-createOrder}
     function createOrder(
         address tokenA,
@@ -103,7 +108,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         bool isCancellable,
         bytes32 msgHash,
         bytes calldata signature
-    ) external nonReentrant  {
+    ) external nonReentrant {
         _createOrder(
             tokenA,
             tokenB,
@@ -124,11 +129,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         bytes32 msgHash,
         bytes calldata signature
     ) external nonReentrant {
-        _cancelOrder(
-            id,
-            msgHash,
-            signature
-        );
+        _cancelOrder(id, msgHash, signature);
     }
 
     /// @notice See {IOrderController-startSaleSingle}
@@ -139,13 +140,12 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         uint256 price,
         bytes32 msgHash,
         bytes calldata signature
-    )
-        external
-        nonReentrant
-    {
-        // TODO remove this check?
-        // Only admin of the `tokenB` project can start the ICO of tokens
-        require(IBentureProducedToken(tokenB).checkAdmin(msg.sender), "OC: Not an admin of the project");
+    ) external nonReentrant onlyBackend(msgHash, signature, backendAcc) {
+        // Only admin of the sold token (`tokenB`) project can start the ICO of tokens
+        require(
+            IBentureProducedToken(tokenB).checkAdmin(msg.sender),
+            "OC: Not an admin of the project"
+        );
 
         emit SaleStarted(tokenB);
 
@@ -165,7 +165,6 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
             msgHash,
             signature
         );
-
     }
 
     /// @notice See {IOrderController-setFee}
@@ -195,7 +194,10 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     /// @notice See {IOrderController-setBackend}
     function setBackend(address acc) public onlyOwner {
         require(acc != backendAcc, "OC: Cannot set the same backend address!");
-        require(acc != address(0), "OC: Backend address cannot be zero address!");
+        require(
+            acc != address(0),
+            "OC: Backend address cannot be zero address!"
+        );
         backendAcc = acc;
     }
 
@@ -218,7 +220,10 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     /// @param tokenA The address of the token that is received
     /// @param tokenB The address of the token that is sold
     /// @return The price of `tokenA` in `tokenB`
-    function getPrice(address tokenA, address tokenB) private view returns (uint256){
+    function getPrice(
+        address tokenA,
+        address tokenB
+    ) private view returns (uint256) {
         return pairPrices[tokenA][tokenB];
     }
 
@@ -233,18 +238,17 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     /// @dev Verifies that message was signed by the backend
     /// @param msgHash An unsigned hashed data
     /// @param signature A signature used to sign the `msgHash`
-    function _verifyBackendSignature(bytes32 msgHash, bytes calldata signature, address user)
-        private
-        pure
-        returns (bool)
-    {
+    function _verifyBackendSignature(
+        bytes32 msgHash,
+        bytes calldata signature,
+        address user
+    ) private pure returns (bool) {
         // Remove the "\x19Ethereum Signed Message:\n" prefix from the signature
         bytes32 clearHash = msgHash.toEthSignedMessageHash();
         // Recover the address of the user who signed the `msgHash` with `signature`
         address recoveredUser = clearHash.recover(signature);
         return recoveredUser == user;
     }
-
 
     function _createOrder(
         address tokenA,
@@ -258,7 +262,6 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         bytes32 msgHash,
         bytes calldata signature
     ) private onlyBackend(msgHash, signature, backendAcc) {
-
         // Make copies of parameters to avoid `Stack too deep` error
         address tokenA_ = tokenA;
         address tokenB_ = tokenB;
@@ -271,7 +274,6 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
 
         require(tokenA_ != address(0), "OC: Cannot buy native tokens!");
         require(amount_ != 0, "OC: Cannot buy/sell zero tokens!");
-        // TODO add check that tokenB was created in factory???
         // The price of the pair
         // (how many `tokenB` to pay for a single `tokenA`)
         uint256 price = getPrice(tokenA_, tokenB_);
@@ -280,6 +282,10 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
             require(limitPrice_ == 0, "OC: Limit not zero in market order!");
             // TODO can slippage be zero???
             require(slippage_ != 0, "OC: Slippage zero in market order!");
+            require(
+                isCancellable_ == false,
+                "OC: Market orders are non-cancellable!"
+            );
             if (side_ == OrderSide.Buy) {
                 // User has to lock enough `tokenB` to pay according to current price
                 lockAmount = amount_ * price;
@@ -294,15 +300,22 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
             // TODO is it true???
             require(slippage_ == 0, "OC: Slippage not zero in limit order!");
             if (side_ == OrderSide.Buy) {
+                require(
+                    isCancellable_ == false,
+                    "OC: Limit buy orders are non-cancellable!"
+                );
                 // User has to lock enough `tokenB` to pay after price reaches the limit
                 lockAmount = amount_ * limitPrice_;
             }
             if (side_ == OrderSide.Sell) {
+                require(
+                    IBentureProducedToken(tokenB_).checkAdmin(msg.sender),
+                    "OC: Not an admin of the project!"
+                );
                 // User has to lock exactly the amount of `tokenB` he is selling
                 lockAmount = amount_;
             }
         }
-
 
         // Calculate the fee amount for the order
         uint256 feeAmount = _getFee(amount_);
@@ -312,21 +325,21 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         uint256 id = _orderId.current();
 
         {
-        _orders[id] = Order(
-            id,
-            msg.sender,
-            tokenA_,
-            tokenB_,
-            amount_,
-            lockAmount,
-            _type,
-            side_,
-            limitPrice_,
-            slippage_,
-            isCancellable_,
-            OrderStatus.Active,
-            feeAmount
-        );
+            _orders[id] = Order(
+                id,
+                msg.sender,
+                tokenA_,
+                tokenB_,
+                amount_,
+                lockAmount,
+                _type,
+                side_,
+                limitPrice_,
+                slippage_,
+                isCancellable_,
+                OrderStatus.Active,
+                feeAmount
+            );
         }
 
         // NOTICE: Order with ID1 has index 0
@@ -349,7 +362,11 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         // Fee is also paid in `tokenB`
         // Fee gets transferred to the contract
         // TODO transfer it strate to admins wallet instead???
-        IERC20(tokenB_).safeTransferFrom(msg.sender, address(this), lockAmount + feeAmount);
+        IERC20(tokenB_).safeTransferFrom(
+            msg.sender,
+            address(this),
+            lockAmount + feeAmount
+        );
     }
 
     function _cancelOrder(
@@ -362,7 +379,8 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         // Only limit orders can be cancelled
         require(order.type_ == OrderType.Limit, "OC: Not a limit order!");
         require(
-            (order.status == OrderStatus.Active) || (order.status == OrderStatus.PartiallyClosed),
+            (order.status == OrderStatus.Active) ||
+                (order.status == OrderStatus.PartiallyClosed),
             "OC: Invalid order status!"
         );
         require(msg.sender == order.user, "OC: Not the order creator!");
