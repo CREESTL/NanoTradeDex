@@ -46,22 +46,24 @@ interface IOrderController {
         // Active tokens are defined by order side
         // If it's a "sell" order, then `tokenB` is active
         // If it's a "buy" order, then `tokenA` is active
-        uint256 amountInitial;
-        // The current amount of active tokens
-        // Partial order execution is supported
-        uint256 amountCurrent;
+        uint256 amount;
+        // The current amount of locked tokens left
+        // Some of it may be left if the order was executed partially
+        // The leftovers should be returned to the user if the order gets
+        // cancelled.
+        uint256 amountLockedCurrent;
         // Order type (market or limit)
         OrderType type_;
         // Order side (buy or sell)
         OrderSide side;
         // Only for limit orders. Zero for market orders
-        uint256 limit;
+        uint256 limitPrice;
         // Cancellability
         bool isCancellable;
         // Status
         OrderStatus status;
         // The amount of active tokens paid as fee
-        uint256 fee;
+        uint256 feeAmount;
     }
 
     /// @notice Indicates that a new order has been created.
@@ -72,7 +74,7 @@ interface IOrderController {
     /// @param amount The amount of active tokens
     /// @param type_ The type of the order
     /// @param side The side of the order
-    /// @param limit The limit amount of the order (for limit orders only)
+    /// @param limitPrice The limit price of the order (for limit orders only)
     /// @param isCancellable True if order is cancellable. Otherwise - false
     event OrderCreated(
         uint256 indexed id,
@@ -82,7 +84,7 @@ interface IOrderController {
         uint256 amount,
         OrderType type_,
         OrderSide side,
-        uint256 limit,
+        uint256 limitPrice,
         bool isCancellable
     );
 
@@ -121,10 +123,10 @@ interface IOrderController {
     /// @return The address of the token that is purchased
     /// @return The address of the token that is sold
     /// @return The initial amount of active tokens
-    /// @return The current amount of active tokens
+    /// @return The current amount of locked tokens
     /// @return The type of the order
     /// @return The side of the order
-    /// @return The limit amount of the order (for limit orders only)
+    /// @return The limit price of the order (for limit orders only)
     /// @return True if order is cancellable. Otherwise - false
     /// @return The current status of the order
     function getOrder(
@@ -151,33 +153,47 @@ interface IOrderController {
     /// @param amount The amount of active tokens
     /// @param type_ The type of the order
     /// @param side The side of the order (buy / sell)
-    /// @param limit The limit amount of the order (for limit orders only)
+    /// @param limitPrice The limit price of the order (for limit orders only)
     /// @param isCancellable True if order is cancellable. Otherwise - false
+    /// @param msgHash The hash of the message signed by backend
+    /// @param signature The signature used to sign the hash of the message
     function createOrder(
         address tokenA,
         address tokenB,
         uint256 amount,
         OrderType type_,
         OrderSide side,
-        uint256 limit,
-        bool isCancellable
+        uint256 limitPrice,
+        bool isCancellable,
+        bytes32 msgHash,
+        bytes calldata signature
     ) external;
 
     /// @notice Cancels the limit order with the given ID.
     ///         Only limit orders can be cancelled
     /// @param id The ID of the limit order to cancel
-    function cancelOrder(uint256 id) external;
+    /// @param msgHash The hash of the message signed by backend
+    /// @param signature The signature used to sign the hash of the message
+    function cancelOrder(
+        uint256 id,
+        bytes32 msgHash,
+        bytes calldata signature
+    ) external;
 
     /// @notice Starts a single series sale of project tokens
-    /// @param tokenB The address of the token that is sold
     /// @param tokenA The address of the token that is received
-    /// @param amountB The amount of sold tokens
+    /// @param tokenB The address of the token that is sold
+    /// @param amount The amount of sold tokens
     /// @param price The amount of `tokenB` paid for a single `tokenA`
+    /// @param msgHash The hash of the message signed by backend
+    /// @param signature The signature used to sign the hash of the message
     function startSaleSingle(
-        address tokenB,
         address tokenA,
-        uint256 amountB,
-        uint256 price
+        address tokenB,
+        uint256 amount,
+        uint256 price,
+        bytes32 msgHash,
+        bytes calldata signature
     ) external ;
 
     /// @notice Sets a new fee rate
@@ -196,12 +212,22 @@ interface IOrderController {
     /// @param tokenB The address of the token that is sold
     /// @param amountA The amount of purchased tokens
     /// @param amountB The amount of sold tokens
+    /// @param msgHash The hash of the message signed by backend
+    /// @param signature The signature used to sign the hash of the message
     function matchOrders(
         uint256[] calldata matchedOrderIds,
         address tokenA,
         address tokenB,
         uint256 amountA,
         uint256 amountB,
-        bool isMarket
+        bool isMarket,
+        bytes32 msgHash,
+        bytes calldata signature
     ) external;
+
+    /// @notice Sets the address of the backend account
+    /// @param acc The address of the backend account
+    /// @dev This function should be called right after contract deploy.
+    ///      Otherwise, order creation/cancelling/matching will not work.
+    function setBackend(address acc) external;
 }
