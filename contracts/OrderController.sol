@@ -99,6 +99,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         OrderType type_,
         OrderSide side,
         uint256 limitPrice,
+        uint256 slippage,
         bool isCancellable,
         bytes32 msgHash,
         bytes calldata signature
@@ -110,6 +111,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
             type_,
             side,
             limitPrice,
+            slippage,
             isCancellable,
             msgHash,
             signature
@@ -155,6 +157,9 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
             OrderSide.Sell,
             // Price is the limit where this order becomes tradeable
             price,
+            // TODO not sure
+            // Price slippage for limit orders is always zero
+            0,
             // Sale orders are non-cancellable
             false,
             msgHash,
@@ -248,6 +253,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         OrderType type_,
         OrderSide side,
         uint256 limitPrice,
+        uint256 slippage,
         bool isCancellable,
         bytes32 msgHash,
         bytes calldata signature
@@ -260,6 +266,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         OrderType _type = type_;
         OrderSide side_ = side;
         uint256 limitPrice_ = limitPrice;
+        uint256 slippage_ = slippage;
         bool isCancellable_ = isCancellable;
 
         require(tokenA_ != address(0), "OC: Cannot buy native tokens!");
@@ -271,6 +278,8 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         uint256 lockAmount;
         if (_type == OrderType.Market) {
             require(limitPrice_ == 0, "OC: Limit not zero in market order!");
+            // TODO can slippage be zero???
+            require(slippage_ != 0, "OC: Slippage zero in market order!");
             if (side_ == OrderSide.Buy) {
                 // User has to lock enough `tokenB` to pay according to current price
                 lockAmount = amount_ * price;
@@ -282,6 +291,8 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         }
         if (_type == OrderType.Limit) {
             require(limitPrice_ != 0, "OC: Limit zero in limit order!");
+            // TODO is it true???
+            require(slippage_ == 0, "OC: Slippage not zero in limit order!");
             if (side_ == OrderSide.Buy) {
                 // User has to lock enough `tokenB` to pay after price reaches the limit
                 lockAmount = amount_ * limitPrice_;
@@ -311,6 +322,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
             _type,
             side_,
             limitPrice_,
+            slippage_,
             isCancellable_,
             OrderStatus.Active,
             feeAmount
