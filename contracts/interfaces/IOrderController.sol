@@ -58,6 +58,8 @@ interface IOrderController {
         OrderSide side;
         // Only for limit orders. Zero for market orders
         uint256 limitPrice;
+        // Allowed price slippage in Basis Points
+        uint256 slippage;
         // Cancellability
         bool isCancellable;
         // Status
@@ -154,6 +156,7 @@ interface IOrderController {
     /// @param type_ The type of the order
     /// @param side The side of the order (buy / sell)
     /// @param limitPrice The limit price of the order (for limit orders only)
+    /// @param slippage Allowed price slippage (in basis points)
     /// @param isCancellable True if order is cancellable. Otherwise - false
     /// @param msgHash The hash of the message signed by backend
     /// @param signature The signature used to sign the hash of the message
@@ -164,6 +167,7 @@ interface IOrderController {
         OrderType type_,
         OrderSide side,
         uint256 limitPrice,
+        uint256 slippage,
         bool isCancellable,
         bytes32 msgHash,
         bytes calldata signature
