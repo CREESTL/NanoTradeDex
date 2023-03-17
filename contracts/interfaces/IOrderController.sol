@@ -113,6 +113,11 @@ interface IOrderController {
     /// @notice Indicates that the order was cancelled
     event OrderCancelled(uint256 id);
 
+    /// @notice Indicates that fees collected with one token were withdrawn
+    /// @param token The address of the token in which fees were collected
+    /// @param amount The amount of fees withdrawn
+    event FeesWithdrawn(address token, uint256 amount);
+
     /// @notice Returns the list of IDs of orders user has created
     /// @param user The address of the user
     /// @return The list of IDs of orders user has created
@@ -221,10 +226,9 @@ interface IOrderController {
     /// @param newFeeRate A new fee rate
     function setFee(uint256 newFeeRate) external;
 
-    // TODO parameters will change in the future
-    /// @notice Withdraws fees accumulated by orders of one token
-    /// @param token The address of the token to withdraw fees of
-    function withdrawFee(address token) external;
+    /// @notice Withdraws fees accumulated by creation of specified orders
+    /// @param tokens The list of addresses of active tokens of the order
+    function withdrawFees(address[] memory tokens) external;
 
     // TODO will change in the future
     /// @notice Executes matched orders

@@ -33,6 +33,9 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     ///      to pay for a single first token)
     ///      .e.g (USDT => DOGE => 420)
     mapping(address => mapping(address => uint256)) pairPrices;
+    /// @notice Mapping from locked token addresses to the amount of
+    ///         fees collected with them
+    mapping(address => uint256) tokenFees;
 
     /// @dev 100% in basis points (1 bp = 1 / 100 of 1%)
     uint256 private constant HUNDRED_PERCENT = 10000;
@@ -132,7 +135,6 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         _cancelOrder(id, msgHash, signature);
     }
 
-
     /// @notice See {IOrderController-setFee}
     function setFee(uint256 newFeeRate) external onlyOwner {
         require(newFeeRate != feeRate, "OC: Fee rates must differ!");
@@ -140,9 +142,20 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         feeRate = newFeeRate;
     }
 
-    /// @notice See {IOrderController-withdrawFee}
-    function withdrawFee(address token) external onlyOwner {
-        // TODO body
+    /// @notice See {IOrderController-withdrawFees}
+    function withdrawFees(address[] memory tokens) external onlyOwner {
+        // TODO check for 2/3 of block gas limit here???
+        for (uint256 i = 0; i < tokens.length; i++) {
+            address lockedToken = tokens[i];
+            // Reset fees
+            uint256 transferAmount = tokenFees[lockedToken];
+            delete tokenFees[lockedToken];
+
+            emit FeesWithdrawn(lockedToken, transferAmount);
+
+            // Transfer all withdraw fees to the owner
+            IERC20(lockedToken).safeTransfer(msg.sender, transferAmount);
+        }
     }
 
     /// @notice See {IOrderController-matchOrders}
@@ -348,6 +361,9 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
 
         // Calculate the fee amount for the order
         uint256 feeAmount = _getFee(amount_);
+
+        // Mark that fee amount of `tokenB` was increased
+        tokenFees[tokenB_] += feeAmount;
 
         // NOTICE: first order gets the ID of 1
         _orderId.increment();
