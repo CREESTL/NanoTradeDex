@@ -240,6 +240,17 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         // No need to emit any other events here
     }
 
+    /// @notice See {IOrderController-matchOrders}
+    // TODO split it in 2 functions?
+    function matchOrders(
+        uint256 initId,
+        uint256[] memory matchedIds,
+        bytes32 msgHash,
+        bytes calldata signature
+    ) public nonReentrant onlyBackend(msgHash, signature, backendAcc) {
+
+    }
+
     /// @notice See {IOrderController-setBackend}
     function setBackend(address acc) public onlyOwner {
         require(acc != backendAcc, "OC: Cannot set the same backend address!");

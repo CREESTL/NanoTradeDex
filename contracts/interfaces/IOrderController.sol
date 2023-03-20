@@ -222,6 +222,18 @@ interface IOrderController {
         bytes calldata signature
     ) external;
 
+    /// @notice Executes matched orders
+    /// @param initId The ID of the first of matched orders
+    /// @param matchedIds The list of IDs that matched with `initId`
+    /// @param msgHash The hash of the message signed by backend
+    /// @param signature The signature used to sign the hash of the message
+    function matchOrders(
+        uint256 initId,
+        uint256[] memory matchedIds,
+        bytes32 msgHash,
+        bytes calldata signature
+    ) external;
+
     /// @notice Sets a new fee rate
     /// @param newFeeRate A new fee rate
     function setFee(uint256 newFeeRate) external;
