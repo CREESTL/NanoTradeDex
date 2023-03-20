@@ -250,9 +250,9 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         backendAcc = acc;
     }
 
-    /// @dev Calculates fee based on the amount of tokens
-    /// @param amount The amount of transferred tokens
-    /// @return retAmount The fee amount that should be paid for order creation and tokens transfer
+    /// @dev Calculates fee based on the amount of locked tokens
+    /// @param amount The amount of locked tokens
+    /// @return retAmount The fee amount that should be paid for order creation
     function _getFee(uint256 amount) private view returns (uint256 retAmount) {
         // TODO is this a correct formula???
         retAmount = (amount * feeRate) / HUNDRED_PERCENT;
@@ -364,8 +364,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         }
 
         // Calculate the fee amount for the order
-        // TODO use lockAmount here
-        uint256 feeAmount = _getFee(amount_);
+        uint256 feeAmount = _getFee(lockAmount);
 
         // Mark that fee amount of `tokenB` was increased
         tokenFees[tokenB_] += feeAmount;
