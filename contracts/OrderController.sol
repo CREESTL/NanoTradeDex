@@ -344,6 +344,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         }
         if (_type == OrderType.Limit) {
             require(limitPrice_ != 0, "OC: Limit zero in limit order!");
+            require(slippage_ == 0, "OC: Slippage not zero in limit order!");
             if (side_ == OrderSide.Buy) {
                 require(
                     isCancellable_ == false,
@@ -363,6 +364,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         }
 
         // Calculate the fee amount for the order
+        // TODO use lockAmount here
         uint256 feeAmount = _getFee(amount_);
 
         // Mark that fee amount of `tokenB` was increased
