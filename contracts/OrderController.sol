@@ -329,8 +329,6 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         uint256 lockAmount;
         if (_type == OrderType.Market) {
             require(limitPrice_ == 0, "OC: Limit not zero in market order!");
-            // TODO can slippage be zero???
-            require(slippage_ != 0, "OC: Slippage zero in market order!");
             require(
                 isCancellable_ == false,
                 "OC: Market orders are non-cancellable!"
@@ -346,8 +344,6 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         }
         if (_type == OrderType.Limit) {
             require(limitPrice_ != 0, "OC: Limit zero in limit order!");
-            // TODO is it true???
-            require(slippage_ == 0, "OC: Slippage not zero in limit order!");
             if (side_ == OrderSide.Buy) {
                 require(
                     isCancellable_ == false,
