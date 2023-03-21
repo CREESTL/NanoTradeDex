@@ -169,6 +169,15 @@ interface IOrderController {
             OrderStatus
         );
 
+    /// @notice Returns the lisf of IDs of orders containing given tokens
+    /// @param tokenA The address of the token that is purchased
+    /// @param tokenB The address of the token that is sold
+    /// @return The list of IDs of orders containing given tokens
+    function getOrdersByTokens(
+        address tokenA,
+        address tokenB
+    ) external view returns (uint256[] memory);
+
     /// @notice Creates an order with specified parameters
     /// @param tokenA The address of the token that is purchased
     /// @param tokenB The address of the token that is sold
