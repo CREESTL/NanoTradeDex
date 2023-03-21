@@ -112,10 +112,21 @@ interface IOrderController {
     /// @notice Indicates that the order was cancelled
     event OrderCancelled(uint256 id);
 
+    /// @notice Indicates that orders were matched
+    /// @param initId The ID of first matched order
+    /// @param matchedId The ID of the second matched order
+    event OrdersMatched(uint256 initId, uint256 matchedId);
+
     /// @notice Indicates that fees collected with one token were withdrawn
     /// @param token The address of the token in which fees were collected
     /// @param amount The amount of fees withdrawn
     event FeesWithdrawn(address token, uint256 amount);
+
+    /// @dev Indicates that 2/3 of block gas limit was spent during the
+    ///      iteration inside the contract method
+    /// @param gasLeft How much gas was used
+    /// @param gasLimit The block gas limit
+    event GasLimitReached(uint256 gasLeft, uint256 gasLimit);
 
     /// @notice Indicates that price slippage was too big
     /// @param slippage The real slippage

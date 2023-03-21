@@ -149,7 +149,12 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
 
     /// @notice See {IOrderController-withdrawFees}
     function withdrawFees(address[] memory tokens) public onlyOwner {
-        // TODO check for 2/3 of block gas limit here???
+        // The amount of gas spent for all operations below
+        uint256 gasSpent = 0;
+        // Only 2/3 of block gas limit could be spent.
+        uint256 gasThreshold = (block.gaslimit * 2) / 3;
+        uint256 lastGasLeft = gasleft();
+
         for (uint256 i = 0; i < tokens.length; i++) {
             address lockedToken = tokens[i];
             // Reset fees
@@ -162,9 +167,19 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
 
             // Transfer all withdraw fees to the owner
             IERC20(lockedToken).safeTransfer(msg.sender, transferAmount);
+
+            // Calculate the amount of gas spent for one iteration
+            uint256 gasSpentPerIteration = lastGasLeft - gasleft();
+            lastGasLeft = gasleft();
+            // Increase the total amount of gas spent
+            gasSpent += gasSpentPerIteration;
+            // Check that no more than 2/3 of block gas limit was spent
+            if (gasSpent >= gasThreshold) {
+                emit GasLimitReached(gasSpent, block.gaslimit);
+                break;
+            }
         }
     }
-
 
     /// @notice See {IOrderController-withdrawAllFees}
     function withdrawAllFees() public onlyOwner {
@@ -172,7 +187,6 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         // Get the list of all locked tokens and withdraw fees
         // for each of them
         withdrawFees(lockedTokens.values());
-
     }
 
     /// @notice See {IOrderController-startSaleSingle}
@@ -219,11 +233,15 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         bytes32 msgHash,
         bytes calldata signature
     ) public nonReentrant onlyBackend(msgHash, signature, backendAcc) {
-
         require(amounts.length == prices.length, "OC: Arrays length differs!");
 
+        // The amount of gas spent for all operations below
+        uint256 gasSpent = 0;
+        // Only 2/3 of block gas limit could be spent.
+        uint256 gasThreshold = (block.gaslimit * 2) / 3;
+        uint256 lastGasLeft = gasleft();
+
         for (uint256 i = 0; i < amounts.length; i++) {
-            // TODO check for 2/3 of block gas limit here???
             startSaleSingle(
                 tokenA,
                 tokenB,
@@ -232,6 +250,17 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
                 msgHash,
                 signature
             );
+
+            // Calculate the amount of gas spent for one iteration
+            uint256 gasSpentPerIteration = lastGasLeft - gasleft();
+            lastGasLeft = gasleft();
+            // Increase the total amount of gas spent
+            gasSpent += gasSpentPerIteration;
+            // Check that no more than 2/3 of block gas limit was spent
+            if (gasSpent >= gasThreshold) {
+                emit GasLimitReached(gasSpent, block.gaslimit);
+                break;
+            }
         }
 
         // SaleStarted event is emitted for each sale from the list
@@ -246,6 +275,12 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         bytes32 msgHash,
         bytes calldata signature
     ) public nonReentrant onlyBackend(msgHash, signature, backendAcc) {
+        // The amount of gas spent for all operations below
+        uint256 gasSpent = 0;
+        // Only 2/3 of block gas limit could be spent.
+        uint256 gasThreshold = (block.gaslimit * 2) / 3;
+        uint256 lastGasLeft = gasleft();
+
         // NOTICE: No checks are done here. Fully trust the backend
         Order memory initOrder = _orders[initId];
         uint256 price = pairPrices[initOrder.tokenA][initOrder.tokenB];
@@ -255,20 +290,38 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
             if (initOrder.side == OrderSide.Buy) {
                 // When trying to buy more than available in matched order, whole availabe amount of matched order
                 // gets transferred (it's less)
-                if (initOrder.amount - initOrder.amountCurrent > matchedOrder.amount - matchedOrder.amountCurrent) {
-                    IERC20(initOrder.tokenA).safeTransfer(initOrder.user, matchedOrder.amount - matchedOrder.amountCurrent);
-                    IERC20(initOrder.tokenB).safeTransfer(matchedOrder.user, (matchedOrder.amount - matchedOrder.amountCurrent) * price);
+                if (
+                    initOrder.amount - initOrder.amountCurrent >
+                    matchedOrder.amount - matchedOrder.amountCurrent
+                ) {
+                    IERC20(initOrder.tokenA).safeTransfer(
+                        initOrder.user,
+                        matchedOrder.amount - matchedOrder.amountCurrent
+                    );
+                    IERC20(initOrder.tokenB).safeTransfer(
+                        matchedOrder.user,
+                        (matchedOrder.amount - matchedOrder.amountCurrent) *
+                            price
+                    );
                     // Initial order bought amount gets increased by the amount of tokens bought
-                    initOrder.amountCurrent += (matchedOrder.amount - matchedOrder.amountCurrent);
+                    initOrder.amountCurrent += (matchedOrder.amount -
+                        matchedOrder.amountCurrent);
                     // Whole amount of matched order was sold
                     matchedOrder.amountCurrent = matchedOrder.amount;
-                // When trying to buy less or equal to what is available in matched order, only bought amount
-                // gets transferred (it's less). Some amount stays locked in the matched order
+                    // When trying to buy less or equal to what is available in matched order, only bought amount
+                    // gets transferred (it's less). Some amount stays locked in the matched order
                 } else {
-                    IERC20(initOrder.tokenA).safeTransfer(initOrder.user, initOrder.amount - initOrder.amountCurrent);
-                    IERC20(initOrder.tokenB).safeTransfer(matchedOrder.user, (initOrder.amount - initOrder.amountCurrent) * price);
+                    IERC20(initOrder.tokenA).safeTransfer(
+                        initOrder.user,
+                        initOrder.amount - initOrder.amountCurrent
+                    );
+                    IERC20(initOrder.tokenB).safeTransfer(
+                        matchedOrder.user,
+                        (initOrder.amount - initOrder.amountCurrent) * price
+                    );
                     // Matched order sold amount gets increased by the amount of tokens sold
-                    matchedOrder.amountCurrent += (initOrder.amount - initOrder.amountCurrent);
+                    matchedOrder.amountCurrent += (initOrder.amount -
+                        initOrder.amountCurrent);
                     // Whole amount of initial order was bought
                     initOrder.amountCurrent = initOrder.amount;
                 }
@@ -276,20 +329,38 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
             if (initOrder.side == OrderSide.Sell) {
                 // When trying to sell more tokens than buyer can purchase, only transfer to him the amount
                 // he can purchase
-                if (initOrder.amount - initOrder.amountCurrent > matchedOrder.amount - matchedOrder.amountCurrent) {
-                    IERC20(initOrder.tokenA).safeTransfer(initOrder.user, (matchedOrder.amount - matchedOrder.amountCurrent) / price);
-                    IERC20(initOrder.tokenB).safeTransfer(matchedOrder.user, (matchedOrder.amount - matchedOrder.amountCurrent));
+                if (
+                    initOrder.amount - initOrder.amountCurrent >
+                    matchedOrder.amount - matchedOrder.amountCurrent
+                ) {
+                    IERC20(initOrder.tokenA).safeTransfer(
+                        initOrder.user,
+                        (matchedOrder.amount - matchedOrder.amountCurrent) /
+                            price
+                    );
+                    IERC20(initOrder.tokenB).safeTransfer(
+                        matchedOrder.user,
+                        (matchedOrder.amount - matchedOrder.amountCurrent)
+                    );
                     // Initial order sold amount gets increased by the amount of tokens sold
-                    initOrder.amountCurrent += (matchedOrder.amount - matchedOrder.amountCurrent);
+                    initOrder.amountCurrent += (matchedOrder.amount -
+                        matchedOrder.amountCurrent);
                     // Whole amount of matched order was bought
                     matchedOrder.amountCurrent = matchedOrder.amount;
-                // When trying to sell less tokens than buyer can purchase, whole available amount of sold
-                // tokens gets transferred to the buyer
+                    // When trying to sell less tokens than buyer can purchase, whole available amount of sold
+                    // tokens gets transferred to the buyer
                 } else {
-                    IERC20(initOrder.tokenA).safeTransfer(initOrder.user, (initOrder.amount - initOrder.amountCurrent) / price);
-                    IERC20(initOrder.tokenB).safeTransfer(matchedOrder.user, initOrder.amount - initOrder.amountCurrent);
+                    IERC20(initOrder.tokenA).safeTransfer(
+                        initOrder.user,
+                        (initOrder.amount - initOrder.amountCurrent) / price
+                    );
+                    IERC20(initOrder.tokenB).safeTransfer(
+                        matchedOrder.user,
+                        initOrder.amount - initOrder.amountCurrent
+                    );
                     // Matched order bought amount gets increased by the amount of tokens sold
-                    matchedOrder.amountCurrent += (initOrder.amount - initOrder.amountCurrent);
+                    matchedOrder.amountCurrent += (initOrder.amount -
+                        initOrder.amountCurrent);
                     // Whole amount of initial was sold
                     initOrder.amountCurrent = initOrder.amount;
                 }
@@ -307,13 +378,32 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
                 revert SlippageTooBig(slippage);
             }
 
+            // Calculate the amount of gas spent for one iteration
+            uint256 gasSpentPerIteration = lastGasLeft - gasleft();
+            lastGasLeft = gasleft();
+            // Increase the total amount of gas spent
+            gasSpent += gasSpentPerIteration;
+            // Check that no more than 2/3 of block gas limit was spent
+            if (gasSpent >= gasThreshold) {
+                emit GasLimitReached(gasSpent, block.gaslimit);
+                break;
+            }
+
+            // TODO move it higher?
+            emit OrdersMatched(initOrder.id, matchedOrder.id);
         }
+
         // If the initial order is a limit order and it has a price higher than market,
         // then the whole amount left should be returned to the creator of the order
-        if ((initOrder.type_ == OrderType.Limit) &&
+        if (
+            (initOrder.type_ == OrderType.Limit) &&
             (initOrder.limitPrice > price) &&
-            (initOrder.amountCurrent != initOrder.amount)) {
-            IERC20(initOrder.tokenA).safeTransfer(initOrder.user, initOrder.amount - initOrder.amountCurrent);
+            (initOrder.amountCurrent != initOrder.amount)
+        ) {
+            IERC20(initOrder.tokenA).safeTransfer(
+                initOrder.user,
+                initOrder.amount - initOrder.amountCurrent
+            );
         }
     }
 
@@ -367,11 +457,14 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     /// @param oldPrice Old price of pair of tokens
     /// @param newPrice New price of pair of tokens
     /// @return Price slippage in basis points
-    function calcSlippage(uint256 oldPrice, uint256 newPrice) private pure returns(uint256) {
+    function calcSlippage(
+        uint256 oldPrice,
+        uint256 newPrice
+    ) private pure returns (uint256) {
         uint256 minPrice = newPrice > oldPrice ? oldPrice : newPrice;
         uint256 maxPrice = newPrice > oldPrice ? newPrice : oldPrice;
         uint256 priceDif = maxPrice - minPrice;
-        uint256 slippage = priceDif * 10000 / maxPrice;
+        uint256 slippage = (priceDif * 10000) / maxPrice;
         return slippage;
     }
 
