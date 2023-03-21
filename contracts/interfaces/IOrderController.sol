@@ -45,12 +45,11 @@ interface IOrderController {
         // Active tokens are defined by order side
         // If it's a "sell" order, then `tokenB` is active
         // If it's a "buy" order, then `tokenA` is active
+        // This amount does not change during order execution
         uint256 amount;
-        // The current amount of locked tokens left
-        // Some of it may be left if the order was executed partially
-        // The leftovers should be returned to the user if the order gets
-        // cancelled.
-        uint256 amountLockedCurrent;
+        // The current amount of active tokens
+        // Gets increased in any type of orders
+        uint256 amountCurrent;
         // Order type (market or limit)
         OrderType type_;
         // Order side (buy or sell)
@@ -118,6 +117,10 @@ interface IOrderController {
     /// @param amount The amount of fees withdrawn
     event FeesWithdrawn(address token, uint256 amount);
 
+    /// @notice Indicates that price slippage was too big
+    /// @param slippage The real slippage
+    error SlippageTooBig(uint256 slippage);
+
     /// @notice Returns the list of IDs of orders user has created
     /// @param user The address of the user
     /// @return The list of IDs of orders user has created
@@ -131,7 +134,7 @@ interface IOrderController {
     /// @return The address of the token that is purchased
     /// @return The address of the token that is sold
     /// @return The initial amount of active tokens
-    /// @return The current amount of locked tokens
+    /// @return The current increasing amount of active tokens
     /// @return The type of the order
     /// @return The side of the order
     /// @return The limit price of the order (for limit orders only)
@@ -227,6 +230,8 @@ interface IOrderController {
     /// @param matchedIds The list of IDs that matched with `initId`
     /// @param msgHash The hash of the message signed by backend
     /// @param signature The signature used to sign the hash of the message
+    /// @dev Sum of locked amounts of `matchedIds` is always less than or
+    ///      equal to the
     function matchOrders(
         uint256 initId,
         uint256[] memory matchedIds,
@@ -244,26 +249,6 @@ interface IOrderController {
 
     /// @notice Withdraws all fees accumulated by creation of orders
     function withdrawAllFees() external;
-
-    // TODO will change in the future
-    /// @notice Executes matched orders
-    /// @param matchedOrderIds The list of IDs of matched orders
-    /// @param tokenA The address of the token that is purchased
-    /// @param tokenB The address of the token that is sold
-    /// @param amountA The amount of purchased tokens
-    /// @param amountB The amount of sold tokens
-    /// @param msgHash The hash of the message signed by backend
-    /// @param signature The signature used to sign the hash of the message
-    function matchOrders(
-        uint256[] calldata matchedOrderIds,
-        address tokenA,
-        address tokenB,
-        uint256 amountA,
-        uint256 amountB,
-        bool isMarket,
-        bytes32 msgHash,
-        bytes calldata signature
-    ) external;
 
     /// @notice Sets the address of the backend account
     /// @param acc The address of the backend account
