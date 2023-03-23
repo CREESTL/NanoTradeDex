@@ -21,6 +21,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     /// @dev Precision used to calculate token amounts rations (prices)
     uint256 constant PRICE_PRECISION = 10**18;
 
+
     /// @notice Percentage of each order being paid as fee (in basis points)
     uint256 public feeRate;
     /// @notice The address of the backend account
@@ -46,26 +47,37 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     ///      .e.g (USDT => DOGE => 420)
     ///      Each price is multiplied by `PRICE_PRECISION`
     mapping(address => mapping(address => uint256)) private pairPrices;
-    /// @notice Mapping from locked token addresses to the amount of
+    /// @dev Mapping from locked token addresses to the amount of
     ///         fees collected with them
     mapping(address => uint256) private tokenFees;
-    /// @notice List of tokens that are currently locked as fees
+    /// @dev List of tokens that are currently locked as fees
     ///         for orders creations
     EnumerableSet.AddressSet private lockedTokens;
+    /// @notice Marks transaction hashes that have been executed already.
+    ///         Prevents Replay Attacks
+    mapping(bytes32 => bool) public executed;
 
     /// @dev 100% in basis points (1 bp = 1 / 100 of 1%)
     uint256 private constant HUNDRED_PERCENT = 10000;
 
+    /// @dev Allows to executed only transactions signed by backend
     modifier onlyBackend(
-        bytes32 msgHash,
-        bytes calldata signature,
-        address user
+        uint256 nonce,
+        bytes calldata signature
     ) {
+        // Calculate tx hash. Include some function parameters and nonce to
+        // avoid Replay Attacks
+        bytes32 txHash = getTxHash(nonce);
+        require(!executed[txHash], "OC: Tx already executed!");
         require(
-            _verifyBackendSignature(msgHash, signature, user),
+            _verifyBackendSignature(signature, txHash),
             "OC: Only backend can call this function!"
         );
+        // Mark that tx with a calculated hash was executed
+        // Do it before function body to avoid reentrancy
+        executed[txHash] = true;
         _;
+
     }
 
     /// @notice Sets the inital fee rate for orders
@@ -147,7 +159,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         uint256 limitPrice,
         uint256 slippage,
         bool isCancellable,
-        bytes32 msgHash,
+        uint256 nonce,
         bytes calldata signature
     ) external nonReentrant {
         _createOrder(
@@ -159,7 +171,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
             limitPrice,
             slippage,
             isCancellable,
-            msgHash,
+            nonce,
             signature
         );
     }
@@ -167,10 +179,10 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     /// @notice See {IOrderController-cancelOrder}
     function cancelOrder(
         uint256 id,
-        bytes32 msgHash,
+        uint256 nonce,
         bytes calldata signature
     ) external nonReentrant {
-        _cancelOrder(id, msgHash, signature);
+        _cancelOrder(id, nonce, signature);
     }
 
     /// @notice See {IOrderController-setFee}
@@ -242,9 +254,9 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         address tokenB,
         uint256 amount,
         uint256 price,
-        bytes32 msgHash,
+        uint256 nonce,
         bytes calldata signature
-    ) public nonReentrant onlyBackend(msgHash, signature, backendAcc) {
+    ) public nonReentrant onlyBackend(nonce, signature) {
         // Only admin of the sold token `tokenB` project can start the ICO of tokens
         require(
             IBentureProducedToken(tokenB).checkAdmin(msg.sender),
@@ -265,7 +277,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
             0,
             // Sale orders are non-cancellable
             false,
-            msgHash,
+            nonce,
             signature
         );
     }
@@ -276,9 +288,9 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         address tokenB,
         uint256[] memory amounts,
         uint256[] memory prices,
-        bytes32 msgHash,
+        uint256 nonce,
         bytes calldata signature
-    ) public nonReentrant onlyBackend(msgHash, signature, backendAcc) {
+    ) public nonReentrant onlyBackend(nonce, signature) {
         require(amounts.length == prices.length, "OC: Arrays length differs!");
 
         // The amount of gas spent for all operations below
@@ -293,7 +305,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
                 tokenB,
                 amounts[i],
                 prices[i],
-                msgHash,
+                nonce,
                 signature
             );
 
@@ -317,10 +329,10 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     function matchOrders(
         uint256 initId,
         uint256[] memory matchedIds,
-        bytes32 msgHash,
+        uint256 nonce,
         bytes calldata signature
     ) public nonReentrant {
-        _matchOrders(initId, matchedIds, msgHash, signature);
+        _matchOrders(initId, matchedIds, nonce, signature);
     }
 
     /// @notice See {IOrderController-setBackend}
@@ -381,19 +393,33 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         return slippage;
     }
 
+    /// @dev Calculates the hash of the transaction with nonce and contract address
+    /// @param nonce The unique integer
+    function getTxHash(
+        uint256 nonce
+    ) public view returns (bytes32) {
+        return keccak256(abi.encodePacked(
+            // Include the address of the contract to make hash even more unique
+            address(this),
+            nonce
+        ));
+    }
+
+
+
     /// @dev Verifies that message was signed by the backend
-    /// @param msgHash An unsigned hashed data
-    /// @param signature A signature used to sign the `msgHash`
+    /// @param signature A signature used to sign the tx
+    /// @param txHash An unsigned hashed data
+    /// @return True if tx was signed by the backend. Otherwise false.
     function _verifyBackendSignature(
-        bytes32 msgHash,
         bytes calldata signature,
-        address user
-    ) private pure returns (bool) {
+        bytes32 txHash
+    ) private view returns (bool) {
         // Remove the "\x19Ethereum Signed Message:\n" prefix from the signature
-        bytes32 clearHash = msgHash.toEthSignedMessageHash();
-        // Recover the address of the user who signed the `msgHash` with `signature`
+        bytes32 clearHash = txHash.toEthSignedMessageHash();
+        // Recover the address of the user who signed the tx
         address recoveredUser = clearHash.recover(signature);
-        return recoveredUser == user;
+        return recoveredUser == backendAcc;
     }
 
     function _createOrder(
@@ -405,9 +431,9 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         uint256 limitPrice,
         uint256 slippage,
         bool isCancellable,
-        bytes32 msgHash,
+        uint256 nonce,
         bytes calldata signature
-    ) private onlyBackend(msgHash, signature, backendAcc) {
+    ) private onlyBackend(nonce, signature) {
         // Make copies of parameters to avoid `Stack too deep` error
         address tokenA_ = tokenA;
         address tokenB_ = tokenB;
@@ -535,9 +561,9 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
 
     function _cancelOrder(
         uint256 id,
-        bytes32 msgHash,
+        uint256 nonce,
         bytes calldata signature
-    ) private onlyBackend(msgHash, signature, backendAcc) {
+    ) private onlyBackend(nonce, signature) {
         Order storage order = _orders[id];
         require(order.isCancellable, "OC: Order is non-cancellable!");
         require(
@@ -563,9 +589,9 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     function _matchOrders(
         uint256 initId,
         uint256[] memory matchedIds,
-        bytes32 msgHash,
+        uint256 nonce,
         bytes calldata signature
-    ) private onlyBackend(msgHash, signature, backendAcc) {
+    ) private onlyBackend(nonce, signature) {
 
         // NOTICE: No checks are done here. Fully trust the backend
 
