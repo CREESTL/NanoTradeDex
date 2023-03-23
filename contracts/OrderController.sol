@@ -546,8 +546,6 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     ) private onlyBackend(msgHash, signature, backendAcc) {
         Order storage order = _orders[id];
         require(order.isCancellable, "OC: Order is non-cancellable!");
-        // Only limit orders can be cancelled
-        require(order.type_ == OrderType.Limit, "OC: Not a limit order!");
         require(
             (order.status == OrderStatus.Active) ||
                 (order.status == OrderStatus.PartiallyClosed),
