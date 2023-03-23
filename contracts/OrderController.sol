@@ -19,7 +19,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     /// @dev Precision used to calculate token amounts rations (prices)
-    uint256 constant PRICE_PRECISION = 10**18;
+    uint256 constant PRICE_PRECISION = 10 ** 18;
 
     /// @notice Percentage of each order being paid as fee (in basis points)
     uint256 public feeRate;
@@ -46,32 +46,39 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     ///      .e.g (USDT => DOGE => 420)
     ///      Each price is multiplied by `PRICE_PRECISION`
     mapping(address => mapping(address => uint256)) private pairPrices;
-    /// @notice Mapping from locked token addresses to the amount of
+    /// @dev Mapping from locked token addresses to the amount of
     ///         fees collected with them
     mapping(address => uint256) private tokenFees;
-    /// @notice List of tokens that are currently locked as fees
+    /// @dev List of tokens that are currently locked as fees
     ///         for orders creations
     EnumerableSet.AddressSet private lockedTokens;
+    /// @notice Marks transaction hashes that have been executed already.
+    ///         Prevents Replay Attacks
+    mapping(bytes32 => bool) public executed;
 
     /// @dev 100% in basis points (1 bp = 1 / 100 of 1%)
     uint256 private constant HUNDRED_PERCENT = 10000;
 
-    modifier onlyBackend(
-        bytes32 msgHash,
-        bytes calldata signature,
-        address user
-    ) {
+    /// @dev Allows to executed only transactions signed by backend
+    modifier onlyBackend(uint256 nonce, bytes calldata signature) {
+        // Calculate tx hash. Include some function parameters and nonce to
+        // avoid Replay Attacks
+        bytes32 txHash = getTxHash(nonce);
+        require(!executed[txHash], "OC: Tx already executed!");
         require(
-            _verifyBackendSignature(msgHash, signature, user),
+            _verifyBackendSignature(signature, txHash),
             "OC: Only backend can call this function!"
         );
+        // Mark that tx with a calculated hash was executed
+        // Do it before function body to avoid reentrancy
+        executed[txHash] = true;
         _;
     }
 
     /// @notice Sets the inital fee rate for orders
     constructor() {
-        // Default fee rate is 0.1% (1 BP)
-        feeRate = 1;
+        // Default fee rate is 0.1% (10 BP)
+        feeRate = 10;
     }
 
     /// @notice See {IOrderController-getUserOrders}
@@ -131,7 +138,9 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     ) external view returns (bool) {
         require(checkOrderExists(firstId), "OC: Order does not exist!");
         require(checkOrderExists(secondId), "OC: Order does not exist!");
-        if (matchedOrders[firstId][secondId] || matchedOrders[secondId][firstId]) {
+        if (
+            matchedOrders[firstId][secondId] || matchedOrders[secondId][firstId]
+        ) {
             return true;
         }
         return false;
@@ -147,7 +156,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         uint256 limitPrice,
         uint256 slippage,
         bool isCancellable,
-        bytes32 msgHash,
+        uint256 nonce,
         bytes calldata signature
     ) external nonReentrant {
         _createOrder(
@@ -159,7 +168,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
             limitPrice,
             slippage,
             isCancellable,
-            msgHash,
+            nonce,
             signature
         );
     }
@@ -167,10 +176,10 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     /// @notice See {IOrderController-cancelOrder}
     function cancelOrder(
         uint256 id,
-        bytes32 msgHash,
+        uint256 nonce,
         bytes calldata signature
     ) external nonReentrant {
-        _cancelOrder(id, msgHash, signature);
+        _cancelOrder(id, nonce, signature);
     }
 
     /// @notice See {IOrderController-setFee}
@@ -242,10 +251,10 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         address tokenB,
         uint256 amount,
         uint256 price,
-        bytes32 msgHash,
+        uint256 nonce,
         bytes calldata signature
-    ) public nonReentrant onlyBackend(msgHash, signature, backendAcc) {
-        // Only admin of the sold token (`tokenB`) project can start the ICO of tokens
+    ) public nonReentrant onlyBackend(nonce, signature) {
+        // Only admin of the sold token `tokenB` project can start the ICO of tokens
         require(
             IBentureProducedToken(tokenB).checkAdmin(msg.sender),
             "OC: Not an admin of the project"
@@ -265,7 +274,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
             0,
             // Sale orders are non-cancellable
             false,
-            msgHash,
+            nonce,
             signature
         );
     }
@@ -276,9 +285,9 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         address tokenB,
         uint256[] memory amounts,
         uint256[] memory prices,
-        bytes32 msgHash,
+        uint256 nonce,
         bytes calldata signature
-    ) public nonReentrant onlyBackend(msgHash, signature, backendAcc) {
+    ) public nonReentrant onlyBackend(nonce, signature) {
         require(amounts.length == prices.length, "OC: Arrays length differs!");
 
         // The amount of gas spent for all operations below
@@ -293,7 +302,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
                 tokenB,
                 amounts[i],
                 prices[i],
-                msgHash,
+                nonce,
                 signature
             );
 
@@ -317,10 +326,10 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     function matchOrders(
         uint256 initId,
         uint256[] memory matchedIds,
-        bytes32 msgHash,
+        uint256 nonce,
         bytes calldata signature
     ) public nonReentrant {
-        _matchOrders(initId, matchedIds, msgHash, signature);
+        _matchOrders(initId, matchedIds, nonce, signature);
     }
 
     /// @notice See {IOrderController-setBackend}
@@ -357,7 +366,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     ) private view returns (uint256) {
         require(
             (isQuoted[tokenA][tokenB]) || (isQuoted[tokenB][tokenA]),
-             "OC: None of tokens is quoted!"
+            "OC: None of tokens is quoted!"
         );
         if (isQuoted[tokenA][tokenB]) {
             return pairPrices[tokenA][tokenB];
@@ -381,19 +390,32 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         return slippage;
     }
 
+    /// @dev Calculates the hash of the transaction with nonce and contract address
+    /// @param nonce The unique integer
+    function getTxHash(uint256 nonce) public view returns (bytes32) {
+        return
+            keccak256(
+                abi.encodePacked(
+                    // Include the address of the contract to make hash even more unique
+                    address(this),
+                    nonce
+                )
+            );
+    }
+
     /// @dev Verifies that message was signed by the backend
-    /// @param msgHash An unsigned hashed data
-    /// @param signature A signature used to sign the `msgHash`
+    /// @param signature A signature used to sign the tx
+    /// @param txHash An unsigned hashed data
+    /// @return True if tx was signed by the backend. Otherwise false.
     function _verifyBackendSignature(
-        bytes32 msgHash,
         bytes calldata signature,
-        address user
-    ) private pure returns (bool) {
+        bytes32 txHash
+    ) private view returns (bool) {
         // Remove the "\x19Ethereum Signed Message:\n" prefix from the signature
-        bytes32 clearHash = msgHash.toEthSignedMessageHash();
-        // Recover the address of the user who signed the `msgHash` with `signature`
+        bytes32 clearHash = txHash.toEthSignedMessageHash();
+        // Recover the address of the user who signed the tx
         address recoveredUser = clearHash.recover(signature);
-        return recoveredUser == user;
+        return recoveredUser == backendAcc;
     }
 
     function _createOrder(
@@ -405,9 +427,9 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         uint256 limitPrice,
         uint256 slippage,
         bool isCancellable,
-        bytes32 msgHash,
+        uint256 nonce,
         bytes calldata signature
-    ) private onlyBackend(msgHash, signature, backendAcc) {
+    ) private onlyBackend(nonce, signature) {
         // Make copies of parameters to avoid `Stack too deep` error
         address tokenA_ = tokenA;
         address tokenB_ = tokenB;
@@ -420,7 +442,12 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
 
         require(tokenA_ != address(0), "OC: Cannot buy native tokens!");
         require(amount_ != 0, "OC: Cannot buy/sell zero tokens!");
-
+        if (!isCancellable) {
+            require(
+                _type == OrderType.Limit,
+                "OC: Only limits can be non-cancellable!"
+            );
+        }
         // If none of the tokens is quoted, `tokenB` becomes a quoted token
         if (!isQuoted[tokenA_][tokenB_] && !isQuoted[tokenB_][tokenA_]) {
             isQuoted[tokenA_][tokenB_] = true;
@@ -441,10 +468,10 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
                 if (isQuoted[tokenA_][tokenB_]) {
                     // If `tokenB` is a quoted token, then `price` does not change
                     // because it's expressed in this token
-                    lockAmount = amount_ * price / PRICE_PRECISION;
+                    lockAmount = (amount_ * price) / PRICE_PRECISION;
                 } else {
                     // If `tokenA` is a quoted token, then `price` should be inversed
-                    lockAmount = amount_ * PRICE_PRECISION / price;
+                    lockAmount = (amount_ * PRICE_PRECISION) / price;
                 }
             }
             if (side_ == OrderSide.Sell) {
@@ -456,26 +483,17 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
             require(limitPrice_ != 0, "OC: Limit zero in limit order!");
             require(slippage_ == 0, "OC: Slippage not zero in limit order!");
             if (side_ == OrderSide.Buy) {
-                require(
-                    isCancellable_ == false,
-                    "OC: Limit buy orders are non-cancellable!"
-                );
                 // User has to lock enough `tokenB` to pay after price reaches the limit
                 if (isQuoted[tokenA_][tokenB_]) {
                     // If `tokenB` is a quoted token, then `limitPrice` does not change
                     // because it's expressed in this token
-                    lockAmount = amount_ * limitPrice_ / PRICE_PRECISION;
+                    lockAmount = (amount_ * limitPrice_) / PRICE_PRECISION;
                 } else {
                     // If `tokenA` is a quoted token, then `limitPrice` should be inversed
-                    lockAmount = amount_ * PRICE_PRECISION / limitPrice_;
+                    lockAmount = (amount_ * PRICE_PRECISION) / limitPrice_;
                 }
-
             }
             if (side_ == OrderSide.Sell) {
-                require(
-                    IBentureProducedToken(tokenB_).checkAdmin(msg.sender),
-                    "OC: Not an admin of the project!"
-                );
                 // User has to lock exactly the amount of `tokenB` he is selling
                 lockAmount = amount_;
             }
@@ -483,7 +501,6 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
 
         // Calculate the fee amount for the order
         uint256 feeAmount = _getFee(lockAmount);
-
 
         // Mark that fee amount of `tokenB` was increased
         tokenFees[tokenB_] += feeAmount;
@@ -541,13 +558,11 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
 
     function _cancelOrder(
         uint256 id,
-        bytes32 msgHash,
+        uint256 nonce,
         bytes calldata signature
-    ) private onlyBackend(msgHash, signature, backendAcc) {
+    ) private onlyBackend(nonce, signature) {
         Order storage order = _orders[id];
         require(order.isCancellable, "OC: Order is non-cancellable!");
-        // Only limit orders can be cancelled
-        require(order.type_ == OrderType.Limit, "OC: Not a limit order!");
         require(
             (order.status == OrderStatus.Active) ||
                 (order.status == OrderStatus.PartiallyClosed),
@@ -571,10 +586,9 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     function _matchOrders(
         uint256 initId,
         uint256[] memory matchedIds,
-        bytes32 msgHash,
+        uint256 nonce,
         bytes calldata signature
-    ) private onlyBackend(msgHash, signature, backendAcc) {
-
+    ) private onlyBackend(nonce, signature) {
         // NOTICE: No checks are done here. Fully trust the backend
 
         // The amount of gas spent for all operations below
@@ -621,13 +635,16 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
             // In case two limit orders match, the one with a smaller amount will be fully closed first
             // so its price should be used
             if (initOrder.type_ == OrderType.Limit) {
-                if (initOrder.amount - initOrder.amountCurrent < matchedOrder.amount - matchedOrder.amountCurrent) {
+                if (
+                    initOrder.amount - initOrder.amountCurrent <
+                    matchedOrder.amount - matchedOrder.amountCurrent
+                ) {
                     price = initOrder.limitPrice;
                 } else {
                     price = matchedOrder.limitPrice;
                 }
-            // In case a limit and a market orders match, market order gets executed
-            // with price of a limit order
+                // In case a limit and a market orders match, market order gets executed
+                // with price of a limit order
             } else {
                 price = matchedOrder.limitPrice;
             }
@@ -646,13 +663,16 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
                     if (quotedInInitB) {
                         IERC20(initOrder.tokenB).safeTransfer(
                             matchedOrder.user,
-                            (matchedOrder.amount - matchedOrder.amountCurrent) *
-                                price / PRICE_PRECISION
+                            ((matchedOrder.amount -
+                                matchedOrder.amountCurrent) * price) /
+                                PRICE_PRECISION
                         );
                     } else {
                         IERC20(initOrder.tokenB).safeTransfer(
                             matchedOrder.user,
-                            (matchedOrder.amount - matchedOrder.amountCurrent) * PRICE_PRECISION / price
+                            ((matchedOrder.amount -
+                                matchedOrder.amountCurrent) * PRICE_PRECISION) /
+                                price
                         );
                     }
                     // Initial order bought amount gets increased by the amount of tokens bought
@@ -660,8 +680,8 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
                         matchedOrder.amountCurrent);
                     // Whole amount of matched order was sold
                     matchedOrder.amountCurrent = matchedOrder.amount;
-                // When trying to buy less or equal to what is available in matched order, only bought amount
-                // gets transferred (it's less). Some amount stays locked in the matched order
+                    // When trying to buy less or equal to what is available in matched order, only bought amount
+                    // gets transferred (it's less). Some amount stays locked in the matched order
                 } else {
                     IERC20(initOrder.tokenA).safeTransfer(
                         initOrder.user,
@@ -670,14 +690,15 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
                     if (quotedInInitB) {
                         IERC20(initOrder.tokenB).safeTransfer(
                             matchedOrder.user,
-                            (initOrder.amount - initOrder.amountCurrent) * price / PRICE_PRECISION
+                            ((initOrder.amount - initOrder.amountCurrent) *
+                                price) / PRICE_PRECISION
                         );
                     } else {
                         IERC20(initOrder.tokenB).safeTransfer(
                             matchedOrder.user,
-                            (initOrder.amount - initOrder.amountCurrent) * PRICE_PRECISION / price
+                            ((initOrder.amount - initOrder.amountCurrent) *
+                                PRICE_PRECISION) / price
                         );
-
                     }
                     // Matched order sold amount gets increased by the amount of tokens sold
                     matchedOrder.amountCurrent += (initOrder.amount -
@@ -696,16 +717,17 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
                     if (quotedInInitB) {
                         IERC20(initOrder.tokenA).safeTransfer(
                             initOrder.user,
-                            (matchedOrder.amount - matchedOrder.amountCurrent) * PRICE_PRECISION /
+                            ((matchedOrder.amount -
+                                matchedOrder.amountCurrent) * PRICE_PRECISION) /
                                 price
                         );
                     } else {
                         IERC20(initOrder.tokenA).safeTransfer(
                             initOrder.user,
-                            (matchedOrder.amount - matchedOrder.amountCurrent) * price /
+                            ((matchedOrder.amount -
+                                matchedOrder.amountCurrent) * price) /
                                 PRICE_PRECISION
                         );
-
                     }
                     IERC20(initOrder.tokenB).safeTransfer(
                         matchedOrder.user,
@@ -716,18 +738,20 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
                         matchedOrder.amountCurrent);
                     // Whole amount of matched order was bought
                     matchedOrder.amountCurrent = matchedOrder.amount;
-                // When trying to sell less tokens than buyer can purchase, whole available amount of sold
-                // tokens gets transferred to the buyer
+                    // When trying to sell less tokens than buyer can purchase, whole available amount of sold
+                    // tokens gets transferred to the buyer
                 } else {
                     if (quotedInInitB) {
                         IERC20(initOrder.tokenA).safeTransfer(
                             initOrder.user,
-                            (initOrder.amount - initOrder.amountCurrent) * PRICE_PRECISION / price
+                            ((initOrder.amount - initOrder.amountCurrent) *
+                                PRICE_PRECISION) / price
                         );
                     } else {
                         IERC20(initOrder.tokenA).safeTransfer(
                             initOrder.user,
-                            (initOrder.amount - initOrder.amountCurrent) * price / PRICE_PRECISION
+                            ((initOrder.amount - initOrder.amountCurrent) *
+                                price) / PRICE_PRECISION
                         );
                     }
                     IERC20(initOrder.tokenB).safeTransfer(
@@ -776,7 +800,6 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
                 emit GasLimitReached(gasSpent, block.gaslimit);
                 break;
             }
-
         }
 
         // If the initial order is a limit order and it has a price higher than market,

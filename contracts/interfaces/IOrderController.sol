@@ -90,7 +90,6 @@ interface IOrderController {
         bool isCancellable
     );
 
-
     /// @notice Indicates that order fee rate was changed
     /// @param oldFeeRate The old fee rate
     /// @param newFeeRate The new set fee rate
@@ -198,7 +197,7 @@ interface IOrderController {
     /// @param limitPrice The limit price of the order in quoted tokens
     /// @param slippage Allowed price slippage (in basis points)
     /// @param isCancellable True if order is cancellable. Otherwise - false
-    /// @param msgHash The hash of the message signed by backend
+    /// @param nonce A unique integer for each tx call
     /// @param signature The signature used to sign the hash of the message
     function createOrder(
         address tokenA,
@@ -209,18 +208,18 @@ interface IOrderController {
         uint256 limitPrice,
         uint256 slippage,
         bool isCancellable,
-        bytes32 msgHash,
+        uint256 nonce,
         bytes calldata signature
     ) external;
 
     /// @notice Cancels the limit order with the given ID.
     ///         Only limit orders can be cancelled
     /// @param id The ID of the limit order to cancel
-    /// @param msgHash The hash of the message signed by backend
+    /// @param nonce A unique integer for each tx call
     /// @param signature The signature used to sign the hash of the message
     function cancelOrder(
         uint256 id,
-        bytes32 msgHash,
+        uint256 nonce,
         bytes calldata signature
     ) external;
 
@@ -229,14 +228,14 @@ interface IOrderController {
     /// @param tokenB The address of the token that is sold
     /// @param amount The amount of sold tokens
     /// @param price The limit price of the order in quoted tokens
-    /// @param msgHash The hash of the message signed by backend
+    /// @param nonce A unique integer for each tx call
     /// @param signature The signature used to sign the hash of the message
     function startSaleSingle(
         address tokenA,
         address tokenB,
         uint256 amount,
         uint256 price,
-        bytes32 msgHash,
+        uint256 nonce,
         bytes calldata signature
     ) external;
 
@@ -245,28 +244,28 @@ interface IOrderController {
     /// @param tokenB The address of the token that is sold
     /// @param amounts The list of amounts of sold tokens. One for each series
     /// @param prices The list of prices of sold tokens. One for each series
-    /// @param msgHash The hash of the message signed by backend
+    /// @param nonce A unique integer for each tx call
     /// @param signature The signature used to sign the hash of the message
     function startSaleMultiple(
         address tokenA,
         address tokenB,
         uint256[] memory amounts,
         uint256[] memory prices,
-        bytes32 msgHash,
+        uint256 nonce,
         bytes calldata signature
     ) external;
 
     /// @notice Executes matched orders
     /// @param initId The ID of the market/limit order
     /// @param matchedIds The list of IDs of limit orders
-    /// @param msgHash The hash of the message signed by backend
+    /// @param nonce A unique integer for each tx call
     /// @param signature The signature used to sign the hash of the message
     /// @dev Sum of locked amounts of `matchedIds` is always less than or
     ///      equal to the
     function matchOrders(
         uint256 initId,
         uint256[] memory matchedIds,
-        bytes32 msgHash,
+        uint256 nonce,
         bytes calldata signature
     ) external;
 
