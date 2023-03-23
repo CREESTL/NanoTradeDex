@@ -70,8 +70,8 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
 
     /// @notice Sets the inital fee rate for orders
     constructor() {
-        // Default fee rate is 0.1% (1 BP)
-        feeRate = 1;
+        // Default fee rate is 0.1% (10 BP)
+        feeRate = 10;
     }
 
     /// @notice See {IOrderController-getUserOrders}
