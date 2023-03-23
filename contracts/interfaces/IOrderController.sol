@@ -90,7 +90,6 @@ interface IOrderController {
         bool isCancellable
     );
 
-
     /// @notice Indicates that order fee rate was changed
     /// @param oldFeeRate The old fee rate
     /// @param newFeeRate The new set fee rate
