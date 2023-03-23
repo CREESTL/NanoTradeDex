@@ -55,10 +55,12 @@ interface IOrderController {
         // Order side (buy or sell)
         OrderSide side;
         // Only for limit orders. Zero for market orders
+        // Includes precision
+        // Expressed in quoted tokens
         uint256 limitPrice;
         // Allowed price slippage in Basis Points
         uint256 slippage;
-        // Cancellability
+        // True if order can be cancelled, false - if not
         bool isCancellable;
         // Status
         OrderStatus status;
@@ -74,7 +76,7 @@ interface IOrderController {
     /// @param amount The amount of active tokens
     /// @param type_ The type of the order
     /// @param side The side of the order
-    /// @param limitPrice The limit price of the order (for limit orders only)
+    /// @param limitPrice The limit price of the order in quoted tokens
     /// @param isCancellable True if order is cancellable. Otherwise - false
     event OrderCreated(
         uint256 indexed id,
@@ -88,17 +90,6 @@ interface IOrderController {
         bool isCancellable
     );
 
-    // TODO change that
-    // TODO add field description
-    /// @notice Indicates that two orders have matched
-    event OrderMatched(
-        uint256 id,
-        uint256 matchedId, // 0 for initiator
-        uint256 amountReceived, // received amount, need to deduct fee
-        uint256 amountPaid, // paid amount, need to deduct fee
-        uint256 fee,
-        uint256 feeRate // current fee rate, it can be changed
-    );
 
     /// @notice Indicates that order fee rate was changed
     /// @param oldFeeRate The old fee rate
@@ -116,6 +107,12 @@ interface IOrderController {
     /// @param initId The ID of first matched order
     /// @param matchedId The ID of the second matched order
     event OrdersMatched(uint256 initId, uint256 matchedId);
+
+    /// @notice Indicates that price of the pair was changed
+    /// @param tokenA The address of the first token of the pair
+    /// @param tokenB The address of the second token of the pair
+    /// @param newPrice The new price of the pair in quoted tokens
+    event PriceChanged(address tokenA, address tokenB, uint256 newPrice);
 
     /// @notice Indicates that fees collected with one token were withdrawn
     /// @param token The address of the token in which fees were collected
@@ -139,6 +136,11 @@ interface IOrderController {
         address user
     ) external view returns (uint256[] memory);
 
+    /// @notice Checks that order with the given ID exists
+    /// @param id The ID to search for
+    /// @return True if order with the given ID exists. Otherwise - false
+    function checkOrderExists(uint256 id) external view returns (bool);
+
     /// @notice Returns information about the given order
     /// @param _id The ID of the order to search
     /// @return The creator of the order
@@ -148,7 +150,7 @@ interface IOrderController {
     /// @return The current increasing amount of active tokens
     /// @return The type of the order
     /// @return The side of the order
-    /// @return The limit price of the order (for limit orders only)
+    /// @return The limit price of the order in quoted tokens
     /// @return True if order is cancellable. Otherwise - false
     /// @return The current status of the order
     function getOrder(
@@ -178,13 +180,22 @@ interface IOrderController {
         address tokenB
     ) external view returns (uint256[] memory);
 
+    /// @notice Checks if orders have matched any time before
+    /// @param firstId The ID of the first order to check
+    /// @param secondId The ID of the second order to check
+    /// @return True if orders matched. Otherwise - false
+    function checkMatched(
+        uint256 firstId,
+        uint256 secondId
+    ) external view returns (bool);
+
     /// @notice Creates an order with specified parameters
     /// @param tokenA The address of the token that is purchased
     /// @param tokenB The address of the token that is sold
     /// @param amount The amount of active tokens
     /// @param type_ The type of the order
     /// @param side The side of the order (buy / sell)
-    /// @param limitPrice The limit price of the order (for limit orders only)
+    /// @param limitPrice The limit price of the order in quoted tokens
     /// @param slippage Allowed price slippage (in basis points)
     /// @param isCancellable True if order is cancellable. Otherwise - false
     /// @param msgHash The hash of the message signed by backend
@@ -217,7 +228,7 @@ interface IOrderController {
     /// @param tokenA The address of the token that is received
     /// @param tokenB The address of the token that is sold
     /// @param amount The amount of sold tokens
-    /// @param price The amount of `tokenB` paid for a single `tokenA`
+    /// @param price The limit price of the order in quoted tokens
     /// @param msgHash The hash of the message signed by backend
     /// @param signature The signature used to sign the hash of the message
     function startSaleSingle(
@@ -246,8 +257,8 @@ interface IOrderController {
     ) external;
 
     /// @notice Executes matched orders
-    /// @param initId The ID of the first of matched orders
-    /// @param matchedIds The list of IDs that matched with `initId`
+    /// @param initId The ID of the market/limit order
+    /// @param matchedIds The list of IDs of limit orders
     /// @param msgHash The hash of the message signed by backend
     /// @param signature The signature used to sign the hash of the message
     /// @dev Sum of locked amounts of `matchedIds` is always less than or
