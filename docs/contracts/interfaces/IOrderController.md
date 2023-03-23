@@ -13,7 +13,7 @@
 ### cancelOrder
 
 ```solidity
-function cancelOrder(uint256 id) external nonpayable
+function cancelOrder(uint256 id, uint256 nonce, bytes signature) external nonpayable
 ```
 
 Cancels the limit order with the given ID.         Only limit orders can be cancelled
@@ -25,11 +25,58 @@ Cancels the limit order with the given ID.         Only limit orders can be canc
 | Name | Type | Description |
 |---|---|---|
 | id | uint256 | The ID of the limit order to cancel |
+| nonce | uint256 | A unique integer for each tx call |
+| signature | bytes | The signature used to sign the hash of the message |
+
+### checkMatched
+
+```solidity
+function checkMatched(uint256 firstId, uint256 secondId) external view returns (bool)
+```
+
+Checks if orders have matched any time before
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| firstId | uint256 | The ID of the first order to check |
+| secondId | uint256 | The ID of the second order to check |
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | bool | True if orders matched. Otherwise - false |
+
+### checkOrderExists
+
+```solidity
+function checkOrderExists(uint256 id) external view returns (bool)
+```
+
+Checks that order with the given ID exists
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| id | uint256 | The ID to search for |
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | bool | True if order with the given ID exists. Otherwise - false |
 
 ### createOrder
 
 ```solidity
-function createOrder(address tokenA, address tokenB, uint256 amountA, uint256 amountB, enum IOrderController.OrderType type_, uint256 limit, bool isCancellable) external nonpayable
+function createOrder(address tokenA, address tokenB, uint256 amount, enum IOrderController.OrderType type_, enum IOrderController.OrderSide side, uint256 limitPrice, uint256 slippage, bool isCancellable, uint256 nonce, bytes signature) external nonpayable
 ```
 
 Creates an order with specified parameters
@@ -42,16 +89,19 @@ Creates an order with specified parameters
 |---|---|---|
 | tokenA | address | The address of the token that is purchased |
 | tokenB | address | The address of the token that is sold |
-| amountA | uint256 | The amount of purchased tokens |
-| amountB | uint256 | The amount of sold tokens |
+| amount | uint256 | The amount of active tokens |
 | type_ | enum IOrderController.OrderType | The type of the order |
-| limit | uint256 | The limit amount of the order (for limit orders only) |
+| side | enum IOrderController.OrderSide | The side of the order (buy / sell) |
+| limitPrice | uint256 | The limit price of the order in quoted tokens |
+| slippage | uint256 | Allowed price slippage (in basis points) |
 | isCancellable | bool | True if order is cancellable. Otherwise - false |
+| nonce | uint256 | A unique integer for each tx call |
+| signature | bytes | The signature used to sign the hash of the message |
 
 ### getOrder
 
 ```solidity
-function getOrder(uint256 _id) external view returns (address, address, address, uint256, uint256, uint256, uint256, enum IOrderController.OrderType, uint256, bool, enum IOrderController.OrderStatus)
+function getOrder(uint256 _id) external view returns (address, address, address, uint256, uint256, enum IOrderController.OrderType, enum IOrderController.OrderSide, uint256, bool, enum IOrderController.OrderStatus)
 ```
 
 Returns information about the given order
@@ -71,14 +121,36 @@ Returns information about the given order
 | _0 | address | The creator of the order |
 | _1 | address | The address of the token that is purchased |
 | _2 | address | The address of the token that is sold |
-| _3 | uint256 | The initial amount of purchased tokens |
-| _4 | uint256 | The initial amount of sold tokens |
-| _5 | uint256 | The current amount of purchased tokens |
-| _6 | uint256 | The current amount of sold tokens |
-| _7 | enum IOrderController.OrderType | The type of the order |
-| _8 | uint256 | The limit amount of the order (for limit orders only) |
-| _9 | bool | True if order is cancellable. Otherwise - false |
-| _10 | enum IOrderController.OrderStatus | The current status of the order |
+| _3 | uint256 | The initial amount of active tokens |
+| _4 | uint256 | The current increasing amount of active tokens |
+| _5 | enum IOrderController.OrderType | The type of the order |
+| _6 | enum IOrderController.OrderSide | The side of the order |
+| _7 | uint256 | The limit price of the order in quoted tokens |
+| _8 | bool | True if order is cancellable. Otherwise - false |
+| _9 | enum IOrderController.OrderStatus | The current status of the order |
+
+### getOrdersByTokens
+
+```solidity
+function getOrdersByTokens(address tokenA, address tokenB) external view returns (uint256[])
+```
+
+Returns the lisf of IDs of orders containing given tokens
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| tokenA | address | The address of the token that is purchased |
+| tokenB | address | The address of the token that is sold |
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | uint256[] | The list of IDs of orders containing given tokens |
 
 ### getUserOrders
 
@@ -105,23 +177,37 @@ Returns the list of IDs of orders user has created
 ### matchOrders
 
 ```solidity
-function matchOrders(uint256[] matchedOrderIds, address tokenA, address tokenB, uint256 amountA, uint256 amountB, bool isMarket) external nonpayable
+function matchOrders(uint256 initId, uint256[] matchedIds, uint256 nonce, bytes signature) external nonpayable
 ```
 
 Executes matched orders
 
-
+*Sum of locked amounts of `matchedIds` is always less than or      equal to the*
 
 #### Parameters
 
 | Name | Type | Description |
 |---|---|---|
-| matchedOrderIds | uint256[] | The list of IDs of matched orders |
-| tokenA | address | The address of the token that is purchased |
-| tokenB | address | The address of the token that is sold |
-| amountA | uint256 | The amount of purchased tokens |
-| amountB | uint256 | The amount of sold tokens |
-| isMarket | bool | undefined |
+| initId | uint256 | The ID of the market/limit order |
+| matchedIds | uint256[] | The list of IDs of limit orders |
+| nonce | uint256 | A unique integer for each tx call |
+| signature | bytes | The signature used to sign the hash of the message |
+
+### setBackend
+
+```solidity
+function setBackend(address acc) external nonpayable
+```
+
+Sets the address of the backend account
+
+*This function should be called right after contract deploy.      Otherwise, order creation/cancelling/matching will not work.*
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| acc | address | The address of the backend account |
 
 ### setFee
 
@@ -139,13 +225,13 @@ Sets a new fee rate
 |---|---|---|
 | newFeeRate | uint256 | A new fee rate |
 
-### withdrawFee
+### startSaleMultiple
 
 ```solidity
-function withdrawFee(address token) external nonpayable
+function startSaleMultiple(address tokenA, address tokenB, uint256[] amounts, uint256[] prices, uint256 nonce, bytes signature) external nonpayable
 ```
 
-Withdraws fees accumulated by orders of one token
+Starts a multiple series sale of project tokens
 
 
 
@@ -153,7 +239,60 @@ Withdraws fees accumulated by orders of one token
 
 | Name | Type | Description |
 |---|---|---|
-| token | address | The address of the token to withdraw fees of |
+| tokenA | address | The address of the token that is received |
+| tokenB | address | The address of the token that is sold |
+| amounts | uint256[] | The list of amounts of sold tokens. One for each series |
+| prices | uint256[] | The list of prices of sold tokens. One for each series |
+| nonce | uint256 | A unique integer for each tx call |
+| signature | bytes | The signature used to sign the hash of the message |
+
+### startSaleSingle
+
+```solidity
+function startSaleSingle(address tokenA, address tokenB, uint256 amount, uint256 price, uint256 nonce, bytes signature) external nonpayable
+```
+
+Starts a single series sale of project tokens
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| tokenA | address | The address of the token that is received |
+| tokenB | address | The address of the token that is sold |
+| amount | uint256 | The amount of sold tokens |
+| price | uint256 | The limit price of the order in quoted tokens |
+| nonce | uint256 | A unique integer for each tx call |
+| signature | bytes | The signature used to sign the hash of the message |
+
+### withdrawAllFees
+
+```solidity
+function withdrawAllFees() external nonpayable
+```
+
+Withdraws all fees accumulated by creation of orders
+
+
+
+
+### withdrawFees
+
+```solidity
+function withdrawFees(address[] tokens) external nonpayable
+```
+
+Withdraws fees accumulated by creation of specified orders
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| tokens | address[] | The list of addresses of active tokens of the order |
 
 
 
@@ -176,6 +315,40 @@ Indicates that order fee rate was changed
 | oldFeeRate  | uint256 | The old fee rate |
 | newFeeRate  | uint256 | The new set fee rate |
 
+### FeesWithdrawn
+
+```solidity
+event FeesWithdrawn(address token, uint256 amount)
+```
+
+Indicates that fees collected with one token were withdrawn
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| token  | address | The address of the token in which fees were collected |
+| amount  | uint256 | The amount of fees withdrawn |
+
+### GasLimitReached
+
+```solidity
+event GasLimitReached(uint256 gasLeft, uint256 gasLimit)
+```
+
+
+
+*Indicates that 2/3 of block gas limit was spent during the      iteration inside the contract method*
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| gasLeft  | uint256 | How much gas was used |
+| gasLimit  | uint256 | The block gas limit |
+
 ### OrderCancelled
 
 ```solidity
@@ -195,26 +368,34 @@ Indicates that the order was cancelled
 ### OrderCreated
 
 ```solidity
-event OrderCreated(uint256 indexed id)
+event OrderCreated(uint256 indexed id, address user, address indexed tokenA, address indexed tokenB, uint256 amount, enum IOrderController.OrderType type_, enum IOrderController.OrderSide side, uint256 limitPrice, bool isCancellable)
 ```
 
 Indicates that a new order has been created.
 
-*No need to pass all order fields here. It&#39;s easier to use getter by ID*
+
 
 #### Parameters
 
 | Name | Type | Description |
 |---|---|---|
-| id `indexed` | uint256 | The ID of the created order |
+| id `indexed` | uint256 | The ID of the order |
+| user  | address | The creator of the order |
+| tokenA `indexed` | address | The address of the token that is purchased |
+| tokenB `indexed` | address | The address of the token that is sold |
+| amount  | uint256 | The amount of active tokens |
+| type_  | enum IOrderController.OrderType | The type of the order |
+| side  | enum IOrderController.OrderSide | The side of the order |
+| limitPrice  | uint256 | The limit price of the order in quoted tokens |
+| isCancellable  | bool | True if order is cancellable. Otherwise - false |
 
-### OrderMatched
+### OrdersMatched
 
 ```solidity
-event OrderMatched(uint256 id, uint256 matchedId, uint256 amountReceived, uint256 amountPaid, uint256 fee, uint256 feeRate)
+event OrdersMatched(uint256 initId, uint256 matchedId)
 ```
 
-Indicates that two orders have matched
+Indicates that orders were matched
 
 
 
@@ -222,12 +403,61 @@ Indicates that two orders have matched
 
 | Name | Type | Description |
 |---|---|---|
-| id  | uint256 | undefined |
-| matchedId  | uint256 | undefined |
-| amountReceived  | uint256 | undefined |
-| amountPaid  | uint256 | undefined |
-| fee  | uint256 | undefined |
-| feeRate  | uint256 | undefined |
+| initId  | uint256 | The ID of first matched order |
+| matchedId  | uint256 | The ID of the second matched order |
 
+### PriceChanged
+
+```solidity
+event PriceChanged(address tokenA, address tokenB, uint256 newPrice)
+```
+
+Indicates that price of the pair was changed
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| tokenA  | address | The address of the first token of the pair |
+| tokenB  | address | The address of the second token of the pair |
+| newPrice  | uint256 | The new price of the pair in quoted tokens |
+
+### SaleStarted
+
+```solidity
+event SaleStarted(address token)
+```
+
+Indicates that a single series sale has started
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| token  | address | The address of the token being sold |
+
+
+
+## Errors
+
+### SlippageTooBig
+
+```solidity
+error SlippageTooBig(uint256 slippage)
+```
+
+Indicates that price slippage was too big
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| slippage | uint256 | The real slippage |
 
 
