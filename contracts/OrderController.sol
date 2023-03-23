@@ -245,7 +245,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         bytes32 msgHash,
         bytes calldata signature
     ) public nonReentrant onlyBackend(msgHash, signature, backendAcc) {
-        // Only admin of the sold token (`tokenB`) project can start the ICO of tokens
+        // Only admin of the sold token `tokenB` project can start the ICO of tokens
         require(
             IBentureProducedToken(tokenB).checkAdmin(msg.sender),
             "OC: Not an admin of the project"
@@ -420,7 +420,9 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
 
         require(tokenA_ != address(0), "OC: Cannot buy native tokens!");
         require(amount_ != 0, "OC: Cannot buy/sell zero tokens!");
-
+        if (!isCancellable) {
+            require(_type == OrderType.Limit,  "OC: Only limits can be non-cancellable!");
+        }
         // If none of the tokens is quoted, `tokenB` becomes a quoted token
         if (!isQuoted[tokenA_][tokenB_] && !isQuoted[tokenB_][tokenA_]) {
             isQuoted[tokenA_][tokenB_] = true;
@@ -456,10 +458,6 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
             require(limitPrice_ != 0, "OC: Limit zero in limit order!");
             require(slippage_ == 0, "OC: Slippage not zero in limit order!");
             if (side_ == OrderSide.Buy) {
-                require(
-                    isCancellable_ == false,
-                    "OC: Limit buy orders are non-cancellable!"
-                );
                 // User has to lock enough `tokenB` to pay after price reaches the limit
                 if (isQuoted[tokenA_][tokenB_]) {
                     // If `tokenB` is a quoted token, then `limitPrice` does not change
@@ -472,10 +470,6 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
 
             }
             if (side_ == OrderSide.Sell) {
-                require(
-                    IBentureProducedToken(tokenB_).checkAdmin(msg.sender),
-                    "OC: Not an admin of the project!"
-                );
                 // User has to lock exactly the amount of `tokenB` he is selling
                 lockAmount = amount_;
             }
