@@ -60,7 +60,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     uint256 private constant HUNDRED_PERCENT = 10000;
 
     /// @dev Allows to executed only transactions signed by backend
-    modifier onlyBackend(uint256 nonce, bytes calldata signature) {
+    modifier onlyBackend(uint256 nonce, bytes memory signature) {
         // Calculate tx hash. Include some function parameters and nonce to
         // avoid Replay Attacks
         bytes32 txHash = getTxHash(nonce);
@@ -146,6 +146,88 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         return false;
     }
 
+    // TODO place it all into interface
+    function buyMarket(
+        address tokenA,
+        address tokenB,
+        uint256 amount,
+        uint256 slippage,
+        uint256 nonce,
+        bytes calldata signature
+    ) external nonReentrant {
+
+        // Form args structure to pass it to `createOrder` function later
+        OrderArgs memory args = OrderArgs(
+            tokenA,
+            tokenB,
+            amount,
+            // Initial amount is always 0
+            0,
+            OrderType.Market,
+            OrderSide.Buy,
+            // Limit price is 0 for market orders
+            0,
+            slippage,
+            // Leave 0 for lockAmount and feeAmount for now
+            0,
+            0,
+            false,
+            nonce,
+            signature
+        );
+
+        require(args.tokenA != address(0), "OC: Cannot buy native tokens!");
+        require(args.amount != 0, "OC: Cannot buy/sell zero tokens!");
+
+        // If none of the tokens is quoted, `tokenB_` becomes a quoted token
+        if (!isQuoted[args.tokenA][args.tokenB] && !isQuoted[args.tokenB][args.tokenA]) {
+            isQuoted[args.tokenA][args.tokenB] = true;
+        }
+
+        // The price of the pair in quoted tokens
+        uint256 price = getPrice(args.tokenA, args.tokenB);
+
+        uint256 lockAmount;
+
+        // User has to lock enough `tokenB_` to pay according to current price
+        if (isQuoted[args.tokenA][args.tokenB]) {
+            // If `tokenB_` is a quoted token, then `price` does not change
+            // because it's expressed in this token
+            lockAmount = (args.amount * price) / PRICE_PRECISION;
+        } else {
+            // If `tokenA_` is a quoted token, then `price` should be inversed
+            lockAmount = (args.amount * PRICE_PRECISION) / price;
+        }
+
+        uint256 feeAmount = _getFee(lockAmount);
+
+        // Mark that fee amount of `tokenB_` was increased
+        tokenFees[args.tokenB] += feeAmount;
+        lockedTokens.add(args.tokenB);
+
+        // Set the real fee and lock amounts
+        args.feeAmount = feeAmount;
+        args.lockAmount = lockAmount;
+
+        _createOrderMinimal(
+            args
+        );
+
+    }
+
+    function sellMarket() external {
+
+    }
+
+    function buyLimit() external {
+
+    }
+
+    function sellLimit() external {
+
+    }
+
+    // TODO replace it with buyMarket, sellMarket ...
     /// @notice See {IOrderController-createOrder}
     function createOrder(
         address tokenA,
@@ -408,7 +490,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     /// @param txHash An unsigned hashed data
     /// @return True if tx was signed by the backend. Otherwise false.
     function _verifyBackendSignature(
-        bytes calldata signature,
+        bytes memory signature,
         bytes32 txHash
     ) private view returns (bool) {
         // Remove the "\x19Ethereum Signed Message:\n" prefix from the signature
@@ -416,6 +498,64 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         // Recover the address of the user who signed the tx
         address recoveredUser = clearHash.recover(signature);
         return recoveredUser == backendAcc;
+    }
+
+    // TODO rename in to createOrder late
+    function _createOrderMinimal(
+        OrderArgs memory args
+    ) private onlyBackend(args.nonce, args.signature) {
+
+
+
+        // NOTICE: first order gets the ID of 1
+        _orderId.increment();
+        uint256 id = _orderId.current();
+
+        _orders[id] = Order(
+            id,
+            msg.sender,
+            args.tokenA,
+            args.tokenB,
+            args.amount,
+            0,
+            args.type_,
+            args.side,
+            args.limitPrice,
+            args.slippage,
+            args.isCancellable,
+            OrderStatus.Active,
+            args.feeAmount
+        );
+
+        // Mark that new ID corresponds to the pair of tokens
+        tokensToOrders[args.tokenA][args.tokenB].push(id);
+
+        // NOTICE: Order with ID1 has index 0
+        _usersToOrders[msg.sender].push(id);
+
+        emit OrderCreated(
+            id,
+            msg.sender,
+            args.tokenA,
+            args.tokenB,
+            args.amount,
+            args.type_,
+            args.side,
+            args.limitPrice,
+            args.isCancellable
+        );
+
+        // In any case, `tokenB` is the one that is locked.
+        // It gets transferred to the contract
+        // Fee is also paid in `tokenB`
+        // Fee gets transferred to the contract
+        // TODO transfer it strate to admins wallet instead???
+        IERC20(args.tokenB).safeTransferFrom(
+            msg.sender,
+            address(this),
+            args.lockAmount + args.feeAmount
+        );
+
     }
 
     function _createOrder(
