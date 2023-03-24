@@ -68,6 +68,40 @@ interface IOrderController {
         uint256 feeAmount;
     }
 
+    /// @dev Used to hold parameters for `_createOrder` internal function
+    ///      to avoid `Stack Too Deep` error.
+    struct OrderArgs {
+        // The address of the tokens that is purchased
+        address tokenA;
+        // The address of the tokens that is sold
+        address tokenB;
+        // The initial amount of active tokens
+        // Active tokens are defined by order side
+        // If it's a "sell" order, then `tokenB` is active
+        // If it's a "buy" order, then `tokenA` is active
+        // This amount does not change during order execution
+        uint256 amount;
+        // The current amount of active tokens
+        // Gets increased in any type of orders
+        uint256 amountCurrent;
+        // Order type (market or limit)
+        OrderType type_;
+        // Order side (buy or sell)
+        OrderSide side;
+        // Only for limit orders. Zero for market orders
+        // Includes precision
+        // Expressed in quoted tokens
+        uint256 limitPrice;
+        // Allowed price slippage in Basis Points
+        uint256 slippage;
+        // Amount of tokens locked ti pay for the order
+        uint256 lockAmount;
+        // Amount of tokens paid as fees for order creation
+        uint256 feeAmount;
+        // True if order can be cancelled, false - if not
+        bool isCancellable;
+    }
+
     /// @notice Indicates that a new order has been created.
     /// @param id The ID of the order
     /// @param user The creator of the order
@@ -188,39 +222,63 @@ interface IOrderController {
         uint256 secondId
     ) external view returns (bool);
 
-    /// @notice Creates an order with specified parameters
+    /// @notice Creates a buy market order
     /// @param tokenA The address of the token that is purchased
     /// @param tokenB The address of the token that is sold
     /// @param amount The amount of active tokens
-    /// @param type_ The type of the order
-    /// @param side The side of the order (buy / sell)
-    /// @param limitPrice The limit price of the order in quoted tokens
     /// @param slippage Allowed price slippage (in basis points)
-    /// @param isCancellable True if order is cancellable. Otherwise - false
-    /// @param nonce A unique integer for each tx call
-    /// @param signature The signature used to sign the hash of the message
-    function createOrder(
+    function buyMarket(
         address tokenA,
         address tokenB,
         uint256 amount,
-        OrderType type_,
-        OrderSide side,
+        uint256 slippage
+    ) external;
+
+    /// @notice Creates a sell market order
+    /// @param tokenA The address of the token that is purchased
+    /// @param tokenB The address of the token that is sold
+    /// @param amount The amount of active tokens
+    /// @param slippage Allowed price slippage (in basis points)
+    function sellMarket(
+        address tokenA,
+        address tokenB,
+        uint256 amount,
+        uint256 slippage
+    ) external;
+
+    /// @notice Creates an buy limit order
+    /// @param tokenA The address of the token that is purchased
+    /// @param tokenB The address of the token that is sold
+    /// @param amount The amount of active tokens
+    /// @param limitPrice The limit price of the order in quoted tokens
+    /// @param isCancellable True if order is cancellable. Otherwise - false
+    function buyLimit(
+        address tokenA,
+        address tokenB,
+        uint256 amount,
         uint256 limitPrice,
-        uint256 slippage,
-        bool isCancellable,
-        uint256 nonce,
-        bytes calldata signature
+        bool isCancellable
+    ) external;
+
+    /// @notice Creates an sell limit order
+    /// @param tokenA The address of the token that is purchased
+    /// @param tokenB The address of the token that is sold
+    /// @param amount The amount of active tokens
+    /// @param limitPrice The limit price of the order in quoted tokens
+    /// @param isCancellable True if order is cancellable. Otherwise - false
+    function sellLimit(
+        address tokenA,
+        address tokenB,
+        uint256 amount,
+        uint256 limitPrice,
+        bool isCancellable
     ) external;
 
     /// @notice Cancels the limit order with the given ID.
     ///         Only limit orders can be cancelled
     /// @param id The ID of the limit order to cancel
-    /// @param nonce A unique integer for each tx call
-    /// @param signature The signature used to sign the hash of the message
     function cancelOrder(
-        uint256 id,
-        uint256 nonce,
-        bytes calldata signature
+        uint256 id
     ) external;
 
     /// @notice Starts a single series sale of project tokens
@@ -228,15 +286,11 @@ interface IOrderController {
     /// @param tokenB The address of the token that is sold
     /// @param amount The amount of sold tokens
     /// @param price The limit price of the order in quoted tokens
-    /// @param nonce A unique integer for each tx call
-    /// @param signature The signature used to sign the hash of the message
     function startSaleSingle(
         address tokenA,
         address tokenB,
         uint256 amount,
-        uint256 price,
-        uint256 nonce,
-        bytes calldata signature
+        uint256 price
     ) external;
 
     /// @notice Starts a multiple series sale of project tokens
@@ -244,15 +298,11 @@ interface IOrderController {
     /// @param tokenB The address of the token that is sold
     /// @param amounts The list of amounts of sold tokens. One for each series
     /// @param prices The list of prices of sold tokens. One for each series
-    /// @param nonce A unique integer for each tx call
-    /// @param signature The signature used to sign the hash of the message
     function startSaleMultiple(
         address tokenA,
         address tokenB,
         uint256[] memory amounts,
-        uint256[] memory prices,
-        uint256 nonce,
-        bytes calldata signature
+        uint256[] memory prices
     ) external;
 
     /// @notice Executes matched orders
