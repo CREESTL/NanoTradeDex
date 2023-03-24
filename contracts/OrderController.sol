@@ -813,6 +813,12 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
                         matchedOrder.amountCurrent);
                     // Whole amount of matched order was sold
                     matchedOrder.amountCurrent = matchedOrder.amount;
+
+                    // Init order is partially closed
+                    initOrder.status = OrderStatus.PartiallyClosed;
+                    // Matched order is fully closed
+                    matchedOrder.status = OrderStatus.Closed;
+
                     // When trying to buy less or equal to what is available in matched order, only bought amount
                     // gets transferred (it's less). Some amount stays locked in the matched order
                 } else {
@@ -838,6 +844,11 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
                         initOrder.amountCurrent);
                     // Whole amount of initial order was bought
                     initOrder.amountCurrent = initOrder.amount;
+
+                    // Matched order is parially closed
+                    matchedOrder.status = OrderStatus.PartiallyClosed;
+                    // Init order is fully closed
+                    initOrder.status = OrderStatus.Closed;
                 }
             }
             if (initOrder.side == OrderSide.Sell) {
@@ -871,6 +882,12 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
                         matchedOrder.amountCurrent);
                     // Whole amount of matched order was bought
                     matchedOrder.amountCurrent = matchedOrder.amount;
+
+                    // Init order is partially closed
+                    initOrder.status = OrderStatus.PartiallyClosed;
+                    // Matched order is fully closed
+                    matchedOrder.status = OrderStatus.Closed;
+
                     // When trying to sell less tokens than buyer can purchase, whole available amount of sold
                     // tokens gets transferred to the buyer
                 } else {
@@ -896,6 +913,11 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
                         initOrder.amountCurrent);
                     // Whole amount of initial was sold
                     initOrder.amountCurrent = initOrder.amount;
+
+                    // Matched order is partially closed
+                    matchedOrder.status = OrderStatus.PartiallyClosed;
+                    // Init order is fully closed
+                    initOrder.status = OrderStatus.Closed;
                 }
             }
 
@@ -931,6 +953,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
             // Check that no more than 2/3 of block gas limit was spent
             if (gasSpent >= gasThreshold) {
                 emit GasLimitReached(gasSpent, block.gaslimit);
+                // No revert here. Part of changes will take place
                 break;
             }
         }
@@ -948,6 +971,8 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
                 initOrder.user,
                 initOrder.amount - initOrder.amountCurrent
             );
+            // After that init order gets closed
+            initOrder.status = OrderStatus.Closed;
         }
     }
 }
