@@ -90,6 +90,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     function getUserOrders(
         address user
     ) external view returns (uint256[] memory) {
+        require(user != address(0), "OC: Zero user address not allowed!");
         return _usersToOrders[user];
     }
 
@@ -112,6 +113,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
             OrderStatus
         )
     {
+        require(checkOrderExists(_id), "OC: Order does not exist!");
         Order memory order = _orders[_id];
         return (
             order.user,
@@ -544,13 +546,6 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     /// @return retAmount The fee amount that should be paid for order creation
     function _getFee(uint256 amount) private view returns (uint256 retAmount) {
         retAmount = (amount * feeRate) / HUNDRED_PERCENT;
-    }
-
-    /// @dev Subtracts the fee from transferred tokens amount
-    /// @param amount The amount of transferred tokens
-    /// @return retAmount The transferred amount minus the fee
-    function _subFee(uint256 amount) private view returns (uint256 retAmount) {
-        retAmount = amount - _getFee(amount);
     }
 
     /// @dev Returns the price of the pair in quoted tokens
