@@ -271,8 +271,71 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         );
     }
 
-    function buyLimit() external {
+    function buyLimit(
+        address tokenA,
+        address tokenB,
+        uint256 amount,
+        uint256 limitPrice,
+        bool isCancellable,
+        uint256 nonce,
+        bytes calldata signature
+    ) external {
 
+        // Form args structure to pass it to `createOrder` function later
+        OrderArgs memory args = OrderArgs(
+            tokenA,
+            tokenB,
+            amount,
+            // Initial amount is always 0
+            0,
+            OrderType.Limit,
+            OrderSide.Buy,
+            limitPrice,
+            // Slippage is 0 for limit orders
+            0,
+            // Leave 0 for lockAmount and feeAmount for now
+            0,
+            0,
+            isCancellable,
+            nonce,
+            signature
+        );
+
+        require(args.tokenA != address(0), "OC: Cannot buy native tokens!");
+        require(args.amount != 0, "OC: Cannot buy/sell zero tokens!");
+
+        // If none of the tokens is quoted, `tokenB_` becomes a quoted token
+        if (!isQuoted[args.tokenA][args.tokenB] && !isQuoted[args.tokenB][args.tokenA]) {
+            isQuoted[args.tokenA][args.tokenB] = true;
+        }
+
+
+        uint256 lockAmount;
+
+        // User has to lock enough `tokenB` to pay after price reaches the limit
+        if (isQuoted[args.tokenA][args.tokenB]) {
+            // If `tokenB` is a quoted token, then `limitPrice` does not change
+            // because it's expressed in this token
+            lockAmount = (args.amount * args.limitPrice) / PRICE_PRECISION;
+        } else {
+            // If `tokenA` is a quoted token, then `limitPrice` should be inversed
+            lockAmount = (args.amount * PRICE_PRECISION) / args.limitPrice;
+        }
+
+        // Calculate the fee amount for the order
+        uint256 feeAmount = _getFee(lockAmount);
+
+        // Mark that fee amount of `tokenB` was increased
+        tokenFees[args.tokenB] += feeAmount;
+        lockedTokens.add(args.tokenB);
+
+        // Set the real fee and lock amounts
+        args.feeAmount = feeAmount;
+        args.lockAmount = lockAmount;
+
+        _createOrderMinimal(
+            args
+        );
     }
 
     function sellLimit() external {
@@ -567,7 +630,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
             args.tokenA,
             args.tokenB,
             args.amount,
-            0,
+            args.amountCurrent,
             args.type_,
             args.side,
             args.limitPrice,
