@@ -154,7 +154,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         uint256 slippage,
         uint256 nonce,
         bytes calldata signature
-    ) external nonReentrant {
+    ) public nonReentrant {
 
         // Form args structure to pass it to `createOrder` function later
         OrderArgs memory args = OrderArgs(
@@ -222,7 +222,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         uint256 slippage,
         uint256 nonce,
         bytes calldata signature
-    ) external {
+    ) public nonReentrant {
 
         // Form args structure to pass it to `createOrder` function later
         OrderArgs memory args = OrderArgs(
@@ -280,7 +280,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         bool isCancellable,
         uint256 nonce,
         bytes calldata signature
-    ) external {
+    ) public nonReentrant {
 
         // Form args structure to pass it to `createOrder` function later
         OrderArgs memory args = OrderArgs(
@@ -347,7 +347,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         bool isCancellable,
         uint256 nonce,
         bytes calldata signature
-    ) external {
+    ) public nonReentrant {
 
         // Form args structure to pass it to `createOrder` function later
         OrderArgs memory args = OrderArgs(
@@ -513,21 +513,17 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
 
         emit SaleStarted(tokenB);
 
-        _createOrder(
+        sellLimit(
             tokenA,
             tokenB,
             amount,
-            OrderType.Limit,
-            OrderSide.Sell,
-            // Price is the limit where this order becomes tradeable
             price,
-            // Price slippage for limit orders is always zero
-            0,
             // Sale orders are non-cancellable
             false,
             nonce,
             signature
         );
+
     }
 
     /// @notice See {IOrderController-startSaleMultiple}
