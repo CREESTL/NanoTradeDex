@@ -215,8 +215,60 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
 
     }
 
-    function sellMarket() external {
+    function sellMarket(
+        address tokenA,
+        address tokenB,
+        uint256 amount,
+        uint256 slippage,
+        uint256 nonce,
+        bytes calldata signature
+    ) external {
 
+        // Form args structure to pass it to `createOrder` function later
+        OrderArgs memory args = OrderArgs(
+            tokenA,
+            tokenB,
+            amount,
+            // Initial amount is always 0
+            0,
+            OrderType.Market,
+            OrderSide.Sell,
+            // Limit price is 0 for market orders
+            0,
+            slippage,
+            // Leave 0 for lockAmount and feeAmount for now
+            0,
+            0,
+            false,
+            nonce,
+            signature
+        );
+
+        require(args.tokenA != address(0), "OC: Cannot buy native tokens!");
+        require(args.amount != 0, "OC: Cannot buy/sell zero tokens!");
+
+        // If none of the tokens is quoted, `tokenB_` becomes a quoted token
+        if (!isQuoted[args.tokenA][args.tokenB] && !isQuoted[args.tokenB][args.tokenA]) {
+            isQuoted[args.tokenA][args.tokenB] = true;
+        }
+
+
+        uint256 lockAmount = amount;
+
+        // Calculate the fee amount for the order
+        uint256 feeAmount = _getFee(lockAmount);
+
+        // Mark that fee amount of `tokenB` was increased
+        tokenFees[args.tokenB] += feeAmount;
+        lockedTokens.add(args.tokenB);
+
+        // Set the real fee and lock amounts
+        args.feeAmount = feeAmount;
+        args.lockAmount = lockAmount;
+
+        _createOrderMinimal(
+            args
+        );
     }
 
     function buyLimit() external {
@@ -504,8 +556,6 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     function _createOrderMinimal(
         OrderArgs memory args
     ) private onlyBackend(args.nonce, args.signature) {
-
-
 
         // NOTICE: first order gets the ID of 1
         _orderId.increment();
