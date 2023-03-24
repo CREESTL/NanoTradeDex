@@ -442,7 +442,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
 
         require(tokenA_ != address(0), "OC: Cannot buy native tokens!");
         require(amount_ != 0, "OC: Cannot buy/sell zero tokens!");
-        if (!isCancellable) {
+        if (isCancellable) {
             require(
                 _type == OrderType.Limit,
                 "OC: Only limits can be non-cancellable!"
