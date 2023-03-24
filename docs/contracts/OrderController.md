@@ -27,6 +27,49 @@ The address of the backend account
 |---|---|---|
 | _0 | address | undefined |
 
+### buyLimit
+
+```solidity
+function buyLimit(address tokenA, address tokenB, uint256 amount, uint256 limitPrice, bool isCancellable, uint256 nonce, bytes signature) external nonpayable
+```
+
+See {IOrderController-buyLimit}
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| tokenA | address | undefined |
+| tokenB | address | undefined |
+| amount | uint256 | undefined |
+| limitPrice | uint256 | undefined |
+| isCancellable | bool | undefined |
+| nonce | uint256 | undefined |
+| signature | bytes | undefined |
+
+### buyMarket
+
+```solidity
+function buyMarket(address tokenA, address tokenB, uint256 amount, uint256 slippage, uint256 nonce, bytes signature) external nonpayable
+```
+
+See {IOrderController-buyMarket}
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| tokenA | address | undefined |
+| tokenB | address | undefined |
+| amount | uint256 | undefined |
+| slippage | uint256 | undefined |
+| nonce | uint256 | undefined |
+| signature | bytes | undefined |
+
 ### cancelOrder
 
 ```solidity
@@ -89,31 +132,6 @@ See {IOrderController-checkOrderExists}
 | Name | Type | Description |
 |---|---|---|
 | _0 | bool | undefined |
-
-### createOrder
-
-```solidity
-function createOrder(address tokenA, address tokenB, uint256 amount, enum IOrderController.OrderType type_, enum IOrderController.OrderSide side, uint256 limitPrice, uint256 slippage, bool isCancellable, uint256 nonce, bytes signature) external nonpayable
-```
-
-See {IOrderController-createOrder}
-
-
-
-#### Parameters
-
-| Name | Type | Description |
-|---|---|---|
-| tokenA | address | undefined |
-| tokenB | address | undefined |
-| amount | uint256 | undefined |
-| type_ | enum IOrderController.OrderType | undefined |
-| side | enum IOrderController.OrderSide | undefined |
-| limitPrice | uint256 | undefined |
-| slippage | uint256 | undefined |
-| isCancellable | bool | undefined |
-| nonce | uint256 | undefined |
-| signature | bytes | undefined |
 
 ### executed
 
@@ -298,6 +316,49 @@ function renounceOwnership() external nonpayable
 
 *Leaves the contract without owner. It will not be possible to call `onlyOwner` functions anymore. Can only be called by the current owner. NOTE: Renouncing ownership will leave the contract without an owner, thereby removing any functionality that is only available to the owner.*
 
+
+### sellLimit
+
+```solidity
+function sellLimit(address tokenA, address tokenB, uint256 amount, uint256 limitPrice, bool isCancellable, uint256 nonce, bytes signature) external nonpayable
+```
+
+See {IOrderController-sellLimit}
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| tokenA | address | undefined |
+| tokenB | address | undefined |
+| amount | uint256 | undefined |
+| limitPrice | uint256 | undefined |
+| isCancellable | bool | undefined |
+| nonce | uint256 | undefined |
+| signature | bytes | undefined |
+
+### sellMarket
+
+```solidity
+function sellMarket(address tokenA, address tokenB, uint256 amount, uint256 slippage, uint256 nonce, bytes signature) external nonpayable
+```
+
+See {IOrderController-sellMarket}
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| tokenA | address | undefined |
+| tokenB | address | undefined |
+| amount | uint256 | undefined |
+| slippage | uint256 | undefined |
+| nonce | uint256 | undefined |
+| signature | bytes | undefined |
 
 ### setBackend
 

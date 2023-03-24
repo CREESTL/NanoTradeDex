@@ -10,6 +10,49 @@
 
 ## Methods
 
+### buyLimit
+
+```solidity
+function buyLimit(address tokenA, address tokenB, uint256 amount, uint256 limitPrice, bool isCancellable, uint256 nonce, bytes signature) external nonpayable
+```
+
+Creates an buy limit order
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| tokenA | address | The address of the token that is purchased |
+| tokenB | address | The address of the token that is sold |
+| amount | uint256 | The amount of active tokens |
+| limitPrice | uint256 | The limit price of the order in quoted tokens |
+| isCancellable | bool | True if order is cancellable. Otherwise - false |
+| nonce | uint256 | A unique integer for each tx call |
+| signature | bytes | The signature used to sign the hash of the message |
+
+### buyMarket
+
+```solidity
+function buyMarket(address tokenA, address tokenB, uint256 amount, uint256 slippage, uint256 nonce, bytes signature) external nonpayable
+```
+
+Creates a buy market order
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| tokenA | address | The address of the token that is purchased |
+| tokenB | address | The address of the token that is sold |
+| amount | uint256 | The amount of active tokens |
+| slippage | uint256 | Allowed price slippage (in basis points) |
+| nonce | uint256 | A unique integer for each tx call |
+| signature | bytes | The signature used to sign the hash of the message |
+
 ### cancelOrder
 
 ```solidity
@@ -72,31 +115,6 @@ Checks that order with the given ID exists
 | Name | Type | Description |
 |---|---|---|
 | _0 | bool | True if order with the given ID exists. Otherwise - false |
-
-### createOrder
-
-```solidity
-function createOrder(address tokenA, address tokenB, uint256 amount, enum IOrderController.OrderType type_, enum IOrderController.OrderSide side, uint256 limitPrice, uint256 slippage, bool isCancellable, uint256 nonce, bytes signature) external nonpayable
-```
-
-Creates an order with specified parameters
-
-
-
-#### Parameters
-
-| Name | Type | Description |
-|---|---|---|
-| tokenA | address | The address of the token that is purchased |
-| tokenB | address | The address of the token that is sold |
-| amount | uint256 | The amount of active tokens |
-| type_ | enum IOrderController.OrderType | The type of the order |
-| side | enum IOrderController.OrderSide | The side of the order (buy / sell) |
-| limitPrice | uint256 | The limit price of the order in quoted tokens |
-| slippage | uint256 | Allowed price slippage (in basis points) |
-| isCancellable | bool | True if order is cancellable. Otherwise - false |
-| nonce | uint256 | A unique integer for each tx call |
-| signature | bytes | The signature used to sign the hash of the message |
 
 ### getOrder
 
@@ -190,6 +208,49 @@ Executes matched orders
 |---|---|---|
 | initId | uint256 | The ID of the market/limit order |
 | matchedIds | uint256[] | The list of IDs of limit orders |
+| nonce | uint256 | A unique integer for each tx call |
+| signature | bytes | The signature used to sign the hash of the message |
+
+### sellLimit
+
+```solidity
+function sellLimit(address tokenA, address tokenB, uint256 amount, uint256 limitPrice, bool isCancellable, uint256 nonce, bytes signature) external nonpayable
+```
+
+Creates an sell limit order
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| tokenA | address | The address of the token that is purchased |
+| tokenB | address | The address of the token that is sold |
+| amount | uint256 | The amount of active tokens |
+| limitPrice | uint256 | The limit price of the order in quoted tokens |
+| isCancellable | bool | True if order is cancellable. Otherwise - false |
+| nonce | uint256 | A unique integer for each tx call |
+| signature | bytes | The signature used to sign the hash of the message |
+
+### sellMarket
+
+```solidity
+function sellMarket(address tokenA, address tokenB, uint256 amount, uint256 slippage, uint256 nonce, bytes signature) external nonpayable
+```
+
+Creates a sell market order
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| tokenA | address | The address of the token that is purchased |
+| tokenB | address | The address of the token that is sold |
+| amount | uint256 | The amount of active tokens |
+| slippage | uint256 | Allowed price slippage (in basis points) |
 | nonce | uint256 | A unique integer for each tx call |
 | signature | bytes | The signature used to sign the hash of the message |
 

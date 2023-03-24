@@ -155,7 +155,6 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         uint256 nonce,
         bytes calldata signature
     ) public nonReentrant {
-
         // Form args structure to pass it to `createOrder` function later
         OrderArgs memory args = OrderArgs(
             tokenA,
@@ -180,7 +179,10 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         require(args.amount != 0, "OC: Cannot buy/sell zero tokens!");
 
         // If none of the tokens is quoted, `tokenB_` becomes a quoted token
-        if (!isQuoted[args.tokenA][args.tokenB] && !isQuoted[args.tokenB][args.tokenA]) {
+        if (
+            !isQuoted[args.tokenA][args.tokenB] &&
+            !isQuoted[args.tokenB][args.tokenA]
+        ) {
             isQuoted[args.tokenA][args.tokenB] = true;
         }
 
@@ -209,10 +211,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         args.feeAmount = feeAmount;
         args.lockAmount = lockAmount;
 
-        _createOrder(
-            args
-        );
-
+        _createOrder(args);
     }
 
     /// @notice See {IOrderController-sellMarket}
@@ -224,7 +223,6 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         uint256 nonce,
         bytes calldata signature
     ) public nonReentrant {
-
         // Form args structure to pass it to `createOrder` function later
         OrderArgs memory args = OrderArgs(
             tokenA,
@@ -249,10 +247,12 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         require(args.amount != 0, "OC: Cannot buy/sell zero tokens!");
 
         // If none of the tokens is quoted, `tokenB_` becomes a quoted token
-        if (!isQuoted[args.tokenA][args.tokenB] && !isQuoted[args.tokenB][args.tokenA]) {
+        if (
+            !isQuoted[args.tokenA][args.tokenB] &&
+            !isQuoted[args.tokenB][args.tokenA]
+        ) {
             isQuoted[args.tokenA][args.tokenB] = true;
         }
-
 
         // User has to lock exactly the amount of `tokenB` he is selling
         uint256 lockAmount = amount;
@@ -268,9 +268,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         args.feeAmount = feeAmount;
         args.lockAmount = lockAmount;
 
-        _createOrder(
-            args
-        );
+        _createOrder(args);
     }
 
     /// @notice See {IOrderController-buyLimit}
@@ -283,7 +281,6 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         uint256 nonce,
         bytes calldata signature
     ) public nonReentrant {
-
         // Form args structure to pass it to `_createOrder` function later
         OrderArgs memory args = OrderArgs(
             tokenA,
@@ -308,7 +305,10 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         require(args.amount != 0, "OC: Cannot buy/sell zero tokens!");
 
         // If none of the tokens is quoted, `tokenB_` becomes a quoted token
-        if (!isQuoted[args.tokenA][args.tokenB] && !isQuoted[args.tokenB][args.tokenA]) {
+        if (
+            !isQuoted[args.tokenA][args.tokenB] &&
+            !isQuoted[args.tokenB][args.tokenA]
+        ) {
             isQuoted[args.tokenA][args.tokenB] = true;
         }
 
@@ -335,9 +335,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         args.feeAmount = feeAmount;
         args.lockAmount = lockAmount;
 
-        _createOrder(
-            args
-        );
+        _createOrder(args);
     }
 
     /// @notice See {IOrderController-sellLimit}
@@ -350,7 +348,6 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         uint256 nonce,
         bytes calldata signature
     ) public nonReentrant {
-
         // Form args structure to pass it to `createOrder` function later
         OrderArgs memory args = OrderArgs(
             tokenA,
@@ -375,7 +372,10 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         require(args.amount != 0, "OC: Cannot buy/sell zero tokens!");
 
         // If none of the tokens is quoted, `tokenB_` becomes a quoted token
-        if (!isQuoted[args.tokenA][args.tokenB] && !isQuoted[args.tokenB][args.tokenA]) {
+        if (
+            !isQuoted[args.tokenA][args.tokenB] &&
+            !isQuoted[args.tokenB][args.tokenA]
+        ) {
             isQuoted[args.tokenA][args.tokenB] = true;
         }
 
@@ -393,11 +393,8 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         args.feeAmount = feeAmount;
         args.lockAmount = lockAmount;
 
-        _createOrder(
-            args
-        );
+        _createOrder(args);
     }
-
 
     /// @notice See {IOrderController-cancelOrder}
     function cancelOrder(
@@ -498,7 +495,6 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
             nonce,
             signature
         );
-
     }
 
     /// @notice See {IOrderController-startSaleMultiple}
@@ -643,7 +639,6 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     function _createOrder(
         OrderArgs memory args
     ) private onlyBackend(args.nonce, args.signature) {
-
         // NOTICE: first order gets the ID of 1
         _orderId.increment();
         uint256 id = _orderId.current();
@@ -692,7 +687,6 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
             address(this),
             args.lockAmount + args.feeAmount
         );
-
     }
 
     function _cancelOrder(
