@@ -146,7 +146,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         return false;
     }
 
-    // TODO place it all into interface
+    /// @notice See {IOrderController-buyMarket}
     function buyMarket(
         address tokenA,
         address tokenB,
@@ -209,12 +209,13 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         args.feeAmount = feeAmount;
         args.lockAmount = lockAmount;
 
-        _createOrderMinimal(
+        _createOrder(
             args
         );
 
     }
 
+    /// @notice See {IOrderController-sellMarket}
     function sellMarket(
         address tokenA,
         address tokenB,
@@ -267,11 +268,12 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         args.feeAmount = feeAmount;
         args.lockAmount = lockAmount;
 
-        _createOrderMinimal(
+        _createOrder(
             args
         );
     }
 
+    /// @notice See {IOrderController-buyLimit}
     function buyLimit(
         address tokenA,
         address tokenB,
@@ -282,7 +284,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         bytes calldata signature
     ) public nonReentrant {
 
-        // Form args structure to pass it to `createOrder` function later
+        // Form args structure to pass it to `_createOrder` function later
         OrderArgs memory args = OrderArgs(
             tokenA,
             tokenB,
@@ -310,7 +312,6 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
             isQuoted[args.tokenA][args.tokenB] = true;
         }
 
-
         uint256 lockAmount;
 
         // User has to lock enough `tokenB` to pay after price reaches the limit
@@ -334,11 +335,12 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         args.feeAmount = feeAmount;
         args.lockAmount = lockAmount;
 
-        _createOrderMinimal(
+        _createOrder(
             args
         );
     }
 
+    /// @notice See {IOrderController-sellLimit}
     function sellLimit(
         address tokenA,
         address tokenB,
@@ -391,38 +393,11 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         args.feeAmount = feeAmount;
         args.lockAmount = lockAmount;
 
-        _createOrderMinimal(
+        _createOrder(
             args
         );
     }
 
-    // TODO replace it with buyMarket, sellMarket ...
-    /// @notice See {IOrderController-createOrder}
-    function createOrder(
-        address tokenA,
-        address tokenB,
-        uint256 amount,
-        OrderType type_,
-        OrderSide side,
-        uint256 limitPrice,
-        uint256 slippage,
-        bool isCancellable,
-        uint256 nonce,
-        bytes calldata signature
-    ) external nonReentrant {
-        _createOrder(
-            tokenA,
-            tokenB,
-            amount,
-            type_,
-            side,
-            limitPrice,
-            slippage,
-            isCancellable,
-            nonce,
-            signature
-        );
-    }
 
     /// @notice See {IOrderController-cancelOrder}
     function cancelOrder(
@@ -665,8 +640,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         return recoveredUser == backendAcc;
     }
 
-    // TODO rename in to createOrder late
-    function _createOrderMinimal(
+    function _createOrder(
         OrderArgs memory args
     ) private onlyBackend(args.nonce, args.signature) {
 
@@ -719,144 +693,6 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
             args.lockAmount + args.feeAmount
         );
 
-    }
-
-    function _createOrder(
-        address tokenA,
-        address tokenB,
-        uint256 amount,
-        OrderType type_,
-        OrderSide side,
-        uint256 limitPrice,
-        uint256 slippage,
-        bool isCancellable,
-        uint256 nonce,
-        bytes calldata signature
-    ) private onlyBackend(nonce, signature) {
-        // Make copies of parameters to avoid `Stack too deep` error
-        address tokenA_ = tokenA;
-        address tokenB_ = tokenB;
-        uint256 amount_ = amount;
-        OrderType _type = type_;
-        OrderSide side_ = side;
-        uint256 limitPrice_ = limitPrice;
-        uint256 slippage_ = slippage;
-        bool isCancellable_ = isCancellable;
-
-        require(tokenA_ != address(0), "OC: Cannot buy native tokens!");
-        require(amount_ != 0, "OC: Cannot buy/sell zero tokens!");
-        if (isCancellable) {
-            require(
-                _type == OrderType.Limit,
-                "OC: Only limits can be non-cancellable!"
-            );
-        }
-        // If none of the tokens is quoted, `tokenB` becomes a quoted token
-        if (!isQuoted[tokenA_][tokenB_] && !isQuoted[tokenB_][tokenA_]) {
-            isQuoted[tokenA_][tokenB_] = true;
-        }
-
-        // The price of the pair in quoted tokens
-        uint256 price = getPrice(tokenA_, tokenB_);
-
-        uint256 lockAmount;
-        if (_type == OrderType.Market) {
-            require(limitPrice_ == 0, "OC: Limit not zero in market order!");
-            require(
-                isCancellable_ == false,
-                "OC: Market orders are non-cancellable!"
-            );
-            if (side_ == OrderSide.Buy) {
-                // User has to lock enough `tokenB` to pay according to current price
-                if (isQuoted[tokenA_][tokenB_]) {
-                    // If `tokenB` is a quoted token, then `price` does not change
-                    // because it's expressed in this token
-                    lockAmount = (amount_ * price) / PRICE_PRECISION;
-                } else {
-                    // If `tokenA` is a quoted token, then `price` should be inversed
-                    lockAmount = (amount_ * PRICE_PRECISION) / price;
-                }
-            }
-            if (side_ == OrderSide.Sell) {
-                // User has to lock exactly the amount of `tokenB` he is selling
-                lockAmount = amount_;
-            }
-        }
-        if (_type == OrderType.Limit) {
-            require(limitPrice_ != 0, "OC: Limit zero in limit order!");
-            require(slippage_ == 0, "OC: Slippage not zero in limit order!");
-            if (side_ == OrderSide.Buy) {
-                // User has to lock enough `tokenB` to pay after price reaches the limit
-                if (isQuoted[tokenA_][tokenB_]) {
-                    // If `tokenB` is a quoted token, then `limitPrice` does not change
-                    // because it's expressed in this token
-                    lockAmount = (amount_ * limitPrice_) / PRICE_PRECISION;
-                } else {
-                    // If `tokenA` is a quoted token, then `limitPrice` should be inversed
-                    lockAmount = (amount_ * PRICE_PRECISION) / limitPrice_;
-                }
-            }
-            if (side_ == OrderSide.Sell) {
-                // User has to lock exactly the amount of `tokenB` he is selling
-                lockAmount = amount_;
-            }
-        }
-
-        // Calculate the fee amount for the order
-        uint256 feeAmount = _getFee(lockAmount);
-
-        // Mark that fee amount of `tokenB` was increased
-        tokenFees[tokenB_] += feeAmount;
-        lockedTokens.add(tokenB_);
-
-        // NOTICE: first order gets the ID of 1
-        _orderId.increment();
-        uint256 id = _orderId.current();
-
-        _orders[id] = Order(
-            id,
-            msg.sender,
-            tokenA_,
-            tokenB_,
-            amount_,
-            0,
-            _type,
-            side_,
-            limitPrice_,
-            slippage_,
-            isCancellable_,
-            OrderStatus.Active,
-            feeAmount
-        );
-
-        // Mark that new ID corresponds to the pair of tokens
-        tokensToOrders[tokenA_][tokenB_].push(id);
-
-        // NOTICE: Order with ID1 has index 0
-        _usersToOrders[msg.sender].push(id);
-
-        emit OrderCreated(
-            id,
-            msg.sender,
-            tokenA_,
-            tokenB_,
-            amount_,
-            _type,
-            side_,
-            limitPrice_,
-            isCancellable_
-        );
-
-        // In any case, `tokenB` is the one that is locked.
-        // It gets transferred to the contract
-        // Fee is also paid in `tokenB`
-        // Fee gets transferred to the contract
-        // TODO transfer it strate to admins wallet instead???
-        IERC20(tokenB_).safeTransferFrom(
-            msg.sender,
-            address(this),
-            lockAmount + feeAmount
-        );
     }
 
     function _cancelOrder(

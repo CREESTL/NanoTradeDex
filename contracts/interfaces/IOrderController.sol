@@ -68,7 +68,7 @@ interface IOrderController {
         uint256 feeAmount;
     }
 
-    /// @dev Used to hold parameters for `createOrder` internal function
+    /// @dev Used to hold parameters for `_createOrder` internal function
     ///      to avoid `Stack Too Deep` error.
     struct OrderArgs {
         // The address of the tokens that is purchased
@@ -226,25 +226,69 @@ interface IOrderController {
         uint256 secondId
     ) external view returns (bool);
 
-    /// @notice Creates an order with specified parameters
+    /// @notice Creates a buy market order
     /// @param tokenA The address of the token that is purchased
     /// @param tokenB The address of the token that is sold
     /// @param amount The amount of active tokens
-    /// @param type_ The type of the order
-    /// @param side The side of the order (buy / sell)
-    /// @param limitPrice The limit price of the order in quoted tokens
     /// @param slippage Allowed price slippage (in basis points)
-    /// @param isCancellable True if order is cancellable. Otherwise - false
     /// @param nonce A unique integer for each tx call
     /// @param signature The signature used to sign the hash of the message
-    function createOrder(
+    function buyMarket(
         address tokenA,
         address tokenB,
         uint256 amount,
-        OrderType type_,
-        OrderSide side,
-        uint256 limitPrice,
         uint256 slippage,
+        uint256 nonce,
+        bytes calldata signature
+    ) external;
+
+    /// @notice Creates a sell market order
+    /// @param tokenA The address of the token that is purchased
+    /// @param tokenB The address of the token that is sold
+    /// @param amount The amount of active tokens
+    /// @param slippage Allowed price slippage (in basis points)
+    /// @param nonce A unique integer for each tx call
+    /// @param signature The signature used to sign the hash of the message
+    function sellMarket(
+        address tokenA,
+        address tokenB,
+        uint256 amount,
+        uint256 slippage,
+        uint256 nonce,
+        bytes calldata signature
+    ) external;
+
+    /// @notice Creates an buy limit order
+    /// @param tokenA The address of the token that is purchased
+    /// @param tokenB The address of the token that is sold
+    /// @param amount The amount of active tokens
+    /// @param limitPrice The limit price of the order in quoted tokens
+    /// @param isCancellable True if order is cancellable. Otherwise - false
+    /// @param nonce A unique integer for each tx call
+    /// @param signature The signature used to sign the hash of the message
+    function buyLimit(
+        address tokenA,
+        address tokenB,
+        uint256 amount,
+        uint256 limitPrice,
+        bool isCancellable,
+        uint256 nonce,
+        bytes calldata signature
+    ) external;
+
+    /// @notice Creates an sell limit order
+    /// @param tokenA The address of the token that is purchased
+    /// @param tokenB The address of the token that is sold
+    /// @param amount The amount of active tokens
+    /// @param limitPrice The limit price of the order in quoted tokens
+    /// @param isCancellable True if order is cancellable. Otherwise - false
+    /// @param nonce A unique integer for each tx call
+    /// @param signature The signature used to sign the hash of the message
+    function sellLimit(
+        address tokenA,
+        address tokenB,
+        uint256 amount,
+        uint256 limitPrice,
         bool isCancellable,
         uint256 nonce,
         bytes calldata signature
