@@ -68,6 +68,44 @@ interface IOrderController {
         uint256 feeAmount;
     }
 
+    /// @dev Used to hold parameters for `createOrder` internal function
+    ///      to avoid `Stack Too Deep` error.
+    struct OrderArgs {
+        // The address of the tokens that is purchased
+        address tokenA;
+        // The address of the tokens that is sold
+        address tokenB;
+        // The initial amount of active tokens
+        // Active tokens are defined by order side
+        // If it's a "sell" order, then `tokenB` is active
+        // If it's a "buy" order, then `tokenA` is active
+        // This amount does not change during order execution
+        uint256 amount;
+        // The current amount of active tokens
+        // Gets increased in any type of orders
+        uint256 amountCurrent;
+        // Order type (market or limit)
+        OrderType type_;
+        // Order side (buy or sell)
+        OrderSide side;
+        // Only for limit orders. Zero for market orders
+        // Includes precision
+        // Expressed in quoted tokens
+        uint256 limitPrice;
+        // Allowed price slippage in Basis Points
+        uint256 slippage;
+        // Amount of tokens locked ti pay for the order
+        uint256 lockAmount;
+        // Amount of tokens paid as fees for order creation
+        uint256 feeAmount;
+        // True if order can be cancelled, false - if not
+        bool isCancellable;
+        // A unique integer for each tx call
+        uint256 nonce;
+        // Signature of a backend
+        bytes signature;
+    }
+
     /// @notice Indicates that a new order has been created.
     /// @param id The ID of the order
     /// @param user The creator of the order
