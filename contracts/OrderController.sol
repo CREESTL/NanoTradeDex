@@ -59,11 +59,16 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     /// @dev 100% in basis points (1 bp = 1 / 100 of 1%)
     uint256 private constant HUNDRED_PERCENT = 10000;
 
-    /// @dev Allows to executed only transactions signed by backend
-    modifier onlyBackend(uint256 nonce, bytes calldata signature) {
+    /// @dev Allows to execute only transactions signed by backend
+    modifier onlyBackend(
+        uint256 initId,
+        uint256[] memory matchedIds,
+        uint256 nonce,
+        bytes memory signature) {
+
         // Calculate tx hash. Include some function parameters and nonce to
         // avoid Replay Attacks
-        bytes32 txHash = getTxHash(nonce);
+        bytes32 txHash = getTxHash(initId, matchedIds, nonce);
         require(!executed[txHash], "OC: Tx already executed!");
         require(
             _verifyBackendSignature(signature, txHash),
@@ -85,6 +90,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     function getUserOrders(
         address user
     ) external view returns (uint256[] memory) {
+        require(user != address(0), "OC: Zero user address not allowed!");
         return _usersToOrders[user];
     }
 
@@ -107,6 +113,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
             OrderStatus
         )
     {
+        require(checkOrderExists(_id), "OC: Order does not exist!");
         Order memory order = _orders[_id];
         return (
             order.user,
@@ -146,40 +153,245 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         return false;
     }
 
-    /// @notice See {IOrderController-createOrder}
-    function createOrder(
+    /// @notice See {IOrderController-buyMarket}
+    function buyMarket(
         address tokenA,
         address tokenB,
         uint256 amount,
-        OrderType type_,
-        OrderSide side,
-        uint256 limitPrice,
-        uint256 slippage,
-        bool isCancellable,
-        uint256 nonce,
-        bytes calldata signature
-    ) external nonReentrant {
-        _createOrder(
+        uint256 slippage
+    ) public nonReentrant {
+        // Form args structure to pass it to `createOrder` function later
+        OrderArgs memory args = OrderArgs(
             tokenA,
             tokenB,
             amount,
-            type_,
-            side,
-            limitPrice,
+            // Initial amount is always 0
+            0,
+            OrderType.Market,
+            OrderSide.Buy,
+            // Limit price is 0 for market orders
+            0,
             slippage,
-            isCancellable,
-            nonce,
-            signature
+            // Leave 0 for lockAmount and feeAmount for now
+            0,
+            0,
+            false
         );
+
+        require(args.tokenA != address(0), "OC: Cannot buy native tokens!");
+        require(args.amount != 0, "OC: Cannot buy/sell zero tokens!");
+
+        // If none of the tokens is quoted, `tokenB_` becomes a quoted token
+        if (
+            !isQuoted[args.tokenA][args.tokenB] &&
+            !isQuoted[args.tokenB][args.tokenA]
+        ) {
+            isQuoted[args.tokenA][args.tokenB] = true;
+        }
+
+        // The price of the pair in quoted tokens
+        uint256 price = getPrice(args.tokenA, args.tokenB);
+
+        uint256 lockAmount;
+
+        // User has to lock enough `tokenB_` to pay according to current price
+        if (isQuoted[args.tokenA][args.tokenB]) {
+            // If `tokenB_` is a quoted token, then `price` does not change
+            // because it's expressed in this token
+            lockAmount = (args.amount * price) / PRICE_PRECISION;
+        } else {
+            // If `tokenA_` is a quoted token, then `price` should be inversed
+            lockAmount = (args.amount * PRICE_PRECISION) / price;
+        }
+
+        uint256 feeAmount = _getFee(lockAmount);
+
+        // Mark that fee amount of `tokenB_` was increased
+        tokenFees[args.tokenB] += feeAmount;
+        lockedTokens.add(args.tokenB);
+
+        // Set the real fee and lock amounts
+        args.feeAmount = feeAmount;
+        args.lockAmount = lockAmount;
+
+        _createOrder(args);
+    }
+
+    /// @notice See {IOrderController-sellMarket}
+    function sellMarket(
+        address tokenA,
+        address tokenB,
+        uint256 amount,
+        uint256 slippage
+    ) public nonReentrant {
+        // Form args structure to pass it to `createOrder` function later
+        OrderArgs memory args = OrderArgs(
+            tokenA,
+            tokenB,
+            amount,
+            // Initial amount is always 0
+            0,
+            OrderType.Market,
+            OrderSide.Sell,
+            // Limit price is 0 for market orders
+            0,
+            slippage,
+            // Leave 0 for lockAmount and feeAmount for now
+            0,
+            0,
+            false
+        );
+
+        require(args.tokenA != address(0), "OC: Cannot buy native tokens!");
+        require(args.amount != 0, "OC: Cannot buy/sell zero tokens!");
+
+        // If none of the tokens is quoted, `tokenB_` becomes a quoted token
+        if (
+            !isQuoted[args.tokenA][args.tokenB] &&
+            !isQuoted[args.tokenB][args.tokenA]
+        ) {
+            isQuoted[args.tokenA][args.tokenB] = true;
+        }
+
+        // User has to lock exactly the amount of `tokenB` he is selling
+        uint256 lockAmount = amount;
+
+        // Calculate the fee amount for the order
+        uint256 feeAmount = _getFee(lockAmount);
+
+        // Mark that fee amount of `tokenB` was increased
+        tokenFees[args.tokenB] += feeAmount;
+        lockedTokens.add(args.tokenB);
+
+        // Set the real fee and lock amounts
+        args.feeAmount = feeAmount;
+        args.lockAmount = lockAmount;
+
+        _createOrder(args);
+    }
+
+    /// @notice See {IOrderController-buyLimit}
+    function buyLimit(
+        address tokenA,
+        address tokenB,
+        uint256 amount,
+        uint256 limitPrice,
+        bool isCancellable
+    ) public nonReentrant {
+        // Form args structure to pass it to `_createOrder` function later
+        OrderArgs memory args = OrderArgs(
+            tokenA,
+            tokenB,
+            amount,
+            // Initial amount is always 0
+            0,
+            OrderType.Limit,
+            OrderSide.Buy,
+            limitPrice,
+            // Slippage is 0 for limit orders
+            0,
+            // Leave 0 for lockAmount and feeAmount for now
+            0,
+            0,
+            isCancellable
+        );
+
+        require(args.tokenA != address(0), "OC: Cannot buy native tokens!");
+        require(args.amount != 0, "OC: Cannot buy/sell zero tokens!");
+
+        // If none of the tokens is quoted, `tokenB_` becomes a quoted token
+        if (
+            !isQuoted[args.tokenA][args.tokenB] &&
+            !isQuoted[args.tokenB][args.tokenA]
+        ) {
+            isQuoted[args.tokenA][args.tokenB] = true;
+        }
+
+        uint256 lockAmount;
+
+        // User has to lock enough `tokenB` to pay after price reaches the limit
+        if (isQuoted[args.tokenA][args.tokenB]) {
+            // If `tokenB` is a quoted token, then `limitPrice` does not change
+            // because it's expressed in this token
+            lockAmount = (args.amount * args.limitPrice) / PRICE_PRECISION;
+        } else {
+            // If `tokenA` is a quoted token, then `limitPrice` should be inversed
+            lockAmount = (args.amount * PRICE_PRECISION) / args.limitPrice;
+        }
+
+        // Calculate the fee amount for the order
+        uint256 feeAmount = _getFee(lockAmount);
+
+        // Mark that fee amount of `tokenB` was increased
+        tokenFees[args.tokenB] += feeAmount;
+        lockedTokens.add(args.tokenB);
+
+        // Set the real fee and lock amounts
+        args.feeAmount = feeAmount;
+        args.lockAmount = lockAmount;
+
+        _createOrder(args);
+    }
+
+    /// @notice See {IOrderController-sellLimit}
+    function sellLimit(
+        address tokenA,
+        address tokenB,
+        uint256 amount,
+        uint256 limitPrice,
+        bool isCancellable
+    ) public nonReentrant {
+        // Form args structure to pass it to `createOrder` function later
+        OrderArgs memory args = OrderArgs(
+            tokenA,
+            tokenB,
+            amount,
+            // Initial amount is always 0
+            0,
+            OrderType.Limit,
+            OrderSide.Sell,
+            limitPrice,
+            // Slippage is 0 for limit orders
+            0,
+            // Leave 0 for lockAmount and feeAmount for now
+            0,
+            0,
+            isCancellable
+        );
+
+        require(args.tokenA != address(0), "OC: Cannot buy native tokens!");
+        require(args.amount != 0, "OC: Cannot buy/sell zero tokens!");
+
+        // If none of the tokens is quoted, `tokenB_` becomes a quoted token
+        if (
+            !isQuoted[args.tokenA][args.tokenB] &&
+            !isQuoted[args.tokenB][args.tokenA]
+        ) {
+            isQuoted[args.tokenA][args.tokenB] = true;
+        }
+
+        // User has to lock exactly the amount of `tokenB` he is selling
+        uint256 lockAmount = args.amount;
+
+        // Calculate the fee amount for the order
+        uint256 feeAmount = _getFee(lockAmount);
+
+        // Mark that fee amount of `tokenB` was increased
+        tokenFees[args.tokenB] += feeAmount;
+        lockedTokens.add(args.tokenB);
+
+        // Set the real fee and lock amounts
+        args.feeAmount = feeAmount;
+        args.lockAmount = lockAmount;
+
+        _createOrder(args);
     }
 
     /// @notice See {IOrderController-cancelOrder}
     function cancelOrder(
-        uint256 id,
-        uint256 nonce,
-        bytes calldata signature
+        uint256 id
     ) external nonReentrant {
-        _cancelOrder(id, nonce, signature);
+        _cancelOrder(id);
     }
 
     /// @notice See {IOrderController-setFee}
@@ -250,10 +462,8 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         address tokenA,
         address tokenB,
         uint256 amount,
-        uint256 price,
-        uint256 nonce,
-        bytes calldata signature
-    ) public nonReentrant onlyBackend(nonce, signature) {
+        uint256 price
+    ) public nonReentrant {
         // Only admin of the sold token `tokenB` project can start the ICO of tokens
         require(
             IBentureProducedToken(tokenB).checkAdmin(msg.sender),
@@ -262,20 +472,13 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
 
         emit SaleStarted(tokenB);
 
-        _createOrder(
+        sellLimit(
             tokenA,
             tokenB,
             amount,
-            OrderType.Limit,
-            OrderSide.Sell,
-            // Price is the limit where this order becomes tradeable
             price,
-            // Price slippage for limit orders is always zero
-            0,
             // Sale orders are non-cancellable
-            false,
-            nonce,
-            signature
+            false
         );
     }
 
@@ -284,10 +487,8 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         address tokenA,
         address tokenB,
         uint256[] memory amounts,
-        uint256[] memory prices,
-        uint256 nonce,
-        bytes calldata signature
-    ) public nonReentrant onlyBackend(nonce, signature) {
+        uint256[] memory prices
+    ) public nonReentrant  {
         require(amounts.length == prices.length, "OC: Arrays length differs!");
 
         // The amount of gas spent for all operations below
@@ -301,9 +502,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
                 tokenA,
                 tokenB,
                 amounts[i],
-                prices[i],
-                nonce,
-                signature
+                prices[i]
             );
 
             // Calculate the amount of gas spent for one iteration
@@ -349,13 +548,6 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         retAmount = (amount * feeRate) / HUNDRED_PERCENT;
     }
 
-    /// @dev Subtracts the fee from transferred tokens amount
-    /// @param amount The amount of transferred tokens
-    /// @return retAmount The transferred amount minus the fee
-    function _subFee(uint256 amount) private view returns (uint256 retAmount) {
-        retAmount = amount - _getFee(amount);
-    }
-
     /// @dev Returns the price of the pair in quoted tokens
     /// @param tokenA The address of the token that is received
     /// @param tokenB The address of the token that is sold
@@ -391,13 +583,22 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     }
 
     /// @dev Calculates the hash of the transaction with nonce and contract address
+    /// @param initId The ID of first matched order
+    /// @param matchedIds The list of IDs of other matched orders
     /// @param nonce The unique integer
-    function getTxHash(uint256 nonce) public view returns (bytes32) {
+    /// @dev NOTICE: Backend must form tx hash exactly the same way
+    function getTxHash(
+        uint256 initId,
+        uint256[] memory matchedIds,
+        uint256 nonce
+    ) public view returns (bytes32) {
         return
             keccak256(
                 abi.encodePacked(
                     // Include the address of the contract to make hash even more unique
                     address(this),
+                    initId,
+                    matchedIds,
                     nonce
                 )
             );
@@ -408,7 +609,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     /// @param txHash An unsigned hashed data
     /// @return True if tx was signed by the backend. Otherwise false.
     function _verifyBackendSignature(
-        bytes calldata signature,
+        bytes memory signature,
         bytes32 txHash
     ) private view returns (bool) {
         // Remove the "\x19Ethereum Signed Message:\n" prefix from the signature
@@ -419,93 +620,8 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     }
 
     function _createOrder(
-        address tokenA,
-        address tokenB,
-        uint256 amount,
-        OrderType type_,
-        OrderSide side,
-        uint256 limitPrice,
-        uint256 slippage,
-        bool isCancellable,
-        uint256 nonce,
-        bytes calldata signature
-    ) private onlyBackend(nonce, signature) {
-        // Make copies of parameters to avoid `Stack too deep` error
-        address tokenA_ = tokenA;
-        address tokenB_ = tokenB;
-        uint256 amount_ = amount;
-        OrderType _type = type_;
-        OrderSide side_ = side;
-        uint256 limitPrice_ = limitPrice;
-        uint256 slippage_ = slippage;
-        bool isCancellable_ = isCancellable;
-
-        require(tokenA_ != address(0), "OC: Cannot buy native tokens!");
-        require(amount_ != 0, "OC: Cannot buy/sell zero tokens!");
-        if (!isCancellable) {
-            require(
-                _type == OrderType.Limit,
-                "OC: Only limits can be non-cancellable!"
-            );
-        }
-        // If none of the tokens is quoted, `tokenB` becomes a quoted token
-        if (!isQuoted[tokenA_][tokenB_] && !isQuoted[tokenB_][tokenA_]) {
-            isQuoted[tokenA_][tokenB_] = true;
-        }
-
-        // The price of the pair in quoted tokens
-        uint256 price = getPrice(tokenA_, tokenB_);
-
-        uint256 lockAmount;
-        if (_type == OrderType.Market) {
-            require(limitPrice_ == 0, "OC: Limit not zero in market order!");
-            require(
-                isCancellable_ == false,
-                "OC: Market orders are non-cancellable!"
-            );
-            if (side_ == OrderSide.Buy) {
-                // User has to lock enough `tokenB` to pay according to current price
-                if (isQuoted[tokenA_][tokenB_]) {
-                    // If `tokenB` is a quoted token, then `price` does not change
-                    // because it's expressed in this token
-                    lockAmount = (amount_ * price) / PRICE_PRECISION;
-                } else {
-                    // If `tokenA` is a quoted token, then `price` should be inversed
-                    lockAmount = (amount_ * PRICE_PRECISION) / price;
-                }
-            }
-            if (side_ == OrderSide.Sell) {
-                // User has to lock exactly the amount of `tokenB` he is selling
-                lockAmount = amount_;
-            }
-        }
-        if (_type == OrderType.Limit) {
-            require(limitPrice_ != 0, "OC: Limit zero in limit order!");
-            require(slippage_ == 0, "OC: Slippage not zero in limit order!");
-            if (side_ == OrderSide.Buy) {
-                // User has to lock enough `tokenB` to pay after price reaches the limit
-                if (isQuoted[tokenA_][tokenB_]) {
-                    // If `tokenB` is a quoted token, then `limitPrice` does not change
-                    // because it's expressed in this token
-                    lockAmount = (amount_ * limitPrice_) / PRICE_PRECISION;
-                } else {
-                    // If `tokenA` is a quoted token, then `limitPrice` should be inversed
-                    lockAmount = (amount_ * PRICE_PRECISION) / limitPrice_;
-                }
-            }
-            if (side_ == OrderSide.Sell) {
-                // User has to lock exactly the amount of `tokenB` he is selling
-                lockAmount = amount_;
-            }
-        }
-
-        // Calculate the fee amount for the order
-        uint256 feeAmount = _getFee(lockAmount);
-
-        // Mark that fee amount of `tokenB` was increased
-        tokenFees[tokenB_] += feeAmount;
-        lockedTokens.add(tokenB_);
-
+        OrderArgs memory args
+    ) private {
         // NOTICE: first order gets the ID of 1
         _orderId.increment();
         uint256 id = _orderId.current();
@@ -513,21 +629,21 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         _orders[id] = Order(
             id,
             msg.sender,
-            tokenA_,
-            tokenB_,
-            amount_,
-            0,
-            _type,
-            side_,
-            limitPrice_,
-            slippage_,
-            isCancellable_,
+            args.tokenA,
+            args.tokenB,
+            args.amount,
+            args.amountCurrent,
+            args.type_,
+            args.side,
+            args.limitPrice,
+            args.slippage,
+            args.isCancellable,
             OrderStatus.Active,
-            feeAmount
+            args.feeAmount
         );
 
         // Mark that new ID corresponds to the pair of tokens
-        tokensToOrders[tokenA_][tokenB_].push(id);
+        tokensToOrders[args.tokenA][args.tokenB].push(id);
 
         // NOTICE: Order with ID1 has index 0
         _usersToOrders[msg.sender].push(id);
@@ -535,13 +651,13 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         emit OrderCreated(
             id,
             msg.sender,
-            tokenA_,
-            tokenB_,
-            amount_,
-            _type,
-            side_,
-            limitPrice_,
-            isCancellable_
+            args.tokenA,
+            args.tokenB,
+            args.amount,
+            args.type_,
+            args.side,
+            args.limitPrice,
+            args.isCancellable
         );
 
         // In any case, `tokenB` is the one that is locked.
@@ -549,18 +665,16 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         // Fee is also paid in `tokenB`
         // Fee gets transferred to the contract
         // TODO transfer it strate to admins wallet instead???
-        IERC20(tokenB_).safeTransferFrom(
+        IERC20(args.tokenB).safeTransferFrom(
             msg.sender,
             address(this),
-            lockAmount + feeAmount
+            args.lockAmount + args.feeAmount
         );
     }
 
     function _cancelOrder(
-        uint256 id,
-        uint256 nonce,
-        bytes calldata signature
-    ) private onlyBackend(nonce, signature) {
+        uint256 id
+    ) private  {
         Order storage order = _orders[id];
         require(order.isCancellable, "OC: Order is non-cancellable!");
         require(
@@ -588,7 +702,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         uint256[] memory matchedIds,
         uint256 nonce,
         bytes calldata signature
-    ) private onlyBackend(nonce, signature) {
+    ) private onlyBackend(initId, matchedIds, nonce, signature) {
         // NOTICE: No checks are done here. Fully trust the backend
 
         // The amount of gas spent for all operations below
@@ -680,6 +794,12 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
                         matchedOrder.amountCurrent);
                     // Whole amount of matched order was sold
                     matchedOrder.amountCurrent = matchedOrder.amount;
+
+                    // Init order is partially closed
+                    initOrder.status = OrderStatus.PartiallyClosed;
+                    // Matched order is fully closed
+                    matchedOrder.status = OrderStatus.Closed;
+
                     // When trying to buy less or equal to what is available in matched order, only bought amount
                     // gets transferred (it's less). Some amount stays locked in the matched order
                 } else {
@@ -705,6 +825,11 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
                         initOrder.amountCurrent);
                     // Whole amount of initial order was bought
                     initOrder.amountCurrent = initOrder.amount;
+
+                    // Matched order is parially closed
+                    matchedOrder.status = OrderStatus.PartiallyClosed;
+                    // Init order is fully closed
+                    initOrder.status = OrderStatus.Closed;
                 }
             }
             if (initOrder.side == OrderSide.Sell) {
@@ -738,6 +863,12 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
                         matchedOrder.amountCurrent);
                     // Whole amount of matched order was bought
                     matchedOrder.amountCurrent = matchedOrder.amount;
+
+                    // Init order is partially closed
+                    initOrder.status = OrderStatus.PartiallyClosed;
+                    // Matched order is fully closed
+                    matchedOrder.status = OrderStatus.Closed;
+
                     // When trying to sell less tokens than buyer can purchase, whole available amount of sold
                     // tokens gets transferred to the buyer
                 } else {
@@ -763,6 +894,11 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
                         initOrder.amountCurrent);
                     // Whole amount of initial was sold
                     initOrder.amountCurrent = initOrder.amount;
+
+                    // Matched order is partially closed
+                    matchedOrder.status = OrderStatus.PartiallyClosed;
+                    // Init order is fully closed
+                    initOrder.status = OrderStatus.Closed;
                 }
             }
 
@@ -798,6 +934,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
             // Check that no more than 2/3 of block gas limit was spent
             if (gasSpent >= gasThreshold) {
                 emit GasLimitReached(gasSpent, block.gaslimit);
+                // No revert here. Part of changes will take place
                 break;
             }
         }
@@ -815,6 +952,8 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
                 initOrder.user,
                 initOrder.amount - initOrder.amountCurrent
             );
+            // After that init order gets closed
+            initOrder.status = OrderStatus.Closed;
         }
     }
 }
