@@ -59,11 +59,16 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     /// @dev 100% in basis points (1 bp = 1 / 100 of 1%)
     uint256 private constant HUNDRED_PERCENT = 10000;
 
-    /// @dev Allows to executed only transactions signed by backend
-    modifier onlyBackend(uint256 nonce, bytes memory signature) {
+    /// @dev Allows to execute only transactions signed by backend
+    modifier onlyBackend(
+        uint256 initId,
+        uint256[] memory matchedIds,
+        uint256 nonce,
+        bytes memory signature) {
+
         // Calculate tx hash. Include some function parameters and nonce to
         // avoid Replay Attacks
-        bytes32 txHash = getTxHash(nonce);
+        bytes32 txHash = getTxHash(initId, matchedIds, nonce);
         require(!executed[txHash], "OC: Tx already executed!");
         require(
             _verifyBackendSignature(signature, txHash),
@@ -151,9 +156,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         address tokenA,
         address tokenB,
         uint256 amount,
-        uint256 slippage,
-        uint256 nonce,
-        bytes calldata signature
+        uint256 slippage
     ) public nonReentrant {
         // Form args structure to pass it to `createOrder` function later
         OrderArgs memory args = OrderArgs(
@@ -170,9 +173,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
             // Leave 0 for lockAmount and feeAmount for now
             0,
             0,
-            false,
-            nonce,
-            signature
+            false
         );
 
         require(args.tokenA != address(0), "OC: Cannot buy native tokens!");
@@ -219,9 +220,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         address tokenA,
         address tokenB,
         uint256 amount,
-        uint256 slippage,
-        uint256 nonce,
-        bytes calldata signature
+        uint256 slippage
     ) public nonReentrant {
         // Form args structure to pass it to `createOrder` function later
         OrderArgs memory args = OrderArgs(
@@ -238,9 +237,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
             // Leave 0 for lockAmount and feeAmount for now
             0,
             0,
-            false,
-            nonce,
-            signature
+            false
         );
 
         require(args.tokenA != address(0), "OC: Cannot buy native tokens!");
@@ -277,9 +274,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         address tokenB,
         uint256 amount,
         uint256 limitPrice,
-        bool isCancellable,
-        uint256 nonce,
-        bytes calldata signature
+        bool isCancellable
     ) public nonReentrant {
         // Form args structure to pass it to `_createOrder` function later
         OrderArgs memory args = OrderArgs(
@@ -296,9 +291,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
             // Leave 0 for lockAmount and feeAmount for now
             0,
             0,
-            isCancellable,
-            nonce,
-            signature
+            isCancellable
         );
 
         require(args.tokenA != address(0), "OC: Cannot buy native tokens!");
@@ -344,9 +337,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         address tokenB,
         uint256 amount,
         uint256 limitPrice,
-        bool isCancellable,
-        uint256 nonce,
-        bytes calldata signature
+        bool isCancellable
     ) public nonReentrant {
         // Form args structure to pass it to `createOrder` function later
         OrderArgs memory args = OrderArgs(
@@ -363,9 +354,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
             // Leave 0 for lockAmount and feeAmount for now
             0,
             0,
-            isCancellable,
-            nonce,
-            signature
+            isCancellable
         );
 
         require(args.tokenA != address(0), "OC: Cannot buy native tokens!");
@@ -398,11 +387,9 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
 
     /// @notice See {IOrderController-cancelOrder}
     function cancelOrder(
-        uint256 id,
-        uint256 nonce,
-        bytes calldata signature
+        uint256 id
     ) external nonReentrant {
-        _cancelOrder(id, nonce, signature);
+        _cancelOrder(id);
     }
 
     /// @notice See {IOrderController-setFee}
@@ -473,10 +460,8 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         address tokenA,
         address tokenB,
         uint256 amount,
-        uint256 price,
-        uint256 nonce,
-        bytes calldata signature
-    ) public nonReentrant onlyBackend(nonce, signature) {
+        uint256 price
+    ) public nonReentrant {
         // Only admin of the sold token `tokenB` project can start the ICO of tokens
         require(
             IBentureProducedToken(tokenB).checkAdmin(msg.sender),
@@ -491,9 +476,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
             amount,
             price,
             // Sale orders are non-cancellable
-            false,
-            nonce,
-            signature
+            false
         );
     }
 
@@ -502,10 +485,8 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         address tokenA,
         address tokenB,
         uint256[] memory amounts,
-        uint256[] memory prices,
-        uint256 nonce,
-        bytes calldata signature
-    ) public nonReentrant onlyBackend(nonce, signature) {
+        uint256[] memory prices
+    ) public nonReentrant  {
         require(amounts.length == prices.length, "OC: Arrays length differs!");
 
         // The amount of gas spent for all operations below
@@ -519,9 +500,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
                 tokenA,
                 tokenB,
                 amounts[i],
-                prices[i],
-                nonce,
-                signature
+                prices[i]
             );
 
             // Calculate the amount of gas spent for one iteration
@@ -609,13 +588,22 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     }
 
     /// @dev Calculates the hash of the transaction with nonce and contract address
+    /// @param initId The ID of first matched order
+    /// @param matchedIds The list of IDs of other matched orders
     /// @param nonce The unique integer
-    function getTxHash(uint256 nonce) public view returns (bytes32) {
+    /// @dev NOTICE: Backend must form tx hash exactly the same way
+    function getTxHash(
+        uint256 initId,
+        uint256[] memory matchedIds,
+        uint256 nonce
+    ) public view returns (bytes32) {
         return
             keccak256(
                 abi.encodePacked(
                     // Include the address of the contract to make hash even more unique
                     address(this),
+                    initId,
+                    matchedIds,
                     nonce
                 )
             );
@@ -638,7 +626,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
 
     function _createOrder(
         OrderArgs memory args
-    ) private onlyBackend(args.nonce, args.signature) {
+    ) private {
         // NOTICE: first order gets the ID of 1
         _orderId.increment();
         uint256 id = _orderId.current();
@@ -690,10 +678,8 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     }
 
     function _cancelOrder(
-        uint256 id,
-        uint256 nonce,
-        bytes calldata signature
-    ) private onlyBackend(nonce, signature) {
+        uint256 id
+    ) private  {
         Order storage order = _orders[id];
         require(order.isCancellable, "OC: Order is non-cancellable!");
         require(
@@ -721,7 +707,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         uint256[] memory matchedIds,
         uint256 nonce,
         bytes calldata signature
-    ) private onlyBackend(nonce, signature) {
+    ) private onlyBackend(initId, matchedIds, nonce, signature) {
         // NOTICE: No checks are done here. Fully trust the backend
 
         // The amount of gas spent for all operations below

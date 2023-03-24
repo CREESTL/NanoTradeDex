@@ -100,10 +100,6 @@ interface IOrderController {
         uint256 feeAmount;
         // True if order can be cancelled, false - if not
         bool isCancellable;
-        // A unique integer for each tx call
-        uint256 nonce;
-        // Signature of a backend
-        bytes signature;
     }
 
     /// @notice Indicates that a new order has been created.
@@ -231,15 +227,11 @@ interface IOrderController {
     /// @param tokenB The address of the token that is sold
     /// @param amount The amount of active tokens
     /// @param slippage Allowed price slippage (in basis points)
-    /// @param nonce A unique integer for each tx call
-    /// @param signature The signature used to sign the hash of the message
     function buyMarket(
         address tokenA,
         address tokenB,
         uint256 amount,
-        uint256 slippage,
-        uint256 nonce,
-        bytes calldata signature
+        uint256 slippage
     ) external;
 
     /// @notice Creates a sell market order
@@ -247,15 +239,11 @@ interface IOrderController {
     /// @param tokenB The address of the token that is sold
     /// @param amount The amount of active tokens
     /// @param slippage Allowed price slippage (in basis points)
-    /// @param nonce A unique integer for each tx call
-    /// @param signature The signature used to sign the hash of the message
     function sellMarket(
         address tokenA,
         address tokenB,
         uint256 amount,
-        uint256 slippage,
-        uint256 nonce,
-        bytes calldata signature
+        uint256 slippage
     ) external;
 
     /// @notice Creates an buy limit order
@@ -264,16 +252,12 @@ interface IOrderController {
     /// @param amount The amount of active tokens
     /// @param limitPrice The limit price of the order in quoted tokens
     /// @param isCancellable True if order is cancellable. Otherwise - false
-    /// @param nonce A unique integer for each tx call
-    /// @param signature The signature used to sign the hash of the message
     function buyLimit(
         address tokenA,
         address tokenB,
         uint256 amount,
         uint256 limitPrice,
-        bool isCancellable,
-        uint256 nonce,
-        bytes calldata signature
+        bool isCancellable
     ) external;
 
     /// @notice Creates an sell limit order
@@ -282,27 +266,19 @@ interface IOrderController {
     /// @param amount The amount of active tokens
     /// @param limitPrice The limit price of the order in quoted tokens
     /// @param isCancellable True if order is cancellable. Otherwise - false
-    /// @param nonce A unique integer for each tx call
-    /// @param signature The signature used to sign the hash of the message
     function sellLimit(
         address tokenA,
         address tokenB,
         uint256 amount,
         uint256 limitPrice,
-        bool isCancellable,
-        uint256 nonce,
-        bytes calldata signature
+        bool isCancellable
     ) external;
 
     /// @notice Cancels the limit order with the given ID.
     ///         Only limit orders can be cancelled
     /// @param id The ID of the limit order to cancel
-    /// @param nonce A unique integer for each tx call
-    /// @param signature The signature used to sign the hash of the message
     function cancelOrder(
-        uint256 id,
-        uint256 nonce,
-        bytes calldata signature
+        uint256 id
     ) external;
 
     /// @notice Starts a single series sale of project tokens
@@ -310,15 +286,11 @@ interface IOrderController {
     /// @param tokenB The address of the token that is sold
     /// @param amount The amount of sold tokens
     /// @param price The limit price of the order in quoted tokens
-    /// @param nonce A unique integer for each tx call
-    /// @param signature The signature used to sign the hash of the message
     function startSaleSingle(
         address tokenA,
         address tokenB,
         uint256 amount,
-        uint256 price,
-        uint256 nonce,
-        bytes calldata signature
+        uint256 price
     ) external;
 
     /// @notice Starts a multiple series sale of project tokens
@@ -326,15 +298,11 @@ interface IOrderController {
     /// @param tokenB The address of the token that is sold
     /// @param amounts The list of amounts of sold tokens. One for each series
     /// @param prices The list of prices of sold tokens. One for each series
-    /// @param nonce A unique integer for each tx call
-    /// @param signature The signature used to sign the hash of the message
     function startSaleMultiple(
         address tokenA,
         address tokenB,
         uint256[] memory amounts,
-        uint256[] memory prices,
-        uint256 nonce,
-        bytes calldata signature
+        uint256[] memory prices
     ) external;
 
     /// @notice Executes matched orders
