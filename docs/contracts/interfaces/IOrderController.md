@@ -13,7 +13,7 @@
 ### buyLimit
 
 ```solidity
-function buyLimit(address tokenA, address tokenB, uint256 amount, uint256 limitPrice, bool isCancellable, uint256 nonce, bytes signature) external nonpayable
+function buyLimit(address tokenA, address tokenB, uint256 amount, uint256 limitPrice, bool isCancellable) external nonpayable
 ```
 
 Creates an buy limit order
@@ -29,13 +29,11 @@ Creates an buy limit order
 | amount | uint256 | The amount of active tokens |
 | limitPrice | uint256 | The limit price of the order in quoted tokens |
 | isCancellable | bool | True if order is cancellable. Otherwise - false |
-| nonce | uint256 | A unique integer for each tx call |
-| signature | bytes | The signature used to sign the hash of the message |
 
 ### buyMarket
 
 ```solidity
-function buyMarket(address tokenA, address tokenB, uint256 amount, uint256 slippage, uint256 nonce, bytes signature) external nonpayable
+function buyMarket(address tokenA, address tokenB, uint256 amount, uint256 slippage) external nonpayable
 ```
 
 Creates a buy market order
@@ -50,13 +48,11 @@ Creates a buy market order
 | tokenB | address | The address of the token that is sold |
 | amount | uint256 | The amount of active tokens |
 | slippage | uint256 | Allowed price slippage (in basis points) |
-| nonce | uint256 | A unique integer for each tx call |
-| signature | bytes | The signature used to sign the hash of the message |
 
 ### cancelOrder
 
 ```solidity
-function cancelOrder(uint256 id, uint256 nonce, bytes signature) external nonpayable
+function cancelOrder(uint256 id) external nonpayable
 ```
 
 Cancels the limit order with the given ID.         Only limit orders can be cancelled
@@ -68,8 +64,6 @@ Cancels the limit order with the given ID.         Only limit orders can be canc
 | Name | Type | Description |
 |---|---|---|
 | id | uint256 | The ID of the limit order to cancel |
-| nonce | uint256 | A unique integer for each tx call |
-| signature | bytes | The signature used to sign the hash of the message |
 
 ### checkMatched
 
@@ -214,7 +208,7 @@ Executes matched orders
 ### sellLimit
 
 ```solidity
-function sellLimit(address tokenA, address tokenB, uint256 amount, uint256 limitPrice, bool isCancellable, uint256 nonce, bytes signature) external nonpayable
+function sellLimit(address tokenA, address tokenB, uint256 amount, uint256 limitPrice, bool isCancellable) external nonpayable
 ```
 
 Creates an sell limit order
@@ -230,13 +224,11 @@ Creates an sell limit order
 | amount | uint256 | The amount of active tokens |
 | limitPrice | uint256 | The limit price of the order in quoted tokens |
 | isCancellable | bool | True if order is cancellable. Otherwise - false |
-| nonce | uint256 | A unique integer for each tx call |
-| signature | bytes | The signature used to sign the hash of the message |
 
 ### sellMarket
 
 ```solidity
-function sellMarket(address tokenA, address tokenB, uint256 amount, uint256 slippage, uint256 nonce, bytes signature) external nonpayable
+function sellMarket(address tokenA, address tokenB, uint256 amount, uint256 slippage) external nonpayable
 ```
 
 Creates a sell market order
@@ -251,8 +243,6 @@ Creates a sell market order
 | tokenB | address | The address of the token that is sold |
 | amount | uint256 | The amount of active tokens |
 | slippage | uint256 | Allowed price slippage (in basis points) |
-| nonce | uint256 | A unique integer for each tx call |
-| signature | bytes | The signature used to sign the hash of the message |
 
 ### setBackend
 
@@ -289,7 +279,7 @@ Sets a new fee rate
 ### startSaleMultiple
 
 ```solidity
-function startSaleMultiple(address tokenA, address tokenB, uint256[] amounts, uint256[] prices, uint256 nonce, bytes signature) external nonpayable
+function startSaleMultiple(address tokenA, address tokenB, uint256[] amounts, uint256[] prices) external nonpayable
 ```
 
 Starts a multiple series sale of project tokens
@@ -304,13 +294,11 @@ Starts a multiple series sale of project tokens
 | tokenB | address | The address of the token that is sold |
 | amounts | uint256[] | The list of amounts of sold tokens. One for each series |
 | prices | uint256[] | The list of prices of sold tokens. One for each series |
-| nonce | uint256 | A unique integer for each tx call |
-| signature | bytes | The signature used to sign the hash of the message |
 
 ### startSaleSingle
 
 ```solidity
-function startSaleSingle(address tokenA, address tokenB, uint256 amount, uint256 price, uint256 nonce, bytes signature) external nonpayable
+function startSaleSingle(address tokenA, address tokenB, uint256 amount, uint256 price) external nonpayable
 ```
 
 Starts a single series sale of project tokens
@@ -325,8 +313,6 @@ Starts a single series sale of project tokens
 | tokenB | address | The address of the token that is sold |
 | amount | uint256 | The amount of sold tokens |
 | price | uint256 | The limit price of the order in quoted tokens |
-| nonce | uint256 | A unique integer for each tx call |
-| signature | bytes | The signature used to sign the hash of the message |
 
 ### withdrawAllFees
 

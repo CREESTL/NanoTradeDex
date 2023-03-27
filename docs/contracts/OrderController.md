@@ -10,6 +10,30 @@
 
 ## Methods
 
+### _getTxHash
+
+```solidity
+function _getTxHash(uint256 initId, uint256[] matchedIds, uint256 nonce) external view returns (bytes32)
+```
+
+
+
+*Calculates the hash of the transaction with nonce and contract addressNOTICE: Backend must form tx hash exactly the same way*
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| initId | uint256 | The ID of first matched order |
+| matchedIds | uint256[] | The list of IDs of other matched orders |
+| nonce | uint256 | The unique integer |
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | bytes32 | undefined |
+
 ### backendAcc
 
 ```solidity
@@ -30,7 +54,7 @@ The address of the backend account
 ### buyLimit
 
 ```solidity
-function buyLimit(address tokenA, address tokenB, uint256 amount, uint256 limitPrice, bool isCancellable, uint256 nonce, bytes signature) external nonpayable
+function buyLimit(address tokenA, address tokenB, uint256 amount, uint256 limitPrice, bool isCancellable) external nonpayable
 ```
 
 See {IOrderController-buyLimit}
@@ -46,13 +70,11 @@ See {IOrderController-buyLimit}
 | amount | uint256 | undefined |
 | limitPrice | uint256 | undefined |
 | isCancellable | bool | undefined |
-| nonce | uint256 | undefined |
-| signature | bytes | undefined |
 
 ### buyMarket
 
 ```solidity
-function buyMarket(address tokenA, address tokenB, uint256 amount, uint256 slippage, uint256 nonce, bytes signature) external nonpayable
+function buyMarket(address tokenA, address tokenB, uint256 amount, uint256 slippage) external nonpayable
 ```
 
 See {IOrderController-buyMarket}
@@ -67,13 +89,11 @@ See {IOrderController-buyMarket}
 | tokenB | address | undefined |
 | amount | uint256 | undefined |
 | slippage | uint256 | undefined |
-| nonce | uint256 | undefined |
-| signature | bytes | undefined |
 
 ### cancelOrder
 
 ```solidity
-function cancelOrder(uint256 id, uint256 nonce, bytes signature) external nonpayable
+function cancelOrder(uint256 id) external nonpayable
 ```
 
 See {IOrderController-cancelOrder}
@@ -85,8 +105,6 @@ See {IOrderController-cancelOrder}
 | Name | Type | Description |
 |---|---|---|
 | id | uint256 | undefined |
-| nonce | uint256 | undefined |
-| signature | bytes | undefined |
 
 ### checkMatched
 
@@ -226,28 +244,6 @@ See {IOrderController-getOrdersByTokens}
 |---|---|---|
 | _0 | uint256[] | undefined |
 
-### getTxHash
-
-```solidity
-function getTxHash(uint256 nonce) external view returns (bytes32)
-```
-
-
-
-*Calculates the hash of the transaction with nonce and contract address*
-
-#### Parameters
-
-| Name | Type | Description |
-|---|---|---|
-| nonce | uint256 | The unique integer |
-
-#### Returns
-
-| Name | Type | Description |
-|---|---|---|
-| _0 | bytes32 | undefined |
-
 ### getUserOrders
 
 ```solidity
@@ -320,7 +316,7 @@ function renounceOwnership() external nonpayable
 ### sellLimit
 
 ```solidity
-function sellLimit(address tokenA, address tokenB, uint256 amount, uint256 limitPrice, bool isCancellable, uint256 nonce, bytes signature) external nonpayable
+function sellLimit(address tokenA, address tokenB, uint256 amount, uint256 limitPrice, bool isCancellable) external nonpayable
 ```
 
 See {IOrderController-sellLimit}
@@ -336,13 +332,11 @@ See {IOrderController-sellLimit}
 | amount | uint256 | undefined |
 | limitPrice | uint256 | undefined |
 | isCancellable | bool | undefined |
-| nonce | uint256 | undefined |
-| signature | bytes | undefined |
 
 ### sellMarket
 
 ```solidity
-function sellMarket(address tokenA, address tokenB, uint256 amount, uint256 slippage, uint256 nonce, bytes signature) external nonpayable
+function sellMarket(address tokenA, address tokenB, uint256 amount, uint256 slippage) external nonpayable
 ```
 
 See {IOrderController-sellMarket}
@@ -357,8 +351,6 @@ See {IOrderController-sellMarket}
 | tokenB | address | undefined |
 | amount | uint256 | undefined |
 | slippage | uint256 | undefined |
-| nonce | uint256 | undefined |
-| signature | bytes | undefined |
 
 ### setBackend
 
@@ -395,7 +387,7 @@ See {IOrderController-setFee}
 ### startSaleMultiple
 
 ```solidity
-function startSaleMultiple(address tokenA, address tokenB, uint256[] amounts, uint256[] prices, uint256 nonce, bytes signature) external nonpayable
+function startSaleMultiple(address tokenA, address tokenB, uint256[] amounts, uint256[] prices) external nonpayable
 ```
 
 See {IOrderController-startSaleMultiple}
@@ -410,13 +402,11 @@ See {IOrderController-startSaleMultiple}
 | tokenB | address | undefined |
 | amounts | uint256[] | undefined |
 | prices | uint256[] | undefined |
-| nonce | uint256 | undefined |
-| signature | bytes | undefined |
 
 ### startSaleSingle
 
 ```solidity
-function startSaleSingle(address tokenA, address tokenB, uint256 amount, uint256 price, uint256 nonce, bytes signature) external nonpayable
+function startSaleSingle(address tokenA, address tokenB, uint256 amount, uint256 price) external nonpayable
 ```
 
 See {IOrderController-startSaleSingle}
@@ -431,8 +421,6 @@ See {IOrderController-startSaleSingle}
 | tokenB | address | undefined |
 | amount | uint256 | undefined |
 | price | uint256 | undefined |
-| nonce | uint256 | undefined |
-| signature | bytes | undefined |
 
 ### transferOwnership
 
