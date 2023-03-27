@@ -49,7 +49,7 @@ interface IOrderController {
         uint256 amount;
         // The current amount of active tokens
         // Gets increased in any type of orders
-        uint256 amountCurrent;
+        uint256 amountFilled;
         // Order type (market or limit)
         OrderType type_;
         // Order side (buy or sell)
@@ -83,7 +83,7 @@ interface IOrderController {
         uint256 amount;
         // The current amount of active tokens
         // Gets increased in any type of orders
-        uint256 amountCurrent;
+        uint256 amountFilled;
         // Order type (market or limit)
         OrderType type_;
         // Order side (buy or sell)
@@ -277,9 +277,7 @@ interface IOrderController {
     /// @notice Cancels the limit order with the given ID.
     ///         Only limit orders can be cancelled
     /// @param id The ID of the limit order to cancel
-    function cancelOrder(
-        uint256 id
-    ) external;
+    function cancelOrder(uint256 id) external;
 
     /// @notice Starts a single series sale of project tokens
     /// @param tokenA The address of the token that is received
