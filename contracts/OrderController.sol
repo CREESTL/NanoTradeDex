@@ -59,16 +59,24 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     /// @dev 100% in basis points (1 bp = 1 / 100 of 1%)
     uint256 private constant HUNDRED_PERCENT = 10000;
 
+    modifier updateQuotes(address tokenA, address tokenB) {
+        // If none of the tokens is quoted, `tokenB_` becomes a quoted token
+        if (!isQuoted[tokenA][tokenB] && !isQuoted[tokenB][tokenA]) {
+            isQuoted[tokenA][tokenB] = true;
+        }
+        _;
+    }
+
     /// @dev Allows to execute only transactions signed by backend
     modifier onlyBackend(
         uint256 initId,
         uint256[] memory matchedIds,
         uint256 nonce,
-        bytes memory signature) {
-
+        bytes memory signature
+    ) {
         // Calculate tx hash. Include some function parameters and nonce to
         // avoid Replay Attacks
-        bytes32 txHash = getTxHash(initId, matchedIds, nonce);
+        bytes32 txHash = _getTxHash(initId, matchedIds, nonce);
         require(!executed[txHash], "OC: Tx already executed!");
         require(
             _verifyBackendSignature(signature, txHash),
@@ -120,7 +128,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
             order.tokenA,
             order.tokenB,
             order.amount,
-            order.amountCurrent,
+            order.amountFilled,
             order.type_,
             order.side,
             order.limitPrice,
@@ -159,62 +167,32 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         address tokenB,
         uint256 amount,
         uint256 slippage
-    ) public nonReentrant {
-        // Form args structure to pass it to `createOrder` function later
-        OrderArgs memory args = OrderArgs(
+    ) public nonReentrant updateQuotes(tokenA, tokenB) {
+        Order memory order = _prepareOrder(
             tokenA,
             tokenB,
             amount,
-            // Initial amount is always 0
             0,
             OrderType.Market,
             OrderSide.Buy,
-            // Limit price is 0 for market orders
-            0,
             slippage,
-            // Leave 0 for lockAmount and feeAmount for now
-            0,
-            0,
             false
         );
 
-        require(args.tokenA != address(0), "OC: Cannot buy native tokens!");
-        require(args.amount != 0, "OC: Cannot buy/sell zero tokens!");
-
-        // If none of the tokens is quoted, `tokenB_` becomes a quoted token
-        if (
-            !isQuoted[args.tokenA][args.tokenB] &&
-            !isQuoted[args.tokenB][args.tokenA]
-        ) {
-            isQuoted[args.tokenA][args.tokenB] = true;
-        }
-
         // The price of the pair in quoted tokens
-        uint256 price = getPrice(args.tokenA, args.tokenB);
-
-        uint256 lockAmount;
-
-        // User has to lock enough `tokenB_` to pay according to current price
-        if (isQuoted[args.tokenA][args.tokenB]) {
-            // If `tokenB_` is a quoted token, then `price` does not change
-            // because it's expressed in this token
-            lockAmount = (args.amount * price) / PRICE_PRECISION;
-        } else {
-            // If `tokenA_` is a quoted token, then `price` should be inversed
-            lockAmount = (args.amount * PRICE_PRECISION) / price;
-        }
+        uint256 price = _getPrice(tokenA, tokenB);
+        uint256 lockAmount = getLockAmount(tokenA, tokenB, amount, price);
 
         uint256 feeAmount = _getFee(lockAmount);
 
         // Mark that fee amount of `tokenB_` was increased
-        tokenFees[args.tokenB] += feeAmount;
-        lockedTokens.add(args.tokenB);
+        tokenFees[tokenB] += feeAmount;
+        lockedTokens.add(tokenB);
 
         // Set the real fee and lock amounts
-        args.feeAmount = feeAmount;
-        args.lockAmount = lockAmount;
+        order.feeAmount = feeAmount;
 
-        _createOrder(args);
+        _createOrder(order, lockAmount);
     }
 
     /// @notice See {IOrderController-sellMarket}
@@ -223,35 +201,17 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         address tokenB,
         uint256 amount,
         uint256 slippage
-    ) public nonReentrant {
-        // Form args structure to pass it to `createOrder` function later
-        OrderArgs memory args = OrderArgs(
+    ) public nonReentrant updateQuotes(tokenA, tokenB) {
+        Order memory order = _prepareOrder(
             tokenA,
             tokenB,
             amount,
-            // Initial amount is always 0
             0,
             OrderType.Market,
             OrderSide.Sell,
-            // Limit price is 0 for market orders
-            0,
             slippage,
-            // Leave 0 for lockAmount and feeAmount for now
-            0,
-            0,
             false
         );
-
-        require(args.tokenA != address(0), "OC: Cannot buy native tokens!");
-        require(args.amount != 0, "OC: Cannot buy/sell zero tokens!");
-
-        // If none of the tokens is quoted, `tokenB_` becomes a quoted token
-        if (
-            !isQuoted[args.tokenA][args.tokenB] &&
-            !isQuoted[args.tokenB][args.tokenA]
-        ) {
-            isQuoted[args.tokenA][args.tokenB] = true;
-        }
 
         // User has to lock exactly the amount of `tokenB` he is selling
         uint256 lockAmount = amount;
@@ -260,14 +220,13 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         uint256 feeAmount = _getFee(lockAmount);
 
         // Mark that fee amount of `tokenB` was increased
-        tokenFees[args.tokenB] += feeAmount;
-        lockedTokens.add(args.tokenB);
+        tokenFees[tokenB] += feeAmount;
+        lockedTokens.add(tokenB);
 
         // Set the real fee and lock amounts
-        args.feeAmount = feeAmount;
-        args.lockAmount = lockAmount;
+        order.feeAmount = feeAmount;
 
-        _createOrder(args);
+        _createOrder(order, lockAmount);
     }
 
     /// @notice See {IOrderController-buyLimit}
@@ -277,60 +236,43 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         uint256 amount,
         uint256 limitPrice,
         bool isCancellable
-    ) public nonReentrant {
-        // Form args structure to pass it to `_createOrder` function later
-        OrderArgs memory args = OrderArgs(
+    ) public nonReentrant updateQuotes(tokenA, tokenB) {
+        Order memory order = _prepareOrder(
             tokenA,
             tokenB,
             amount,
-            // Initial amount is always 0
-            0,
+            limitPrice,
             OrderType.Limit,
             OrderSide.Buy,
-            limitPrice,
-            // Slippage is 0 for limit orders
-            0,
-            // Leave 0 for lockAmount and feeAmount for now
-            0,
             0,
             isCancellable
         );
-
-        require(args.tokenA != address(0), "OC: Cannot buy native tokens!");
-        require(args.amount != 0, "OC: Cannot buy/sell zero tokens!");
-
-        // If none of the tokens is quoted, `tokenB_` becomes a quoted token
-        if (
-            !isQuoted[args.tokenA][args.tokenB] &&
-            !isQuoted[args.tokenB][args.tokenA]
-        ) {
-            isQuoted[args.tokenA][args.tokenB] = true;
-        }
-
+        // TODO add it to RQ
+        // If user wants to create a buy limit order with limit price much higher
+        // than the market price, then this order will instantly be matched with
+        // other limit (sell) orders that have a lower limit price
+        // In this case not the whole locked amount of tokens will be used and the rest
+        // should be returned to the user. We can avoid that by locking the amount of
+        // tokens according to the market price instead of limit price of the order
+        // We can think of this order as a market order
+        uint256 marketPrice = _getPrice(tokenA, tokenB);
         uint256 lockAmount;
-
-        // User has to lock enough `tokenB` to pay after price reaches the limit
-        if (isQuoted[args.tokenA][args.tokenB]) {
-            // If `tokenB` is a quoted token, then `limitPrice` does not change
-            // because it's expressed in this token
-            lockAmount = (args.amount * args.limitPrice) / PRICE_PRECISION;
+        if (limitPrice > marketPrice) {
+            lockAmount = getLockAmount(tokenA, tokenB, amount, marketPrice);
         } else {
-            // If `tokenA` is a quoted token, then `limitPrice` should be inversed
-            lockAmount = (args.amount * PRICE_PRECISION) / args.limitPrice;
+            lockAmount = getLockAmount(tokenA, tokenB, amount, limitPrice);
         }
 
-        // Calculate the fee amount for the order
         uint256 feeAmount = _getFee(lockAmount);
 
-        // Mark that fee amount of `tokenB` was increased
-        tokenFees[args.tokenB] += feeAmount;
-        lockedTokens.add(args.tokenB);
+        // Mark that fee amount of `tokenB_` was increased
+        tokenFees[tokenB] += feeAmount;
+        lockedTokens.add(tokenB);
 
         // Set the real fee and lock amounts
-        args.feeAmount = feeAmount;
-        args.lockAmount = lockAmount;
+        order.feeAmount = feeAmount;
 
-        _createOrder(args);
+        _createOrder(order, lockAmount);
     }
 
     /// @notice See {IOrderController-sellLimit}
@@ -340,57 +282,36 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         uint256 amount,
         uint256 limitPrice,
         bool isCancellable
-    ) public nonReentrant {
-        // Form args structure to pass it to `createOrder` function later
-        OrderArgs memory args = OrderArgs(
+    ) public nonReentrant updateQuotes(tokenA, tokenB) {
+        Order memory order = _prepareOrder(
             tokenA,
             tokenB,
             amount,
-            // Initial amount is always 0
-            0,
+            limitPrice,
             OrderType.Limit,
             OrderSide.Sell,
-            limitPrice,
-            // Slippage is 0 for limit orders
-            0,
-            // Leave 0 for lockAmount and feeAmount for now
-            0,
             0,
             isCancellable
         );
 
-        require(args.tokenA != address(0), "OC: Cannot buy native tokens!");
-        require(args.amount != 0, "OC: Cannot buy/sell zero tokens!");
-
-        // If none of the tokens is quoted, `tokenB_` becomes a quoted token
-        if (
-            !isQuoted[args.tokenA][args.tokenB] &&
-            !isQuoted[args.tokenB][args.tokenA]
-        ) {
-            isQuoted[args.tokenA][args.tokenB] = true;
-        }
-
         // User has to lock exactly the amount of `tokenB` he is selling
-        uint256 lockAmount = args.amount;
+        uint256 lockAmount = amount;
 
         // Calculate the fee amount for the order
         uint256 feeAmount = _getFee(lockAmount);
 
         // Mark that fee amount of `tokenB` was increased
-        tokenFees[args.tokenB] += feeAmount;
-        lockedTokens.add(args.tokenB);
+        tokenFees[order.tokenB] += feeAmount;
+        lockedTokens.add(order.tokenB);
 
         // Set the real fee and lock amounts
-        args.feeAmount = feeAmount;
-        args.lockAmount = lockAmount;
+        order.feeAmount = feeAmount;
 
-        _createOrder(args);
+        _createOrder(order, lockAmount);
     }
 
     /// @notice See {IOrderController-cancelOrder}
-    function cancelOrder(
-        uint256 id
-    ) external nonReentrant {
+    function cancelOrder(uint256 id) external nonReentrant {
         _cancelOrder(id);
     }
 
@@ -488,7 +409,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         address tokenB,
         uint256[] memory amounts,
         uint256[] memory prices
-    ) public nonReentrant  {
+    ) public nonReentrant {
         require(amounts.length == prices.length, "OC: Arrays length differs!");
 
         // The amount of gas spent for all operations below
@@ -498,12 +419,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         uint256 lastGasLeft = gasleft();
 
         for (uint256 i = 0; i < amounts.length; i++) {
-            startSaleSingle(
-                tokenA,
-                tokenB,
-                amounts[i],
-                prices[i]
-            );
+            startSaleSingle(tokenA, tokenB, amounts[i], prices[i]);
 
             // Calculate the amount of gas spent for one iteration
             uint256 gasSpentPerIteration = lastGasLeft - gasleft();
@@ -541,6 +457,154 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         backendAcc = acc;
     }
 
+    function _createOrder(Order memory order, uint256 lockAmount) private {
+        // Mark that new ID corresponds to the pair of tokens
+        tokensToOrders[order.tokenA][order.tokenB].push(order.id);
+
+        // NOTICE: Order with ID1 has index 0
+        _usersToOrders[msg.sender].push(order.id);
+
+        emit OrderCreated(
+            order.id,
+            order.user,
+            order.tokenA,
+            order.tokenB,
+            order.amount,
+            order.type_,
+            order.side,
+            order.limitPrice,
+            order.isCancellable
+        );
+
+        // In any case, `tokenB` is the one that is locked.
+        // It gets transferred to the contract
+        // Fee is also paid in `tokenB`
+        // Fee gets transferred to the contract
+        // TODO transfer it straight to admin's wallet instead???
+        IERC20(order.tokenB).safeTransferFrom(
+            msg.sender,
+            address(this),
+            lockAmount + order.feeAmount
+        );
+    }
+
+    function _cancelOrder(uint256 id) private {
+        Order storage order = _orders[id];
+        require(order.isCancellable, "OC: Order is non-cancellable!");
+        require(
+            (order.status == OrderStatus.Active) ||
+                (order.status == OrderStatus.PartiallyClosed),
+            "OC: Invalid order status!"
+        );
+        require(msg.sender == order.user, "OC: Not the order creator!");
+        // Only the status of the order gets changed
+        // The order itself does not get deleted
+        order.status = OrderStatus.Cancelled;
+        // Only the amount of `tokenB` left in the order should be returned
+        // In order was partially executed, then this amount is less then `amountBInitial`
+        uint256 leftAmount = order.amount - order.amountFilled;
+
+        emit OrderCancelled(order.id);
+
+        // Only `tokenB` gets locked when creating an order.
+        // Thus, only `tokenB` should be returned to the user
+        IERC20(order.tokenB).safeTransfer(order.user, leftAmount);
+    }
+
+    function _matchOrders(
+        uint256 initId,
+        uint256[] memory matchedIds,
+        uint256 nonce,
+        bytes calldata signature
+    ) private onlyBackend(initId, matchedIds, nonce, signature) {
+        // NOTICE: No checks are done here. Fully trust the backend
+
+        // The amount of gas spent for all operations below
+        uint256 gasSpent = 0;
+        // Only 2/3 of block gas limit could be spent.
+        uint256 gasThreshold = (block.gaslimit * 2) / 3;
+        uint256 lastGasLeft = gasleft();
+
+        Order memory initOrder = _orders[initId];
+
+        // TODO move it to getAmounts???
+        // Indicates that pair price is expressed in `initOrder.tokenB`
+        // If `price` is expressed in `tokenB` of the `initOrder` then it should be used when transferring
+        // But if it's expressed in `tokenA` of the `initOrder` then is should be inversed when transferring
+        bool quotedInInitB;
+        if (isQuoted[initOrder.tokenA][initOrder.tokenB]) {
+            quotedInInitB = true;
+        } else {
+            quotedInInitB = false;
+        }
+
+        for (uint256 i = 0; i < matchedIds.length; i++) {
+            // Old price of the pair before orders execution
+            // Expressed in pair's quoted tokens
+            uint256 oldPrice = _getPrice(initOrder.tokenA, initOrder.tokenB);
+
+            Order storage matchedOrder = _orders[i];
+
+            emit OrdersMatched(initOrder.id, matchedOrder.id);
+
+            // Mark that both orders matched
+            matchedOrders[initOrder.id][matchedOrder.id] = true;
+            matchedOrders[matchedOrder.id][initOrder.id] = true;
+
+            uint256 executionPrice = _getNewPrice(initOrder, matchedOrder);
+
+            (
+                address tokenToInit,
+                address tokenToMatched,
+                uint256 amountToInit,
+                uint256 amountToMatched
+            ) = _getAmounts(
+                    initOrder,
+                    matchedOrder,
+                    quotedInInitB,
+                    executionPrice
+                );
+
+            IERC20(tokenToInit).safeTransfer(initOrder.user, amountToInit);
+            IERC20(tokenToMatched).safeTransfer(
+                matchedOrder.user,
+                amountToMatched
+            );
+
+            // Pair price gets updated to the price of the last executed limit order
+            if (quotedInInitB) {
+                pairPrices[initOrder.tokenA][initOrder.tokenB] = executionPrice;
+            } else {
+                pairPrices[initOrder.tokenB][initOrder.tokenA] = executionPrice;
+            }
+
+            emit PriceChanged(
+                initOrder.tokenA,
+                initOrder.tokenB,
+                executionPrice
+            );
+
+            // Revert if slippage is too big for any of the orders
+            // Slippage is only allowed for market orders.
+            // Only matched orders can be market
+            if (matchedOrder.type_ == OrderType.Market) {
+                _checkSlippage(oldPrice, executionPrice, matchedOrder.slippage);
+            }
+
+            // Calculate the amount of gas spent for one iteration
+            uint256 gasSpentPerIteration = lastGasLeft - gasleft();
+            lastGasLeft = gasleft();
+            // Increase the total amount of gas spent
+            gasSpent += gasSpentPerIteration;
+            // Check that no more than 2/3 of block gas limit was spent
+            if (gasSpent >= gasThreshold) {
+                emit GasLimitReached(gasSpent, block.gaslimit);
+                // No revert here. Part of changes will take place
+                break;
+            }
+        }
+    }
+
     /// @dev Calculates fee based on the amount of locked tokens
     /// @param amount The amount of locked tokens
     /// @return retAmount The fee amount that should be paid for order creation
@@ -552,7 +616,7 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
     /// @param tokenA The address of the token that is received
     /// @param tokenB The address of the token that is sold
     /// @return The price of the pair in quoted tokens
-    function getPrice(
+    function _getPrice(
         address tokenA,
         address tokenB
     ) private view returns (uint256) {
@@ -567,27 +631,12 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         }
     }
 
-    /// @dev Calculates price slippage in basis points
-    /// @param oldPrice Old price of pair of tokens
-    /// @param newPrice New price of pair of tokens
-    /// @return Price slippage in basis points
-    function calcSlippage(
-        uint256 oldPrice,
-        uint256 newPrice
-    ) private pure returns (uint256) {
-        uint256 minPrice = newPrice > oldPrice ? oldPrice : newPrice;
-        uint256 maxPrice = newPrice > oldPrice ? newPrice : oldPrice;
-        uint256 priceDif = maxPrice - minPrice;
-        uint256 slippage = (priceDif * HUNDRED_PERCENT) / maxPrice;
-        return slippage;
-    }
-
     /// @dev Calculates the hash of the transaction with nonce and contract address
     /// @param initId The ID of first matched order
     /// @param matchedIds The list of IDs of other matched orders
     /// @param nonce The unique integer
     /// @dev NOTICE: Backend must form tx hash exactly the same way
-    function getTxHash(
+    function _getTxHash(
         uint256 initId,
         uint256[] memory matchedIds,
         uint256 nonce
@@ -619,341 +668,275 @@ contract OrderController is IOrderController, Ownable, ReentrancyGuard {
         return recoveredUser == backendAcc;
     }
 
-    function _createOrder(
-        OrderArgs memory args
-    ) private {
-        // NOTICE: first order gets the ID of 1
-        _orderId.increment();
-        uint256 id = _orderId.current();
-
-        _orders[id] = Order(
-            id,
-            msg.sender,
-            args.tokenA,
-            args.tokenB,
-            args.amount,
-            args.amountCurrent,
-            args.type_,
-            args.side,
-            args.limitPrice,
-            args.slippage,
-            args.isCancellable,
-            OrderStatus.Active,
-            args.feeAmount
-        );
-
-        // Mark that new ID corresponds to the pair of tokens
-        tokensToOrders[args.tokenA][args.tokenB].push(id);
-
-        // NOTICE: Order with ID1 has index 0
-        _usersToOrders[msg.sender].push(id);
-
-        emit OrderCreated(
-            id,
-            msg.sender,
-            args.tokenA,
-            args.tokenB,
-            args.amount,
-            args.type_,
-            args.side,
-            args.limitPrice,
-            args.isCancellable
-        );
-
-        // In any case, `tokenB` is the one that is locked.
-        // It gets transferred to the contract
-        // Fee is also paid in `tokenB`
-        // Fee gets transferred to the contract
-        // TODO transfer it strate to admins wallet instead???
-        IERC20(args.tokenB).safeTransferFrom(
-            msg.sender,
-            address(this),
-            args.lockAmount + args.feeAmount
-        );
-    }
-
-    function _cancelOrder(
-        uint256 id
-    ) private  {
-        Order storage order = _orders[id];
-        require(order.isCancellable, "OC: Order is non-cancellable!");
-        require(
-            (order.status == OrderStatus.Active) ||
-                (order.status == OrderStatus.PartiallyClosed),
-            "OC: Invalid order status!"
-        );
-        require(msg.sender == order.user, "OC: Not the order creator!");
-        // Only the status of the order gets changed
-        // The order itself does not get deleted
-        order.status = OrderStatus.Cancelled;
-        // Only the amount of `tokenB` left in the order should be returned
-        // In order was partially executed, then this amount is less then `amountBInitial`
-        uint256 leftAmount = order.amount - order.amountCurrent;
-
-        emit OrderCancelled(order.id);
-
-        // Only `tokenB` gets locked when creating an order.
-        // Thus, only `tokenB` should be returned to the user
-        IERC20(order.tokenB).safeTransfer(order.user, leftAmount);
-    }
-
-    function _matchOrders(
-        uint256 initId,
-        uint256[] memory matchedIds,
-        uint256 nonce,
-        bytes calldata signature
-    ) private onlyBackend(initId, matchedIds, nonce, signature) {
-        // NOTICE: No checks are done here. Fully trust the backend
-
-        // The amount of gas spent for all operations below
-        uint256 gasSpent = 0;
-        // Only 2/3 of block gas limit could be spent.
-        uint256 gasThreshold = (block.gaslimit * 2) / 3;
-        uint256 lastGasLeft = gasleft();
-
-        Order memory initOrder = _orders[initId];
-
-        // Indicates that pair price is expressed in `initOrder.tokenB`
-        // If `price` is expressed in `tokenB` of the `initOrder` then it should be used when transferring
-        // But if it's expressed in `tokenA` of the `initOrder` then is should be inversed when transferring
-        bool quotedInInitB;
-        if (isQuoted[initOrder.tokenA][initOrder.tokenB]) {
-            quotedInInitB = true;
-        } else {
-            quotedInInitB = false;
-        }
-
-        // Old price of the pair before orders execution
+    /// @dev Returns the price of the limit order to be used
+    ///      to execute orders after matching
+    /// @param initOrder The first matched order
+    /// @param matchedOrder The second matched order
+    /// @return The execution price for orders matching
+    /// @dev One of two orders must be a limit order
+    function _getNewPrice(
+        Order memory initOrder,
+        Order memory matchedOrder
+    ) private pure returns (uint256) {
+        // Price of the limit order used to calculate transferred amounts later.
+        // Market orders are executed using this price
         // Expressed in pair's quoted tokens
-        uint256 oldPrice;
-        if (quotedInInitB) {
-            oldPrice = pairPrices[initOrder.tokenA][initOrder.tokenB];
-        } else {
-            oldPrice = pairPrices[initOrder.tokenB][initOrder.tokenA];
-        }
-
-        for (uint256 i = 0; i < matchedIds.length; i++) {
-            // Matched order is always a limit order
-            Order memory matchedOrder = _orders[i];
-
-            // Mark that both orders matched
-            matchedOrders[initOrder.id][matchedOrder.id] = true;
-            matchedOrders[matchedOrder.id][initOrder.id] = true;
-
-            emit OrdersMatched(initOrder.id, matchedOrder.id);
-
-            // Price of the limit order used to calculate transferred amounts later.
-            // Market orders are executed using this price
-            // Expressed in pair's quoted tokens
-            uint256 price;
-            // In case two limit orders match, the one with a smaller amount will be fully closed first
-            // so its price should be used
-            if (initOrder.type_ == OrderType.Limit) {
-                if (
-                    initOrder.amount - initOrder.amountCurrent <
-                    matchedOrder.amount - matchedOrder.amountCurrent
-                ) {
-                    price = initOrder.limitPrice;
-                } else {
-                    price = matchedOrder.limitPrice;
-                }
-                // In case a limit and a market orders match, market order gets executed
-                // with price of a limit order
+        uint256 price;
+        // In case two limit orders match, the one with a smaller amount will be fully closed first
+        // so its price should be used
+        if (initOrder.type_ == OrderType.Limit) {
+            if (
+                initOrder.amount - initOrder.amountFilled <
+                matchedOrder.amount - matchedOrder.amountFilled
+            ) {
+                price = initOrder.limitPrice;
             } else {
                 price = matchedOrder.limitPrice;
             }
+            // In case a limit and a market orders match, market order gets executed
+            // with price of a limit order
+        } else {
+            price = matchedOrder.limitPrice;
+        }
 
-            if (initOrder.side == OrderSide.Buy) {
-                // When trying to buy more than available in matched order, whole availabe amount of matched order
-                // gets transferred (it's less)
-                if (
-                    initOrder.amount - initOrder.amountCurrent >
-                    matchedOrder.amount - matchedOrder.amountCurrent
-                ) {
-                    IERC20(initOrder.tokenA).safeTransfer(
-                        initOrder.user,
-                        matchedOrder.amount - matchedOrder.amountCurrent
-                    );
-                    if (quotedInInitB) {
-                        IERC20(initOrder.tokenB).safeTransfer(
-                            matchedOrder.user,
-                            ((matchedOrder.amount -
-                                matchedOrder.amountCurrent) * price) /
-                                PRICE_PRECISION
-                        );
-                    } else {
-                        IERC20(initOrder.tokenB).safeTransfer(
-                            matchedOrder.user,
-                            ((matchedOrder.amount -
-                                matchedOrder.amountCurrent) * PRICE_PRECISION) /
-                                price
-                        );
-                    }
-                    // Initial order bought amount gets increased by the amount of tokens bought
-                    initOrder.amountCurrent += (matchedOrder.amount -
-                        matchedOrder.amountCurrent);
-                    // Whole amount of matched order was sold
-                    matchedOrder.amountCurrent = matchedOrder.amount;
+        return price;
+    }
 
-                    // Init order is partially closed
-                    initOrder.status = OrderStatus.PartiallyClosed;
-                    // Matched order is fully closed
-                    matchedOrder.status = OrderStatus.Closed;
+    /// @dev Changes order's status according to its filled amount
+    /// @param order The order to change status of
+    function _checkAndChangeStatus(Order memory order) private {
+        Order storage order_ = _orders[order.id];
+        require(
+            order_.status != OrderStatus.Cancelled,
+            "OC: Cannot change status of cancelled order"
+        );
+        require(
+            order_.status != OrderStatus.Closed,
+            "OC: Cannot change status of closed order"
+        );
+        if (order_.amountFilled == order_.amount) {
+            order_.status = OrderStatus.Closed;
+        } else {
+            order_.status = OrderStatus.PartiallyClosed;
+        }
+    }
 
-                    // When trying to buy less or equal to what is available in matched order, only bought amount
-                    // gets transferred (it's less). Some amount stays locked in the matched order
+    /// @dev Calculates the amount of tokens to transfer to seller and buyer after
+    ///      orders match
+    /// @param initOrder The first of matched orders
+    /// @param matchedOrder The second of matched orders
+    /// @param quotedInInitB True if pair price is measured in `initOrder.tokenB`
+    /// @param price The execution price of limit order
+    function _getAmounts(
+        Order memory initOrder,
+        Order memory matchedOrder,
+        bool quotedInInitB,
+        uint256 price
+    ) private returns (address, address, uint256, uint256) {
+        // The address of the token to transfer to the user of `initOrder`
+        address tokenToInit;
+        // The address of the token to transfer to the user of `matchedOrder`
+        address tokenToMatched;
+        // The amount to be transferred to the user of `initOrder`
+        uint256 amountToInit;
+        // The amount to be transferred to the user of `mathcedOrder`
+        uint256 amountToMatched;
+
+        if (initOrder.side == OrderSide.Buy) {
+            // When trying to buy more than available in matched order, whole availabe amount of matched order
+            // gets transferred (it's less)
+
+            tokenToInit = initOrder.tokenA;
+            tokenToMatched = initOrder.tokenB;
+
+            if (
+                initOrder.amount - initOrder.amountFilled >
+                matchedOrder.amount - matchedOrder.amountFilled
+            ) {
+                // Sell all seller's tokens to the buyer
+                amountToInit = matchedOrder.amount - matchedOrder.amountFilled;
+
+                // Pay seller according to amount of tokens he sells
+                if (quotedInInitB) {
+                    amountToMatched = (amountToInit * price) / PRICE_PRECISION;
                 } else {
-                    IERC20(initOrder.tokenA).safeTransfer(
-                        initOrder.user,
-                        initOrder.amount - initOrder.amountCurrent
-                    );
-                    if (quotedInInitB) {
-                        IERC20(initOrder.tokenB).safeTransfer(
-                            matchedOrder.user,
-                            ((initOrder.amount - initOrder.amountCurrent) *
-                                price) / PRICE_PRECISION
-                        );
-                    } else {
-                        IERC20(initOrder.tokenB).safeTransfer(
-                            matchedOrder.user,
-                            ((initOrder.amount - initOrder.amountCurrent) *
-                                PRICE_PRECISION) / price
-                        );
-                    }
-                    // Matched order sold amount gets increased by the amount of tokens sold
-                    matchedOrder.amountCurrent += (initOrder.amount -
-                        initOrder.amountCurrent);
-                    // Whole amount of initial order was bought
-                    initOrder.amountCurrent = initOrder.amount;
+                    amountToMatched = (amountToInit * PRICE_PRECISION) / price;
+                }
+            } else {
+                // When trying to buy less or equal to what is available in matched order, only bought amount
+                // gets transferred (it's less). Some amount stays locked in the matched order
 
-                    // Matched order is parially closed
-                    matchedOrder.status = OrderStatus.PartiallyClosed;
-                    // Init order is fully closed
-                    initOrder.status = OrderStatus.Closed;
+                // Buy exactly the amount of tokens buyer wants
+                amountToInit = initOrder.amount - initOrder.amountFilled;
+
+                // Pay the seller according to the amount the buyer purchases
+                if (quotedInInitB) {
+                    amountToMatched = (amountToInit * price) / PRICE_PRECISION;
+                } else {
+                    amountToMatched = (amountToInit * PRICE_PRECISION) / price;
                 }
             }
             if (initOrder.side == OrderSide.Sell) {
                 // When trying to sell more tokens than buyer can purchase, only transfer to him the amount
                 // he can purchase
+
+                tokenToInit = initOrder.tokenB;
+                tokenToMatched = initOrder.tokenA;
+
                 if (
-                    initOrder.amount - initOrder.amountCurrent >
-                    matchedOrder.amount - matchedOrder.amountCurrent
+                    initOrder.amount - initOrder.amountFilled >
+                    matchedOrder.amount - matchedOrder.amountFilled
                 ) {
+                    // Pay the seller all tokens buyer can offer
+                    amountToInit =
+                        matchedOrder.amount -
+                        matchedOrder.amountFilled;
+
+                    // Give buyer as many tokens as he can purchase
                     if (quotedInInitB) {
-                        IERC20(initOrder.tokenA).safeTransfer(
-                            initOrder.user,
-                            ((matchedOrder.amount -
-                                matchedOrder.amountCurrent) * PRICE_PRECISION) /
-                                price
-                        );
+                        amountToMatched =
+                            (amountToInit * PRICE_PRECISION) /
+                            price;
                     } else {
-                        IERC20(initOrder.tokenA).safeTransfer(
-                            initOrder.user,
-                            ((matchedOrder.amount -
-                                matchedOrder.amountCurrent) * price) /
-                                PRICE_PRECISION
-                        );
+                        amountToMatched =
+                            (amountToInit * price) /
+                            PRICE_PRECISION;
                     }
-                    IERC20(initOrder.tokenB).safeTransfer(
-                        matchedOrder.user,
-                        (matchedOrder.amount - matchedOrder.amountCurrent)
-                    );
-                    // Initial order sold amount gets increased by the amount of tokens sold
-                    initOrder.amountCurrent += (matchedOrder.amount -
-                        matchedOrder.amountCurrent);
-                    // Whole amount of matched order was bought
-                    matchedOrder.amountCurrent = matchedOrder.amount;
-
-                    // Init order is partially closed
-                    initOrder.status = OrderStatus.PartiallyClosed;
-                    // Matched order is fully closed
-                    matchedOrder.status = OrderStatus.Closed;
-
+                } else {
                     // When trying to sell less tokens than buyer can purchase, whole available amount of sold
                     // tokens gets transferred to the buyer
-                } else {
+
+                    // Give buyer all tokens seller wants to sell
+                    amountToMatched = initOrder.amount - initOrder.amountFilled;
+
+                    // Pay the seller according to the amount of tokens he sold
                     if (quotedInInitB) {
-                        IERC20(initOrder.tokenA).safeTransfer(
-                            initOrder.user,
-                            ((initOrder.amount - initOrder.amountCurrent) *
-                                PRICE_PRECISION) / price
-                        );
+                        amountToInit =
+                            (amountToMatched * PRICE_PRECISION) /
+                            price;
                     } else {
-                        IERC20(initOrder.tokenA).safeTransfer(
-                            initOrder.user,
-                            ((initOrder.amount - initOrder.amountCurrent) *
-                                price) / PRICE_PRECISION
-                        );
+                        amountToInit =
+                            (amountToMatched * price) /
+                            PRICE_PRECISION;
                     }
-                    IERC20(initOrder.tokenB).safeTransfer(
-                        matchedOrder.user,
-                        initOrder.amount - initOrder.amountCurrent
-                    );
-                    // Matched order bought amount gets increased by the amount of tokens sold
-                    matchedOrder.amountCurrent += (initOrder.amount -
-                        initOrder.amountCurrent);
-                    // Whole amount of initial was sold
-                    initOrder.amountCurrent = initOrder.amount;
-
-                    // Matched order is partially closed
-                    matchedOrder.status = OrderStatus.PartiallyClosed;
-                    // Init order is fully closed
-                    initOrder.status = OrderStatus.Closed;
                 }
-            }
 
-            // Pair price gets updated to the price of the last executed limit order
-            if (quotedInInitB) {
-                pairPrices[initOrder.tokenA][initOrder.tokenB] = price;
-            } else {
-                pairPrices[initOrder.tokenB][initOrder.tokenA] = price;
-            }
+                // Change amounts of tokens in each order
+                initOrder.amount += amountToInit;
+                matchedOrder.amount += amountToMatched;
 
-            emit PriceChanged(initOrder.tokenA, initOrder.tokenB, price);
-
-            // Revert if slippage is too big for any of the orders
-            uint256 slippage = calcSlippage(oldPrice, price);
-            if (initOrder.type_ == OrderType.Market) {
-                uint256 allowedSlippage = initOrder.slippage;
-                if (slippage > allowedSlippage) {
-                    revert SlippageTooBig(slippage);
-                }
-            }
-            if (matchedOrder.type_ == OrderType.Market) {
-                uint256 allowedSlippage = matchedOrder.slippage;
-                if (slippage > allowedSlippage) {
-                    revert SlippageTooBig(slippage);
-                }
-            }
-
-            // Calculate the amount of gas spent for one iteration
-            uint256 gasSpentPerIteration = lastGasLeft - gasleft();
-            lastGasLeft = gasleft();
-            // Increase the total amount of gas spent
-            gasSpent += gasSpentPerIteration;
-            // Check that no more than 2/3 of block gas limit was spent
-            if (gasSpent >= gasThreshold) {
-                emit GasLimitReached(gasSpent, block.gaslimit);
-                // No revert here. Part of changes will take place
-                break;
+                // Change order's status according to it's filled amount
+                _checkAndChangeStatus(initOrder);
+                _checkAndChangeStatus(matchedOrder);
             }
         }
 
-        // If the initial order is a limit order and it has a price higher than market,
-        // then the whole amount left should be returned to the creator of the order
-        if (
-            (initOrder.type_ == OrderType.Limit) &&
-            (initOrder.side == OrderSide.Buy) &&
-            (initOrder.amountCurrent != initOrder.amount) &&
-            // Limit price is expressed in the same tokens as oldPrice
-            (initOrder.limitPrice > oldPrice)
-        ) {
-            IERC20(initOrder.tokenA).safeTransfer(
-                initOrder.user,
-                initOrder.amount - initOrder.amountCurrent
-            );
-            // After that init order gets closed
-            initOrder.status = OrderStatus.Closed;
+        return (tokenToInit, tokenToMatched, amountToInit, amountToMatched);
+    }
+
+    /// @dev Calculates price slippage in basis points
+    /// @param oldPrice Old price of pair of tokens
+    /// @param newPrice New price of pair of tokens
+    /// @return Price slippage in basis points
+    function _calcSlippage(
+        uint256 oldPrice,
+        uint256 newPrice
+    ) private pure returns (uint256) {
+        uint256 minPrice = newPrice > oldPrice ? oldPrice : newPrice;
+        uint256 maxPrice = newPrice > oldPrice ? newPrice : oldPrice;
+        uint256 priceDif = maxPrice - minPrice;
+        uint256 slippage = (priceDif * HUNDRED_PERCENT) / maxPrice;
+        return slippage;
+    }
+
+    /// @dev Checks that price slippage is not too high
+    /// @param oldPrice Old price of the pair
+    /// @param newPrice New price of the pair
+    /// @param allowedSlippage The maximum allowed slippage in basis points
+    function _checkSlippage(
+        uint256 oldPrice,
+        uint256 newPrice,
+        uint256 allowedSlippage
+    ) private pure {
+        uint256 slippage = _calcSlippage(oldPrice, newPrice);
+        if (slippage > allowedSlippage) {
+            revert SlippageTooBig(slippage);
         }
+    }
+
+    /// @dev Forms args structure to be used in `_createOrder` function later.
+    ///      Avoids the `Stack too deep` error
+    /// @param tokenA The address of the token that is purchased
+    /// @param tokenB The address of the token that is sold
+    /// @param amount The amount of active tokens
+    /// @param limitPrice The limit price of the order in quoted tokens
+    /// @param type_ The type of the order
+    /// @param side The side of the order
+    /// @param slippage The slippage of market order
+    /// @param isCancellable True if order is cancellable. Otherwise - false
+    function _prepareOrder(
+        address tokenA,
+        address tokenB,
+        uint256 amount,
+        uint256 limitPrice,
+        OrderType type_,
+        OrderSide side,
+        uint256 slippage,
+        bool isCancellable
+    ) private returns (Order memory) {
+        require(tokenA != address(0), "OC: Cannot buy native tokens!");
+        require(amount != 0, "OC: Cannot buy/sell zero tokens!");
+
+        // NOTICE: first order gets the ID of 1
+        _orderId.increment();
+        uint256 id = _orderId.current();
+
+        Order memory order = Order({
+            id: id,
+            user: msg.sender,
+            tokenA: tokenA,
+            tokenB: tokenB,
+            amount: amount,
+            // Initial amount is always 0
+            amountFilled: 0,
+            type_: type_,
+            side: side,
+            // Limit price is 0 for market orders
+            limitPrice: limitPrice,
+            slippage: slippage,
+            isCancellable: isCancellable,
+            status: OrderStatus.Active,
+            // Leave 0 for lockAmount and feeAmount for now
+            feeAmount: 0
+        });
+
+        return order;
+    }
+
+    /// @dev Calculates the amount of tokens to be locked when creating an order
+    /// @param tokenA The address of the token that is purchased
+    /// @param tokenB The address of the token that is sold
+    /// @param amount The amount of active tokens
+    /// @param price The market/limit execution price
+    /// @return The amount of tokens to be locked
+    function getLockAmount(
+        address tokenA,
+        address tokenB,
+        uint256 amount,
+        uint256 price
+    ) internal view returns (uint256) {
+        uint256 lockAmount;
+
+        // User has to lock enough `tokenB_` to pay according to current price
+        if (isQuoted[tokenA][tokenB]) {
+            // If `tokenB_` is a quoted token, then `price` does not change
+            // because it's expressed in this token
+            lockAmount = (amount * price) / PRICE_PRECISION;
+        } else {
+            // If `tokenA_` is a quoted token, then `price` should be inversed
+            lockAmount = (amount * PRICE_PRECISION) / price;
+        }
+
+        return lockAmount;
     }
 }
