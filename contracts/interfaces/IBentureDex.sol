@@ -3,9 +3,9 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@uniswap/lib/contracts/libraries/TransferHelper.sol";
+import "./errors/IBentureDexErrors.sol";
 
-interface IOrderController {
+interface IBentureDex is IBentureDexErrors {
     /// @dev The type of the order (Market of Limit)
     enum OrderType {
         Market,
@@ -65,7 +65,13 @@ interface IOrderController {
         // Status
         OrderStatus status;
         // The amount of active tokens paid as fee
+        // Decreases after cancellation of partially executed order
         uint256 feeAmount;
+        // The amount of tokens locked after order creation
+        // Does not include fee
+        // Equals `amount` in sell orders
+        // Used in order cancelling
+        uint256 amountLocked;
     }
 
     /// @notice Indicates that a new order has been created.
@@ -79,10 +85,10 @@ interface IOrderController {
     /// @param limitPrice The limit price of the order in quoted tokens
     /// @param isCancellable True if order is cancellable. Otherwise - false
     event OrderCreated(
-        uint256 indexed id,
+        uint256 id,
         address user,
-        address indexed tokenA,
-        address indexed tokenB,
+        address tokenA,
+        address tokenB,
         uint256 amount,
         OrderType type_,
         OrderSide side,
@@ -96,8 +102,16 @@ interface IOrderController {
     event FeeRateChanged(uint256 oldFeeRate, uint256 newFeeRate);
 
     /// @notice Indicates that a single series sale has started
-    /// @param token The address of the token being sold
-    event SaleStarted(address token);
+    /// @param tokenA The purchased token
+    /// @param tokenB The sold token
+    /// @param amount The amount of sold tokens
+    /// @param price The price at which the sell is made
+    event SaleStarted(
+        address tokenA,
+        address tokenB,
+        uint256 amount,
+        uint256 price
+    );
 
     /// @notice Indicates that the order was cancelled
     event OrderCancelled(uint256 id);
@@ -124,10 +138,6 @@ interface IOrderController {
     /// @param gasLimit The block gas limit
     event GasLimitReached(uint256 gasLeft, uint256 gasLimit);
 
-    /// @notice Indicates that price slippage was too big
-    /// @param slippage The real slippage
-    error SlippageTooBig(uint256 slippage);
-
     /// @notice Returns the list of IDs of orders user has created
     /// @param user The address of the user
     /// @return The list of IDs of orders user has created
@@ -151,6 +161,8 @@ interface IOrderController {
     /// @return The side of the order
     /// @return The limit price of the order in quoted tokens
     /// @return True if order is cancellable. Otherwise - false
+    /// @return The fee paid for order creation
+    /// @return The locked amount of tokens
     /// @return The current status of the order
     function getOrder(
         uint256 _id
@@ -167,6 +179,8 @@ interface IOrderController {
             OrderSide,
             uint256,
             bool,
+            uint256,
+            uint256,
             OrderStatus
         );
 
@@ -178,6 +192,16 @@ interface IOrderController {
         address tokenA,
         address tokenB
     ) external view returns (uint256[] memory);
+
+    /// @notice Returns the price of the pair of tokens
+    /// @param tokenA The address of the first token of the pair
+    /// @param tokenB The address of the second token of the pair
+    /// @return The quoted token of the pair
+    /// @return The price of the pair in quoted tokens
+    function getPrice(
+        address tokenA,
+        address tokenB
+    ) external view returns (address, uint256);
 
     /// @notice Checks if orders have matched any time before
     /// @param firstId The ID of the first order to check
@@ -193,11 +217,15 @@ interface IOrderController {
     /// @param tokenB The address of the token that is sold
     /// @param amount The amount of active tokens
     /// @param slippage Allowed price slippage (in basis points)
+    /// @param nonce A unique integer for each tx call
+    /// @param signature The signature used to sign the hash of the message
     function buyMarket(
         address tokenA,
         address tokenB,
         uint256 amount,
-        uint256 slippage
+        uint256 slippage,
+        uint256 nonce,
+        bytes memory signature
     ) external;
 
     /// @notice Creates a sell market order
@@ -205,11 +233,15 @@ interface IOrderController {
     /// @param tokenB The address of the token that is sold
     /// @param amount The amount of active tokens
     /// @param slippage Allowed price slippage (in basis points)
+    /// @param nonce A unique integer for each tx call
+    /// @param signature The signature used to sign the hash of the message
     function sellMarket(
         address tokenA,
         address tokenB,
         uint256 amount,
-        uint256 slippage
+        uint256 slippage,
+        uint256 nonce,
+        bytes memory signature
     ) external;
 
     /// @notice Creates an buy limit order
@@ -217,13 +249,11 @@ interface IOrderController {
     /// @param tokenB The address of the token that is sold
     /// @param amount The amount of active tokens
     /// @param limitPrice The limit price of the order in quoted tokens
-    /// @param isCancellable True if order is cancellable. Otherwise - false
     function buyLimit(
         address tokenA,
         address tokenB,
         uint256 amount,
-        uint256 limitPrice,
-        bool isCancellable
+        uint256 limitPrice
     ) external;
 
     /// @notice Creates an sell limit order
@@ -231,13 +261,11 @@ interface IOrderController {
     /// @param tokenB The address of the token that is sold
     /// @param amount The amount of active tokens
     /// @param limitPrice The limit price of the order in quoted tokens
-    /// @param isCancellable True if order is cancellable. Otherwise - false
     function sellLimit(
         address tokenA,
         address tokenB,
         uint256 amount,
-        uint256 limitPrice,
-        bool isCancellable
+        uint256 limitPrice
     ) external;
 
     /// @notice Cancels the limit order with the given ID.
