@@ -1,4 +1,4 @@
-# OrderController
+# BentureDex
 
 
 
@@ -10,15 +10,41 @@
 
 ## Methods
 
-### _getTxHash
+### _getTxHashMarket
 
 ```solidity
-function _getTxHash(uint256 initId, uint256[] matchedIds, uint256 nonce) external view returns (bytes32)
+function _getTxHashMarket(address tokenA, address tokenB, uint256 amount, uint256 slippage, uint256 nonce) external view returns (bytes32)
 ```
 
 
 
-*Calculates the hash of the transaction with nonce and contract addressNOTICE: Backend must form tx hash exactly the same way*
+*Calculates the hash of parameters of market order function and a nonceNOTICE: Backend must form tx hash exactly the same way*
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| tokenA | address | The address of the purchased token |
+| tokenB | address | The address of the sold token |
+| amount | uint256 | The amound of purchased / sold tokens |
+| slippage | uint256 | The maximum allowed price slippage |
+| nonce | uint256 | The unique integer |
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | bytes32 | undefined |
+
+### _getTxHashMatch
+
+```solidity
+function _getTxHashMatch(uint256 initId, uint256[] matchedIds, uint256 nonce) external view returns (bytes32)
+```
+
+
+
+*Calculates the hash of parameters of order matching function and a nonceNOTICE: Backend must form tx hash exactly the same way*
 
 #### Parameters
 
@@ -54,10 +80,10 @@ The address of the backend account
 ### buyLimit
 
 ```solidity
-function buyLimit(address tokenA, address tokenB, uint256 amount, uint256 limitPrice, bool isCancellable) external nonpayable
+function buyLimit(address tokenA, address tokenB, uint256 amount, uint256 limitPrice) external nonpayable
 ```
 
-See {IOrderController-buyLimit}
+See {IBentureDex-buyLimit}
 
 
 
@@ -69,15 +95,14 @@ See {IOrderController-buyLimit}
 | tokenB | address | undefined |
 | amount | uint256 | undefined |
 | limitPrice | uint256 | undefined |
-| isCancellable | bool | undefined |
 
 ### buyMarket
 
 ```solidity
-function buyMarket(address tokenA, address tokenB, uint256 amount, uint256 slippage) external nonpayable
+function buyMarket(address tokenA, address tokenB, uint256 amount, uint256 slippage, uint256 nonce, bytes signature) external nonpayable
 ```
 
-See {IOrderController-buyMarket}
+See {IBentureDex-buyMarket}
 
 
 
@@ -89,6 +114,8 @@ See {IOrderController-buyMarket}
 | tokenB | address | undefined |
 | amount | uint256 | undefined |
 | slippage | uint256 | undefined |
+| nonce | uint256 | undefined |
+| signature | bytes | undefined |
 
 ### cancelOrder
 
@@ -96,7 +123,7 @@ See {IOrderController-buyMarket}
 function cancelOrder(uint256 id) external nonpayable
 ```
 
-See {IOrderController-cancelOrder}
+See {IBentureDex-cancelOrder}
 
 
 
@@ -112,7 +139,7 @@ See {IOrderController-cancelOrder}
 function checkMatched(uint256 firstId, uint256 secondId) external view returns (bool)
 ```
 
-See (IOrderController-checkMatched)
+See (IBentureDex-checkMatched)
 
 
 
@@ -135,7 +162,7 @@ See (IOrderController-checkMatched)
 function checkOrderExists(uint256 id) external view returns (bool)
 ```
 
-See {IOrderController-checkOrderExists}
+See {IBentureDex-checkOrderExists}
 
 
 
@@ -144,28 +171,6 @@ See {IOrderController-checkOrderExists}
 | Name | Type | Description |
 |---|---|---|
 | id | uint256 | undefined |
-
-#### Returns
-
-| Name | Type | Description |
-|---|---|---|
-| _0 | bool | undefined |
-
-### executed
-
-```solidity
-function executed(bytes32) external view returns (bool)
-```
-
-Marks transaction hashes that have been executed already.         Prevents Replay Attacks
-
-
-
-#### Parameters
-
-| Name | Type | Description |
-|---|---|---|
-| _0 | bytes32 | undefined |
 
 #### Returns
 
@@ -193,10 +198,10 @@ Percentage of each order being paid as fee (in basis points)
 ### getOrder
 
 ```solidity
-function getOrder(uint256 _id) external view returns (address, address, address, uint256, uint256, enum IOrderController.OrderType, enum IOrderController.OrderSide, uint256, bool, enum IOrderController.OrderStatus)
+function getOrder(uint256 _id) external view returns (address, address, address, uint256, uint256, enum IBentureDex.OrderType, enum IBentureDex.OrderSide, uint256, bool, uint256, uint256, enum IBentureDex.OrderStatus)
 ```
 
-See {IOrderController-getOrder}
+See {IBentureDex-getOrder}
 
 
 
@@ -215,11 +220,13 @@ See {IOrderController-getOrder}
 | _2 | address | undefined |
 | _3 | uint256 | undefined |
 | _4 | uint256 | undefined |
-| _5 | enum IOrderController.OrderType | undefined |
-| _6 | enum IOrderController.OrderSide | undefined |
+| _5 | enum IBentureDex.OrderType | undefined |
+| _6 | enum IBentureDex.OrderSide | undefined |
 | _7 | uint256 | undefined |
 | _8 | bool | undefined |
-| _9 | enum IOrderController.OrderStatus | undefined |
+| _9 | uint256 | undefined |
+| _10 | uint256 | undefined |
+| _11 | enum IBentureDex.OrderStatus | undefined |
 
 ### getOrdersByTokens
 
@@ -227,7 +234,7 @@ See {IOrderController-getOrder}
 function getOrdersByTokens(address tokenA, address tokenB) external view returns (uint256[])
 ```
 
-See {IOrderController-getOrdersByTokens}
+See {IBentureDex-getOrdersByTokens}
 
 
 
@@ -244,13 +251,37 @@ See {IOrderController-getOrdersByTokens}
 |---|---|---|
 | _0 | uint256[] | undefined |
 
+### getPrice
+
+```solidity
+function getPrice(address tokenA, address tokenB) external view returns (address, uint256)
+```
+
+See {IBentureDex-getPrice}
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| tokenA | address | undefined |
+| tokenB | address | undefined |
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | address | undefined |
+| _1 | uint256 | undefined |
+
 ### getUserOrders
 
 ```solidity
 function getUserOrders(address user) external view returns (uint256[])
 ```
 
-See {IOrderController-getUserOrders}
+See {IBentureDex-getUserOrders}
 
 
 
@@ -272,7 +303,7 @@ See {IOrderController-getUserOrders}
 function matchOrders(uint256 initId, uint256[] matchedIds, uint256 nonce, bytes signature) external nonpayable
 ```
 
-See {IOrderController-matchOrders}
+See {IBentureDex-matchOrders}
 
 
 
@@ -316,10 +347,10 @@ function renounceOwnership() external nonpayable
 ### sellLimit
 
 ```solidity
-function sellLimit(address tokenA, address tokenB, uint256 amount, uint256 limitPrice, bool isCancellable) external nonpayable
+function sellLimit(address tokenA, address tokenB, uint256 amount, uint256 limitPrice) external nonpayable
 ```
 
-See {IOrderController-sellLimit}
+See {IBentureDex-sellLimit}
 
 
 
@@ -331,15 +362,14 @@ See {IOrderController-sellLimit}
 | tokenB | address | undefined |
 | amount | uint256 | undefined |
 | limitPrice | uint256 | undefined |
-| isCancellable | bool | undefined |
 
 ### sellMarket
 
 ```solidity
-function sellMarket(address tokenA, address tokenB, uint256 amount, uint256 slippage) external nonpayable
+function sellMarket(address tokenA, address tokenB, uint256 amount, uint256 slippage, uint256 nonce, bytes signature) external nonpayable
 ```
 
-See {IOrderController-sellMarket}
+See {IBentureDex-sellMarket}
 
 
 
@@ -351,6 +381,8 @@ See {IOrderController-sellMarket}
 | tokenB | address | undefined |
 | amount | uint256 | undefined |
 | slippage | uint256 | undefined |
+| nonce | uint256 | undefined |
+| signature | bytes | undefined |
 
 ### setBackend
 
@@ -358,7 +390,7 @@ See {IOrderController-sellMarket}
 function setBackend(address acc) external nonpayable
 ```
 
-See {IOrderController-setBackend}
+See {IBentureDex-setBackend}
 
 
 
@@ -374,7 +406,7 @@ See {IOrderController-setBackend}
 function setFee(uint256 newFeeRate) external nonpayable
 ```
 
-See {IOrderController-setFee}
+See {IBentureDex-setFee}
 
 
 
@@ -390,7 +422,7 @@ See {IOrderController-setFee}
 function startSaleMultiple(address tokenA, address tokenB, uint256[] amounts, uint256[] prices) external nonpayable
 ```
 
-See {IOrderController-startSaleMultiple}
+See {IBentureDex-startSaleMultiple}
 
 
 
@@ -409,7 +441,7 @@ See {IOrderController-startSaleMultiple}
 function startSaleSingle(address tokenA, address tokenB, uint256 amount, uint256 price) external nonpayable
 ```
 
-See {IOrderController-startSaleSingle}
+See {IBentureDex-startSaleSingle}
 
 
 
@@ -444,7 +476,7 @@ function transferOwnership(address newOwner) external nonpayable
 function withdrawAllFees() external nonpayable
 ```
 
-See {IOrderController-withdrawAllFees}
+See {IBentureDex-withdrawAllFees}
 
 
 
@@ -455,7 +487,7 @@ See {IOrderController-withdrawAllFees}
 function withdrawFees(address[] tokens) external nonpayable
 ```
 
-See {IOrderController-withdrawFees}
+See {IBentureDex-withdrawFees}
 
 
 
@@ -539,7 +571,7 @@ Indicates that the order was cancelled
 ### OrderCreated
 
 ```solidity
-event OrderCreated(uint256 indexed id, address user, address indexed tokenA, address indexed tokenB, uint256 amount, enum IOrderController.OrderType type_, enum IOrderController.OrderSide side, uint256 limitPrice, bool isCancellable)
+event OrderCreated(uint256 id, address user, address tokenA, address tokenB, uint256 amount, enum IBentureDex.OrderType type_, enum IBentureDex.OrderSide side, uint256 limitPrice, bool isCancellable)
 ```
 
 Indicates that a new order has been created.
@@ -550,13 +582,13 @@ Indicates that a new order has been created.
 
 | Name | Type | Description |
 |---|---|---|
-| id `indexed` | uint256 | undefined |
+| id  | uint256 | undefined |
 | user  | address | undefined |
-| tokenA `indexed` | address | undefined |
-| tokenB `indexed` | address | undefined |
+| tokenA  | address | undefined |
+| tokenB  | address | undefined |
 | amount  | uint256 | undefined |
-| type_  | enum IOrderController.OrderType | undefined |
-| side  | enum IOrderController.OrderSide | undefined |
+| type_  | enum IBentureDex.OrderType | undefined |
+| side  | enum IBentureDex.OrderSide | undefined |
 | limitPrice  | uint256 | undefined |
 | isCancellable  | bool | undefined |
 
@@ -615,7 +647,7 @@ Indicates that price of the pair was changed
 ### SaleStarted
 
 ```solidity
-event SaleStarted(address token)
+event SaleStarted(address tokenA, address tokenB, uint256 amount, uint256 price)
 ```
 
 Indicates that a single series sale has started
@@ -626,11 +658,157 @@ Indicates that a single series sale has started
 
 | Name | Type | Description |
 |---|---|---|
-| token  | address | undefined |
+| tokenA  | address | undefined |
+| tokenB  | address | undefined |
+| amount  | uint256 | undefined |
+| price  | uint256 | undefined |
 
 
 
 ## Errors
+
+### DifferentLength
+
+```solidity
+error DifferentLength()
+```
+
+
+
+
+
+
+### InvalidFirstTokenAddress
+
+```solidity
+error InvalidFirstTokenAddress()
+```
+
+
+
+
+
+
+### InvalidOrderStatus
+
+```solidity
+error InvalidOrderStatus()
+```
+
+
+
+
+
+
+### InvalidSignature
+
+```solidity
+error InvalidSignature()
+```
+
+
+
+
+
+
+### InvalidStatusForFees
+
+```solidity
+error InvalidStatusForFees()
+```
+
+
+
+
+
+
+### NoFeesToWithdraw
+
+```solidity
+error NoFeesToWithdraw()
+```
+
+
+
+
+
+
+### NoQuotedTokens
+
+```solidity
+error NoQuotedTokens()
+```
+
+
+
+
+
+
+### NonCancellable
+
+```solidity
+error NonCancellable()
+```
+
+
+
+
+
+
+### NotAdmin
+
+```solidity
+error NotAdmin()
+```
+
+
+
+
+
+
+### NotOrderCreator
+
+```solidity
+error NotOrderCreator()
+```
+
+
+
+
+
+
+### OrderDoesNotExist
+
+```solidity
+error OrderDoesNotExist()
+```
+
+
+
+
+
+
+### SameBackend
+
+```solidity
+error SameBackend()
+```
+
+
+
+
+
+
+### SameFee
+
+```solidity
+error SameFee()
+```
+
+
+
+
+
 
 ### SlippageTooBig
 
@@ -638,7 +816,7 @@ Indicates that a single series sale has started
 error SlippageTooBig(uint256 slippage)
 ```
 
-Indicates that price slippage was too big
+
 
 
 
@@ -646,6 +824,55 @@ Indicates that price slippage was too big
 
 | Name | Type | Description |
 |---|---|---|
-| slippage | uint256 | The real slippage |
+| slippage | uint256 | undefined |
+
+### TxAlreadyExecuted
+
+```solidity
+error TxAlreadyExecuted(bytes32 txHash)
+```
+
+
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| txHash | bytes32 | undefined |
+
+### ZeroAddress
+
+```solidity
+error ZeroAddress()
+```
+
+
+
+
+
+
+### ZeroAmount
+
+```solidity
+error ZeroAmount()
+```
+
+
+
+
+
+
+### ZeroPrice
+
+```solidity
+error ZeroPrice()
+```
+
+
+
+
+
 
 

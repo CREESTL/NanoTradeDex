@@ -67,7 +67,7 @@ module.exports = {
         alphaSort: true,
         disambiguatePaths: true,
         strict: true,
-        runOnCompile: true,
+        runOnCompile: false,
     },
     etherscan: {
         apiKey: {
