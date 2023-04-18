@@ -10,7 +10,6 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "./interfaces/IBentureDex.sol";
 import "./interfaces/IBentureProducedToken.sol";
-import "hardhat/console.sol";
 
 /// @title Contract that controlls creation and execution of market and limit orders
 contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
@@ -298,8 +297,6 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
             true
         );
 
-        console.log("\nBuy limit called");
-
         _updatePairPriceOnLimit(order);
 
         uint256 marketPrice = _getPrice(order.tokenA, order.tokenB);
@@ -350,8 +347,6 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
             // Orders are cancellable
             true
         );
-
-        console.log("\nSell limit called");
 
         _updatePairPriceOnLimit(order);
 
@@ -568,10 +563,6 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
             // to the filled amount should be returned as well
             uint256 returnFee = _calcReturnFee(order);
             returnAmount = order.amountLocked + returnFee;
-            console.log("\nIn contract in cancel order: ");
-            console.log("Locked amount is: ", order.amountLocked);
-            console.log("Return fee is:    ", returnFee);
-            console.log("Return amount is: ", returnAmount);
             // Order fee amount decreases by the returned amount
             order.feeAmount -= returnFee;
             // Order locked amount resets
@@ -894,10 +885,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         tokenToInit = initOrder.tokenA;
         tokenToMatched = initOrder.tokenB;
 
-        console.log("\nIn contract in get amounts (while matching): ");
-
         if (initOrder.side == OrderSide.Buy) {
-            console.log("Init order is buy");
             // When trying to buy more than available in matched order, whole availabe amount of matched order
             // gets transferred (it's less)
 
@@ -905,7 +893,6 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
                 initOrder.amount - initOrder.amountFilled >
                 matchedOrder.amount - matchedOrder.amountFilled
             ) {
-                console.log("Buy more than sell");
                 // Sell all seller's tokens to the buyer
                 // Amount of buy order tokenA trasferred from sell to buy order
                 amountToInit = matchedOrder.amount - matchedOrder.amountFilled;
@@ -918,7 +905,6 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
                     amountToMatched = (amountToInit * PRICE_PRECISION) / price;
                 }
             } else {
-                console.log("Sell more than buy");
                 // When trying to buy less or equal to what is available in matched order, only bought amount
                 // gets transferred (it's less). Some amount stays locked in the matched order
 
@@ -936,7 +922,6 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
             }
         }
         if (initOrder.side == OrderSide.Sell) {
-            console.log("Init order is sell");
             // When trying to sell more tokens than buyer can purchase, only transfer to him the amount
             // he can purchase
 
@@ -944,7 +929,6 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
                 initOrder.amount - initOrder.amountFilled >
                 matchedOrder.amount - matchedOrder.amountFilled
             ) {
-                console.log("Sell more than buy");
                 // Give buyer all tokens he wants to buy
                 // Amount of sell order tokenB transferred from sell to buy order
                 amountToMatched =
@@ -959,7 +943,6 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
                     amountToInit = (amountToMatched * price) / PRICE_PRECISION;
                 }
             } else {
-                console.log("Buy more than sell");
                 // When trying to sell less tokens than buyer can purchase, whole available amount of sold
                 // tokens gets transferred to the buyer
 
@@ -976,8 +959,6 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
                 }
             }
         }
-        console.log("Amount to init:    ", amountToInit);
-        console.log("Amount to matched: ", amountToMatched);
 
         return (tokenToInit, tokenToMatched, amountToInit, amountToMatched);
     }
@@ -1153,7 +1134,6 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
     ) private view returns (uint256) {
         uint256 lockAmount;
 
-        console.log("\nIn contract in get buyer lock amount: ");
         if (_isQuoted[tokenA][tokenB]) {
             // User has to lock enough `tokenB_` to pay according to current price
             // If `tokenB_` is a quoted token, then `price` does not change
@@ -1163,9 +1143,6 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
             // If `tokenA_` is a quoted token, then `price` should be inversed
             lockAmount = (amount * PRICE_PRECISION) / price;
         }
-        console.log("Amount:                    ", amount);
-        console.log("Price (limit *or* market): ", price);
-        console.log("Amount to lock:            ", lockAmount);
 
         return lockAmount;
     }
@@ -1174,16 +1151,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
     ///      on the filled amount of the cancelled order
     /// @param order The cancelled order
     /// @return The fee amount to return to the user
-    function _calcReturnFee(Order memory order) private view returns (uint256) {
-        console.log("\nIn contract in calc return fee: ");
-        console.log("Fee amount:    ", order.feeAmount);
-        console.log("Amount:        ", order.amount);
-        console.log("Filled amount: ", order.amountFilled);
-        console.log(
-            "Return fee:    ",
-            order.feeAmount -
-                ((order.amountFilled * order.feeAmount) / order.amount)
-        );
+    function _calcReturnFee(Order memory order) private pure returns (uint256) {
         return
             order.feeAmount -
             ((order.amountFilled * order.feeAmount) / order.amount);
