@@ -27,7 +27,7 @@ async function main() {
     dex = await contractDeployTx.deployed();
     console.log(`[${contractName}]: Deployment Finished!`);
     OUTPUT_DEPLOY[network.name][contractName].address = dex.address;
-    
+
     console.log(`[${contractName}]: Setting backend address...`);
     await dex.setBackend(backendAcc.address);
     console.log(`[${contractName}]: Backend address set!`);
@@ -40,8 +40,7 @@ async function main() {
     if (network.name === "polygon_mainnet") {
         url = "https://polygonscan.com/address/" + dex.address + "#code";
     } else if (network.name === "polygon_testnet") {
-        url =
-            "https://mumbai.polygonscan.com/address/" + dex.address + "#code";
+        url = "https://mumbai.polygonscan.com/address/" + dex.address + "#code";
     }
 
     OUTPUT_DEPLOY[network.name][contractName].verification = url;
