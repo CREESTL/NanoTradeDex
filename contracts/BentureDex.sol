@@ -17,6 +17,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using ECDSA for bytes32;
     using EnumerableSet for EnumerableSet.AddressSet;
+    using EnumerableSet for EnumerableSet.UintSet;
 
     /// @dev Precision used to calculate token amounts rations (prices)
     uint256 constant PRICE_PRECISION = 10 ** 18;
@@ -48,8 +49,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
     mapping(address => mapping(address => uint256)) private _pairPrices;
     /// @dev Mapping from address of token to list of IDs of orders
     ///      in which fees were paid in this order
-    // TODO make a standard delete function for this array
-    mapping(address => uint256[]) private _tokensToFeesIds;
+    mapping(address => EnumerableSet.UintSet) private _tokensToFeesIds;
     /// @dev List of tokens that are currently locked as fees
     ///         for orders creations
     EnumerableSet.AddressSet private _lockedTokens;
@@ -209,7 +209,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         uint256 feeAmount = _getFee(lockAmount);
 
         // Mark that fee for new order was paid in `tokenB`
-        _tokensToFeesIds[tokenB].push(order.id);
+        _tokensToFeesIds[tokenB].add(order.id);
 
         // Mark that `tokenB` was locked
         _lockedTokens.add(tokenB);
@@ -267,7 +267,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         uint256 feeAmount = _getFee(lockAmount);
 
         // Mark that fee for new order was paid in `tokenB`
-        _tokensToFeesIds[tokenB].push(order.id);
+        _tokensToFeesIds[tokenB].add(order.id);
 
         // Mark that `tokenB` was locked
         _lockedTokens.add(tokenB);
@@ -318,7 +318,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         uint256 feeAmount = _getFee(lockAmount);
 
         // Mark that fee for new order was paid in `tokenB`
-        _tokensToFeesIds[tokenB].push(order.id);
+        _tokensToFeesIds[tokenB].add(order.id);
 
         // Mark that `tokenB` was locked
         _lockedTokens.add(tokenB);
@@ -335,7 +335,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         address tokenB,
         uint256 amount,
         uint256 limitPrice
-    ) public nonReentrant updateQuotes(tokenA, tokenB) {
+    ) external nonReentrant updateQuotes(tokenA, tokenB) {
         Order memory order = _prepareOrder(
             tokenA,
             tokenB,
@@ -357,7 +357,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         uint256 feeAmount = _getFee(lockAmount);
 
         // Mark that fee for new order was paid in `tokenB`
-        _tokensToFeesIds[tokenB].push(order.id);
+        _tokensToFeesIds[tokenB].add(order.id);
 
         // Mark that `tokenB` was locked
         _lockedTokens.add(order.tokenB);
@@ -366,69 +366,6 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         order.feeAmount = feeAmount;
 
         _createOrder(order, lockAmount);
-    }
-
-    /// @notice See {IBentureDex-cancelOrder}
-    function cancelOrder(uint256 id) external nonReentrant {
-        _cancelOrder(id);
-    }
-
-    /// @notice See {IBentureDex-setFee}
-    function setFee(uint256 newFeeRate) external onlyOwner {
-        if (newFeeRate == feeRate) revert SameFee();
-        emit FeeRateChanged(feeRate, newFeeRate);
-        feeRate = newFeeRate;
-    }
-
-    /// @notice See {IBentureDex-checkOrderExists}
-    function checkOrderExists(uint256 id) public view returns (bool) {
-        if (id > _orderId.current()) {
-            return false;
-        }
-        // No native tokens can be bought
-        // If `tokenA` address is zero address, that means this is a Default
-        // value of address, and that means that orders was not created yet
-        if (_orders[id].tokenA == address(0)) {
-            return false;
-        }
-        return true;
-    }
-
-    /// @notice See {IBentureDex-withdrawFees}
-    function withdrawFees(address[] memory tokens) public onlyOwner {
-        // The amount of gas spent for all operations below
-        uint256 gasSpent = 0;
-        // Only 2/3 of block gas limit could be spent.
-        uint256 gasThreshold = (block.gaslimit * 2) / 3;
-        uint256 lastGasLeft = gasleft();
-
-        for (uint256 i = 0; i < tokens.length; i++) {
-            address lockedToken = tokens[i];
-            if (lockedToken == address(0)) revert ZeroAddress();
-            // IDs of orders fees for which were paid in this token
-            uint256[] memory ids = _tokensToFeesIds[lockedToken];
-            for (uint256 j = 0; j < ids.length; j++) {
-                Order storage order = _orders[ids[j]];
-                // Only fees of closed orders can be withdrawn
-                if (order.status != OrderStatus.Closed)
-                    revert InvalidStatusForFees();
-                uint256 transferAmount = order.feeAmount;
-
-                emit FeesWithdrawn(lockedToken, transferAmount);
-
-                // Transfer all withdraw fees to the owner
-                IERC20(lockedToken).safeTransfer(msg.sender, transferAmount);
-
-                lastGasLeft = gasleft();
-                // Increase the total amount of gas spent
-                gasSpent += lastGasLeft - gasleft();
-                // Check that no more than 2/3 of block gas limit was spent
-                if (gasSpent >= gasThreshold) {
-                    emit GasLimitReached(gasSpent, block.gaslimit);
-                    break;
-                }
-            }
-        }
     }
 
     /// @notice See {IBentureDex-withdrawAllFees}
@@ -445,7 +382,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         address tokenB,
         uint256 amount,
         uint256 price
-    ) public nonReentrant {
+    ) external nonReentrant {
         // Prevent reentrancy
         _startSaleSingle(tokenA, tokenB, amount, price);
     }
@@ -492,11 +429,285 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         _matchOrders(initId, matchedIds, nonce, signature);
     }
 
+    /// @notice See {IBentureDex-cancelOrder}
+    function cancelOrder(uint256 id) external nonReentrant {
+        _cancelOrder(id);
+    }
+
     /// @notice See {IBentureDex-setBackend}
     function setBackend(address acc) external onlyOwner {
         if (acc == backendAcc) revert SameBackend();
         if (acc == address(0)) revert ZeroAddress();
         backendAcc = acc;
+    }
+
+    /// @notice See {IBentureDex-setFee}
+    function setFee(uint256 newFeeRate) external onlyOwner {
+        if (newFeeRate == feeRate) revert SameFee();
+        emit FeeRateChanged(feeRate, newFeeRate);
+        feeRate = newFeeRate;
+    }
+
+    /// @notice See {IBentureDex-checkOrderExists}
+    function checkOrderExists(uint256 id) public view returns (bool) {
+        if (id > _orderId.current()) {
+            return false;
+        }
+        // No native tokens can be bought
+        // If `tokenA` address is zero address, that means this is a Default
+        // value of address, and that means that orders was not created yet
+        if (_orders[id].tokenA == address(0)) {
+            return false;
+        }
+        return true;
+    }
+
+    /// @notice See {IBentureDex-withdrawFees}
+    function withdrawFees(address[] memory tokens) public onlyOwner {
+        // The amount of gas spent for all operations below
+        uint256 gasSpent = 0;
+        // Only 2/3 of block gas limit could be spent.
+        uint256 gasThreshold = (block.gaslimit * 2) / 3;
+        uint256 lastGasLeft = gasleft();
+
+        for (uint256 i = 0; i < tokens.length; i++) {
+            address lockedToken = tokens[i];
+            if (lockedToken == address(0)) revert ZeroAddress();
+            // IDs of orders fees for which were paid in this token
+            uint256[] memory ids = _tokensToFeesIds[lockedToken].values();
+            for (uint256 j = 0; j < ids.length; j++) {
+                Order storage order = _orders[ids[j]];
+                // Only fees of closed orders can be withdrawn
+                if (order.status != OrderStatus.Closed)
+                    revert InvalidStatusForFees();
+                uint256 transferAmount = order.feeAmount;
+
+                // Delete order from IDs array to reduce iteration
+                _tokensToFeesIds[lockedToken].remove(ids[j]);
+
+                emit FeesWithdrawn(lockedToken, transferAmount);
+
+                // Transfer all withdraw fees to the owner
+                IERC20(lockedToken).safeTransfer(msg.sender, transferAmount);
+
+                lastGasLeft = gasleft();
+                // Increase the total amount of gas spent
+                gasSpent += lastGasLeft - gasleft();
+                // Check that no more than 2/3 of block gas limit was spent
+                if (gasSpent >= gasThreshold) {
+                    emit GasLimitReached(gasSpent, block.gaslimit);
+                    break;
+                }
+            }
+        }
+    }
+
+    /// @dev Calculates fee amount to be returned based
+    ///      on the filled amount of the cancelled order
+    /// @param order The cancelled order
+    /// @return The fee amount to return to the user
+    function _calcReturnFee(Order memory order) private pure returns (uint256) {
+        return
+            order.feeAmount -
+            ((order.amountFilled * order.feeAmount) / order.amount);
+    }
+
+    /// @dev Calculates price slippage in basis points
+    /// @param oldPrice Old price of pair of tokens
+    /// @param newPrice New price of pair of tokens
+    /// @return Price slippage in basis points
+    function _calcSlippage(
+        uint256 oldPrice,
+        uint256 newPrice
+    ) private pure returns (uint256) {
+        uint256 minPrice = newPrice > oldPrice ? oldPrice : newPrice;
+        uint256 maxPrice = newPrice > oldPrice ? newPrice : oldPrice;
+        uint256 priceDif = maxPrice - minPrice;
+        uint256 slippage = (priceDif * HUNDRED_PERCENT) / maxPrice;
+        return slippage;
+    }
+
+    /// @dev Checks that price slippage is not too high
+    /// @param oldPrice Old price of the pair
+    /// @param newPrice New price of the pair
+    /// @param allowedSlippage The maximum allowed slippage in basis points
+    function _checkSlippage(
+        uint256 oldPrice,
+        uint256 newPrice,
+        uint256 allowedSlippage
+    ) private pure {
+        uint256 slippage = _calcSlippage(oldPrice, newPrice);
+        if (slippage > allowedSlippage) {
+            revert SlippageTooBig(slippage);
+        }
+    }
+
+    /// @dev Returns the price of the limit order to be used
+    ///      to execute orders after matching
+    /// @param initOrder The first matched order
+    /// @param matchedOrder The second matched order
+    /// @return The execution price for orders matching
+    /// @dev One of two orders must be a limit order
+    function _getNewPrice(
+        Order memory initOrder,
+        Order memory matchedOrder
+    ) private pure returns (uint256) {
+        // Price of the limit order used to calculate transferred amounts later.
+        // Market orders are executed using this price
+        // Expressed in pair's quoted tokens
+        uint256 price;
+        // In case two limit orders match, the one with a smaller amount will be fully closed first
+        // so its price should be used
+        if (initOrder.type_ == OrderType.Limit) {
+            if (
+                initOrder.amount - initOrder.amountFilled <
+                matchedOrder.amount - matchedOrder.amountFilled
+            ) {
+                price = initOrder.limitPrice;
+            } else if (
+                initOrder.amount - initOrder.amountFilled >
+                matchedOrder.amount - matchedOrder.amountFilled
+            ) {
+                price = matchedOrder.limitPrice;
+            } else if (
+                // If both limit orders have the same amount, the one
+                // that was created later is used to set a new price
+                initOrder.amount - initOrder.amountFilled ==
+                matchedOrder.amount - matchedOrder.amountFilled
+            ) {
+                price = initOrder.limitPrice;
+            }
+
+            // In case a limit and a market orders match, market order gets executed
+            // with price of a limit order
+        } else {
+            price = matchedOrder.limitPrice;
+        }
+        return price;
+    }
+
+    /// @dev Calculates fee based on the amount of locked tokens
+    /// @param amount The amount of locked tokens
+    /// @return retAmount The fee amount that should be paid for order creation
+    function _getFee(uint256 amount) private view returns (uint256) {
+        return (amount * feeRate) / HUNDRED_PERCENT;
+    }
+
+    /// @dev Returns the price of the pair in quoted tokens
+    /// @param tokenA The address of the token that is received
+    /// @param tokenB The address of the token that is sold
+    /// @return The price of the pair in quoted tokens
+    function _getPrice(
+        address tokenA,
+        address tokenB
+    ) private view returns (uint256) {
+        if (_isQuoted[tokenA][tokenB]) {
+            return _pairPrices[tokenA][tokenB];
+        } else {
+            return _pairPrices[tokenB][tokenA];
+        }
+    }
+
+    /// @dev Calculates the hash of parameters of order matching function and a nonce
+    /// @param initId The ID of first matched order
+    /// @param matchedIds The list of IDs of other matched orders
+    /// @param nonce The unique integer
+    /// @dev NOTICE: Backend must form tx hash exactly the same way
+    function _getTxHashMatch(
+        uint256 initId,
+        uint256[] memory matchedIds,
+        uint256 nonce
+    ) public view returns (bytes32) {
+        return
+            keccak256(
+                abi.encodePacked(
+                    // Include the address of the contract to make hash even more unique
+                    address(this),
+                    initId,
+                    matchedIds,
+                    nonce
+                )
+            );
+    }
+
+    /// @dev Calculates the hash of parameters of market order function and a nonce
+    /// @param tokenA The address of the purchased token
+    /// @param tokenB The address of the sold token
+    /// @param amount The amound of purchased / sold tokens
+    /// @param slippage The maximum allowed price slippage
+    /// @param nonce The unique integer
+    /// @dev NOTICE: Backend must form tx hash exactly the same way
+    function _getTxHashMarket(
+        address tokenA,
+        address tokenB,
+        uint256 amount,
+        uint256 slippage,
+        uint256 nonce
+    ) public view returns (bytes32) {
+        return
+            keccak256(
+                abi.encodePacked(
+                    address(this),
+                    tokenA,
+                    tokenB,
+                    amount,
+                    slippage,
+                    nonce
+                )
+            );
+    }
+
+    /// @dev Verifies that message was signed by the backend
+    /// @param signature A signature used to sign the tx
+    /// @param txHash An unsigned hashed data
+    /// @return True if tx was signed by the backend. Otherwise false.
+    function _verifyBackendSignature(
+        bytes memory signature,
+        bytes32 txHash
+    ) private view returns (bool) {
+        // Remove the "\x19Ethereum Signed Message:\n" prefix from the signature
+        bytes32 clearHash = txHash.toEthSignedMessageHash();
+        // Recover the address of the user who signed the tx
+        address recoveredUser = clearHash.recover(signature);
+        return recoveredUser == backendAcc;
+    }
+
+    /// @dev Checks that market price is not zero and reverts otherwise
+    /// @param tokenA The first token of the pair
+    /// @param tokenB The second token of the pair
+    function _checkZeroPrice(address tokenA, address tokenB) private view {
+        // The price of the pair in quoted tokens
+        uint256 marketPrice = _getPrice(tokenA, tokenB);
+        // If market price is 0 that means no limit orders have been created or matched
+        // yet. In this case no market orders can be created.
+        if (marketPrice == 0) revert ZeroPrice();
+    }
+
+    /// @dev Calculates the amount of tokens to be locked when creating an order
+    /// @param tokenA The address of the token that is purchased
+    /// @param tokenB The address of the token that is sold
+    /// @param amount The amount of active tokens
+    /// @param price The market/limit execution price
+    /// @return The amount of tokens to be locked
+    function _getLockAmount(
+        address tokenA,
+        address tokenB,
+        uint256 amount,
+        uint256 price
+    ) private view returns (uint256) {
+        uint256 lockAmount;
+
+        if (_isQuoted[tokenA][tokenB]) {
+            // User has to lock enough `tokenB_` to pay according to current price
+            // If `tokenB_` is a quoted token, then `price` does not change
+            // because it's expressed in this token
+            lockAmount = (amount * price) / PRICE_PRECISION;
+        } else {
+            // If `tokenA_` is a quoted token, then `price` should be inversed
+            lockAmount = (amount * PRICE_PRECISION) / price;
+        }
+
+        return lockAmount;
     }
 
     function _createOrder(Order memory order, uint256 lockAmount) private {
@@ -676,147 +887,6 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         }
     }
 
-    /// @dev Calculates fee based on the amount of locked tokens
-    /// @param amount The amount of locked tokens
-    /// @return retAmount The fee amount that should be paid for order creation
-    function _getFee(uint256 amount) private view returns (uint256) {
-        return (amount * feeRate) / HUNDRED_PERCENT;
-    }
-
-    /// @dev Returns the price of the pair in quoted tokens
-    /// @param tokenA The address of the token that is received
-    /// @param tokenB The address of the token that is sold
-    /// @return The price of the pair in quoted tokens
-    function _getPrice(
-        address tokenA,
-        address tokenB
-    ) private view returns (uint256) {
-        if (_isQuoted[tokenA][tokenB]) {
-            return _pairPrices[tokenA][tokenB];
-        } else {
-            return _pairPrices[tokenB][tokenA];
-        }
-    }
-
-    /// @dev Calculates the hash of parameters of order matching function and a nonce
-    /// @param initId The ID of first matched order
-    /// @param matchedIds The list of IDs of other matched orders
-    /// @param nonce The unique integer
-    /// @dev NOTICE: Backend must form tx hash exactly the same way
-    function _getTxHashMatch(
-        uint256 initId,
-        uint256[] memory matchedIds,
-        uint256 nonce
-    ) public view returns (bytes32) {
-        return
-            keccak256(
-                abi.encodePacked(
-                    // Include the address of the contract to make hash even more unique
-                    address(this),
-                    initId,
-                    matchedIds,
-                    nonce
-                )
-            );
-    }
-
-    /// @dev Calculates the hash of parameters of market order function and a nonce
-    /// @param tokenA The address of the purchased token
-    /// @param tokenB The address of the sold token
-    /// @param amount The amound of purchased / sold tokens
-    /// @param slippage The maximum allowed price slippage
-    /// @param nonce The unique integer
-    /// @dev NOTICE: Backend must form tx hash exactly the same way
-    function _getTxHashMarket(
-        address tokenA,
-        address tokenB,
-        uint256 amount,
-        uint256 slippage,
-        uint256 nonce
-    ) public view returns (bytes32) {
-        return
-            keccak256(
-                abi.encodePacked(
-                    address(this),
-                    tokenA,
-                    tokenB,
-                    amount,
-                    slippage,
-                    nonce
-                )
-            );
-    }
-
-    /// @dev Verifies that message was signed by the backend
-    /// @param signature A signature used to sign the tx
-    /// @param txHash An unsigned hashed data
-    /// @return True if tx was signed by the backend. Otherwise false.
-    function _verifyBackendSignature(
-        bytes memory signature,
-        bytes32 txHash
-    ) private view returns (bool) {
-        // Remove the "\x19Ethereum Signed Message:\n" prefix from the signature
-        bytes32 clearHash = txHash.toEthSignedMessageHash();
-        // Recover the address of the user who signed the tx
-        address recoveredUser = clearHash.recover(signature);
-        return recoveredUser == backendAcc;
-    }
-
-    /// @dev Returns the price of the limit order to be used
-    ///      to execute orders after matching
-    /// @param initOrder The first matched order
-    /// @param matchedOrder The second matched order
-    /// @return The execution price for orders matching
-    /// @dev One of two orders must be a limit order
-    function _getNewPrice(
-        Order memory initOrder,
-        Order memory matchedOrder
-    ) private pure returns (uint256) {
-        // Price of the limit order used to calculate transferred amounts later.
-        // Market orders are executed using this price
-        // Expressed in pair's quoted tokens
-        uint256 price;
-        // In case two limit orders match, the one with a smaller amount will be fully closed first
-        // so its price should be used
-        if (initOrder.type_ == OrderType.Limit) {
-            if (
-                initOrder.amount - initOrder.amountFilled <
-                matchedOrder.amount - matchedOrder.amountFilled
-            ) {
-                price = initOrder.limitPrice;
-            } else if (
-                initOrder.amount - initOrder.amountFilled >
-                matchedOrder.amount - matchedOrder.amountFilled
-            ) {
-                price = matchedOrder.limitPrice;
-            } else if (
-                // If both limit orders have the same amount, the one
-                // that was created later is used to set a new price
-                initOrder.amount - initOrder.amountFilled ==
-                matchedOrder.amount - matchedOrder.amountFilled
-            ) {
-                price = initOrder.limitPrice;
-            }
-
-            // In case a limit and a market orders match, market order gets executed
-            // with price of a limit order
-        } else {
-            price = matchedOrder.limitPrice;
-        }
-        return price;
-    }
-
-    /// @dev Checks that market price is not zero and reverts otherwise
-    /// @param tokenA The first token of the pair
-    /// @param tokenB The second token of the pair
-    function _checkZeroPrice(address tokenA, address tokenB) private view {
-        // The price of the pair in quoted tokens
-        uint256 marketPrice = _getPrice(tokenA, tokenB);
-        // If market price is 0 that means no limit orders have been created or matched
-        // yet. In this case no market orders can be created.
-        if (marketPrice == 0) revert ZeroPrice();
-    }
-
     /// @dev Updates pair price for the price of limit order
     ///      This limit order is the first limit order created
     /// @param order The order updating price
@@ -845,7 +915,6 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
             order_.status == OrderStatus.Cancelled ||
             order_.status == OrderStatus.Closed
         ) revert InvalidOrderStatus();
-        // TODO == of >= here?
         if (order_.amountFilled == order_.amount) {
             order_.status = OrderStatus.Closed;
         } else {
@@ -961,36 +1030,6 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         }
 
         return (tokenToInit, tokenToMatched, amountToInit, amountToMatched);
-    }
-
-    /// @dev Calculates price slippage in basis points
-    /// @param oldPrice Old price of pair of tokens
-    /// @param newPrice New price of pair of tokens
-    /// @return Price slippage in basis points
-    function _calcSlippage(
-        uint256 oldPrice,
-        uint256 newPrice
-    ) private pure returns (uint256) {
-        uint256 minPrice = newPrice > oldPrice ? oldPrice : newPrice;
-        uint256 maxPrice = newPrice > oldPrice ? newPrice : oldPrice;
-        uint256 priceDif = maxPrice - minPrice;
-        uint256 slippage = (priceDif * HUNDRED_PERCENT) / maxPrice;
-        return slippage;
-    }
-
-    /// @dev Checks that price slippage is not too high
-    /// @param oldPrice Old price of the pair
-    /// @param newPrice New price of the pair
-    /// @param allowedSlippage The maximum allowed slippage in basis points
-    function _checkSlippage(
-        uint256 oldPrice,
-        uint256 newPrice,
-        uint256 allowedSlippage
-    ) private pure {
-        uint256 slippage = _calcSlippage(oldPrice, newPrice);
-        if (slippage > allowedSlippage) {
-            revert SlippageTooBig(slippage);
-        }
     }
 
     /// @dev Forms args structure to be used in `_createOrder` function later.
@@ -1120,43 +1159,6 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         }
     }
 
-    /// @dev Calculates the amount of tokens to be locked when creating an order
-    /// @param tokenA The address of the token that is purchased
-    /// @param tokenB The address of the token that is sold
-    /// @param amount The amount of active tokens
-    /// @param price The market/limit execution price
-    /// @return The amount of tokens to be locked
-    function _getLockAmount(
-        address tokenA,
-        address tokenB,
-        uint256 amount,
-        uint256 price
-    ) private view returns (uint256) {
-        uint256 lockAmount;
-
-        if (_isQuoted[tokenA][tokenB]) {
-            // User has to lock enough `tokenB_` to pay according to current price
-            // If `tokenB_` is a quoted token, then `price` does not change
-            // because it's expressed in this token
-            lockAmount = (amount * price) / PRICE_PRECISION;
-        } else {
-            // If `tokenA_` is a quoted token, then `price` should be inversed
-            lockAmount = (amount * PRICE_PRECISION) / price;
-        }
-
-        return lockAmount;
-    }
-
-    /// @dev Calculates fee amount to be returned based
-    ///      on the filled amount of the cancelled order
-    /// @param order The cancelled order
-    /// @return The fee amount to return to the user
-    function _calcReturnFee(Order memory order) private pure returns (uint256) {
-        return
-            order.feeAmount -
-            ((order.amountFilled * order.feeAmount) / order.amount);
-    }
-
     function _startSaleSingle(
         address tokenA,
         address tokenB,
@@ -1190,7 +1192,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         uint256 feeAmount = _getFee(lockAmount);
 
         // Mark that fee for new order was paid in `tokenB`
-        _tokensToFeesIds[tokenB].push(order.id);
+        _tokensToFeesIds[tokenB].add(order.id);
 
         // Mark that `tokenB` was locked
         _lockedTokens.add(order.tokenB);
