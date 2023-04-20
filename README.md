@@ -153,15 +153,16 @@ Wallet's address and private key should be pasted into the `.env` file (see [Pre
 #### BentureDex.sol
 
 **Traded tokens**  
-- Users can *buy* any ERC20 tokens. Native tokens are forbidden.
-- Users can *sell* any tokens. Native tokens are allowed.
+- Native tokens can be sold and bought
+- ERC20 tokens can be sold and bought (except native tokens in Sell orders)
 
 ---
 
 **Admin side**  
 
 *Sale orders*    
-After creating the project the admin can sell project tokens to users. Any user buying the project token becomes the member of the project. Admin does this by placing *non-cancellable* limit sell orders (*Sale* orders). This Sale can be interpreted as the ICO of project tokens. Only admins can create Sale orders.
+After creating the project the admin can sell project tokens to users. Any user buying the project token becomes the member of the project. Admin does this by placing *non-cancellable* limit sell orders (*Sale* orders). This Sale can be interpreted as the ICO of project tokens. Only admins can create Sale orders.  
+No native tokens can be sold in Sell orders.  
 
 *Regular orders*    
 Apart from creating Sale orders, admins, just like other users, can create "regular" (limit/market sell/buy) orders.
