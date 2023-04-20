@@ -1868,45 +1868,6 @@ describe("Benture DEX", () => {
                 expect(lockedAmount).to.eq(shouldBeLocked);
                 expect(status).to.eq(0);
             });
-
-            it("Should fail to start single sale if caller is not admin", async () => {
-                let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
-                );
-
-                let sellAmount = parseEther("10");
-                let limitPrice = parseEther("1.5");
-                let mintAmount = parseEther("1000000");
-
-                await tokenA.mint(clientAcc1.address, mintAmount);
-                await tokenB.mint(clientAcc1.address, mintAmount);
-                await tokenA
-                    .connect(clientAcc1)
-                    .approve(dex.address, mintAmount);
-                await tokenB
-                    .connect(clientAcc1)
-                    .approve(dex.address, mintAmount);
-
-                let startOwnerBalance = await tokenB.balanceOf(
-                    ownerAcc.address
-                );
-                let startDexBalance = await tokenB.balanceOf(dex.address);
-
-                await expect(
-                    dex.getPrice(tokenA.address, tokenB.address)
-                ).to.be.revertedWithCustomError(dex, "NoQuotedTokens");
-
-                await expect(
-                    dex
-                        .connect(clientAcc1)
-                        .startSaleSingle(
-                            tokenA.address,
-                            tokenB.address,
-                            sellAmount,
-                            limitPrice
-                        )
-                ).to.be.revertedWithCustomError(dex, "NotAdmin");
-            });
         });
 
         // #SM

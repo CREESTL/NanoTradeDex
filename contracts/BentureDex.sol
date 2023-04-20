@@ -9,7 +9,6 @@ import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "./interfaces/IBentureDex.sol";
-import "./interfaces/IBentureProducedToken.sol";
 
 /// @title Contract that controlls creation and execution of market and limit orders
 contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
@@ -1165,9 +1164,6 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         uint256 amount,
         uint256 price
     ) private {
-        // Only admin of the sold token `tokenB` project can start the ICO of tokens
-        if (!IBentureProducedToken(tokenB).checkAdmin(msg.sender))
-            revert NotAdmin();
 
         emit SaleStarted(tokenA, tokenB, amount, price);
 
