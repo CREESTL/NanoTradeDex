@@ -9,6 +9,7 @@ import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "./interfaces/IBentureDex.sol";
+import "hardhat/console.sol";
 
 /// @title Contract that controlls creation and execution of market and limit orders
 contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
@@ -127,7 +128,6 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         address tokenA,
         address tokenB
     ) external view returns (uint256[] memory) {
-        if (tokenA == address(0)) revert InvalidFirstTokenAddress();
         return _tokensToOrders[tokenA][tokenB];
     }
 
@@ -140,6 +140,60 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
             revert NoQuotedTokens();
         address quotedToken = _isQuoted[tokenA][tokenB] ? tokenB : tokenA;
         return (quotedToken, _getPrice(tokenA, tokenB));
+    }
+
+    /// @notice See {IBentureDex-getLockAmount}
+    function getLockAmount(
+        address tokenA,
+        address tokenB,
+        uint256 amount,
+        uint256 limitPrice,
+        OrderType type_,
+        OrderSide side
+    ) public view returns (uint256 lockAmount) {
+        // For market orders limit price should be zero
+        if (type_ == OrderType.Market && limitPrice != 0) revert InvalidPrice();
+        // For limit orders limit price should be greater than zero
+        if (type_ == OrderType.Limit && limitPrice == 0) revert InvalidPrice();
+
+        // In any sell order user locks exactly the amount of tokens sold
+        // sellMarket
+        // sellLimit
+        if (side == OrderSide.Sell) {
+            lockAmount = amount;
+        }
+
+        // buyMarket
+        if (type_ == OrderType.Market && side == OrderSide.Buy) {
+            lockAmount = _getLockAmount(
+                tokenA,
+                tokenB,
+                amount,
+                _getPrice(tokenA, tokenB)
+            );
+        }
+
+        // buyLimit
+        if (type_ == OrderType.Limit && side == OrderSide.Buy) {
+            // If user wants to create a buy limit order with limit price much higher
+            // than the market price, then this order will instantly be matched with
+            // other limit (sell) orders that have a lower limit price
+            // In this case not the whole locked amount of tokens will be used and the rest
+            // should be returned to the user. We can avoid that by locking the amount of
+            // tokens according to the market price instead of limit price of the order
+            // We can think of this order as a market order
+            uint256 marketPrice = _getPrice(tokenA, tokenB);
+            if (limitPrice > marketPrice && marketPrice != 0) {
+                lockAmount = _getLockAmount(
+                    tokenA,
+                    tokenB,
+                    amount,
+                    marketPrice
+                );
+            } else {
+                lockAmount = _getLockAmount(tokenA, tokenB, amount, limitPrice);
+            }
+        }
     }
 
     /// @notice See (IBentureDex-checkMatched)
@@ -166,7 +220,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         uint256 slippage,
         uint256 nonce,
         bytes memory signature
-    ) external nonReentrant updateQuotes(tokenA, tokenB) {
+    ) external payable nonReentrant updateQuotes(tokenA, tokenB) {
         // Verify signature
         {
             bytes32 txHash = _getTxHashMarket(
@@ -202,6 +256,8 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
             order.tokenA,
             order.tokenB,
             order.amount,
+            // This order cannot be the first one because it's market
+            // So price cannot be zero here. No need to check.
             _getPrice(tokenA, tokenB)
         );
 
@@ -227,7 +283,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         uint256 slippage,
         uint256 nonce,
         bytes memory signature
-    ) external nonReentrant updateQuotes(tokenA, tokenB) {
+    ) external payable nonReentrant updateQuotes(tokenA, tokenB) {
         // Verify signature
         {
             bytes32 txHash = _getTxHashMarket(
@@ -283,7 +339,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         address tokenB,
         uint256 amount,
         uint256 limitPrice
-    ) external nonReentrant updateQuotes(tokenA, tokenB) {
+    ) external payable nonReentrant updateQuotes(tokenA, tokenB) {
         Order memory order = _prepareOrder(
             tokenA,
             tokenB,
@@ -308,7 +364,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         // should be returned to the user. We can avoid that by locking the amount of
         // tokens according to the market price instead of limit price of the order
         // We can think of this order as a market order
-        if (limitPrice > marketPrice) {
+        if (limitPrice > marketPrice && marketPrice != 0) {
             lockAmount = _getLockAmount(tokenA, tokenB, amount, marketPrice);
         } else {
             lockAmount = _getLockAmount(tokenA, tokenB, amount, limitPrice);
@@ -334,7 +390,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         address tokenB,
         uint256 amount,
         uint256 limitPrice
-    ) external nonReentrant updateQuotes(tokenA, tokenB) {
+    ) external payable nonReentrant updateQuotes(tokenA, tokenB) {
         Order memory order = _prepareOrder(
             tokenA,
             tokenB,
@@ -381,7 +437,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         address tokenB,
         uint256 amount,
         uint256 price
-    ) external nonReentrant {
+    ) external payable nonReentrant {
         // Prevent reentrancy
         _startSaleSingle(tokenA, tokenB, amount, price);
     }
@@ -392,7 +448,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         address tokenB,
         uint256[] memory amounts,
         uint256[] memory prices
-    ) external nonReentrant {
+    ) external payable nonReentrant {
         if (amounts.length != prices.length) revert DifferentLength();
 
         // The amount of gas spent for all operations below
@@ -449,15 +505,9 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
 
     /// @notice See {IBentureDex-checkOrderExists}
     function checkOrderExists(uint256 id) public view returns (bool) {
-        if (id > _orderId.current()) {
-            return false;
-        }
-        // No native tokens can be bought
-        // If `tokenA` address is zero address, that means this is a Default
-        // value of address, and that means that orders was not created yet
-        if (_orders[id].tokenA == address(0)) {
-            return false;
-        }
+        // First order has ID1
+        if (id == 0) return false;
+        if (id > _orderId.current()) return false;
         return true;
     }
 
@@ -487,7 +537,17 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
                 emit FeesWithdrawn(lockedToken, transferAmount);
 
                 // Transfer all withdraw fees to the owner
-                IERC20(lockedToken).safeTransfer(msg.sender, transferAmount);
+                if (lockedToken != address(0)) {
+                    IERC20(lockedToken).safeTransfer(
+                        msg.sender,
+                        transferAmount
+                    );
+                } else {
+                    (bool success, ) = msg.sender.call{value: transferAmount}(
+                        ""
+                    );
+                    if (!success) revert TransferFailed();
+                }
 
                 lastGasLeft = gasleft();
                 // Increase the total amount of gas spent
@@ -704,8 +764,13 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         } else {
             // If `tokenA_` is a quoted token, then `price` should be inversed
             lockAmount = (amount * PRICE_PRECISION) / price;
+            // But if this function is called from public `getLockAmount` for the very first order,
+            // we assume that this order will update quotes and make `tokenB` quoted. Thus, lock amount
+            // should be calculated as it was quoted
+            if (_orderId.current() == 0) {
+                lockAmount = (amount * price) / PRICE_PRECISION;
+            }
         }
-
         return lockAmount;
     }
 
@@ -740,11 +805,16 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         // It gets transferred to the contract
         // Fee is also paid in `tokenB`
         // Fee gets transferred to the contract
-        IERC20(order.tokenB).safeTransferFrom(
-            msg.sender,
-            address(this),
-            totalLock
-        );
+        if (order.tokenB != address(0)) {
+            IERC20(order.tokenB).safeTransferFrom(
+                msg.sender,
+                address(this),
+                totalLock
+            );
+        } else {
+            // Check that caller has provided enough native tokens with tx
+            if (msg.value < totalLock) revert NotEnoughNativeTokens();
+        }
     }
 
     function _cancelOrder(uint256 id) private {
@@ -787,7 +857,13 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
 
         // Only `tokenB` gets locked when creating an order.
         // Thus, only `tokenB` should be returned to the user
-        IERC20(order.tokenB).safeTransfer(order.user, returnAmount);
+        if (order.tokenB != address(0)) {
+            IERC20(order.tokenB).safeTransfer(order.user, returnAmount);
+        } else {
+            // Return native tokens
+            (bool success, ) = msg.sender.call{value: returnAmount}("");
+            if (!success) revert TransferFailed();
+        }
     }
 
     function _matchOrders(
@@ -867,12 +943,27 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
             _checkAndChangeStatus(matchedOrder);
 
             // Actually transfer corresponding amounts
-            IERC20(tokenToInit).safeTransfer(initOrder.user, amountToInit);
 
-            IERC20(tokenToMatched).safeTransfer(
-                matchedOrder.user,
-                amountToMatched
-            );
+            // Transfer first token
+            if (tokenToInit != address(0)) {
+                IERC20(tokenToInit).safeTransfer(initOrder.user, amountToInit);
+            } else {
+                (bool success, ) = initOrder.user.call{value: amountToInit}("");
+                if (!success) revert TransferFailed();
+            }
+
+            // Transfer second token
+            if (tokenToMatched != address(0)) {
+                IERC20(tokenToMatched).safeTransfer(
+                    matchedOrder.user,
+                    amountToMatched
+                );
+            } else {
+                (bool success, ) = matchedOrder.user.call{
+                    value: amountToMatched
+                }("");
+                if (!success) revert TransferFailed();
+            }
 
             lastGasLeft = gasleft();
             // Increase the total amount of gas spent
@@ -1051,7 +1142,6 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         uint256 slippage,
         bool isCancellable
     ) private returns (Order memory) {
-        if (tokenA == address(0)) revert InvalidFirstTokenAddress();
         if (amount == 0) revert ZeroAmount();
 
         // NOTICE: first order gets the ID of 1
@@ -1164,6 +1254,8 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         uint256 amount,
         uint256 price
     ) private {
+        // Native tokens cannot be sold by admins
+        if (tokenA == address(0)) revert InvalidFirstTokenAddress();
 
         emit SaleStarted(tokenA, tokenB, amount, price);
 

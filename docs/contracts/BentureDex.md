@@ -80,7 +80,7 @@ The address of the backend account
 ### buyLimit
 
 ```solidity
-function buyLimit(address tokenA, address tokenB, uint256 amount, uint256 limitPrice) external nonpayable
+function buyLimit(address tokenA, address tokenB, uint256 amount, uint256 limitPrice) external payable
 ```
 
 See {IBentureDex-buyLimit}
@@ -99,7 +99,7 @@ See {IBentureDex-buyLimit}
 ### buyMarket
 
 ```solidity
-function buyMarket(address tokenA, address tokenB, uint256 amount, uint256 slippage, uint256 nonce, bytes signature) external nonpayable
+function buyMarket(address tokenA, address tokenB, uint256 amount, uint256 slippage, uint256 nonce, bytes signature) external payable
 ```
 
 See {IBentureDex-buyMarket}
@@ -194,6 +194,33 @@ Percentage of each order being paid as fee (in basis points)
 | Name | Type | Description |
 |---|---|---|
 | _0 | uint256 | undefined |
+
+### getLockAmount
+
+```solidity
+function getLockAmount(address tokenA, address tokenB, uint256 amount, uint256 limitPrice, enum IBentureDex.OrderType type_, enum IBentureDex.OrderSide side) external view returns (uint256 lockAmount)
+```
+
+See {IBentureDex-getLockAmount}
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| tokenA | address | undefined |
+| tokenB | address | undefined |
+| amount | uint256 | undefined |
+| limitPrice | uint256 | undefined |
+| type_ | enum IBentureDex.OrderType | undefined |
+| side | enum IBentureDex.OrderSide | undefined |
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| lockAmount | uint256 | undefined |
 
 ### getOrder
 
@@ -347,7 +374,7 @@ function renounceOwnership() external nonpayable
 ### sellLimit
 
 ```solidity
-function sellLimit(address tokenA, address tokenB, uint256 amount, uint256 limitPrice) external nonpayable
+function sellLimit(address tokenA, address tokenB, uint256 amount, uint256 limitPrice) external payable
 ```
 
 See {IBentureDex-sellLimit}
@@ -366,7 +393,7 @@ See {IBentureDex-sellLimit}
 ### sellMarket
 
 ```solidity
-function sellMarket(address tokenA, address tokenB, uint256 amount, uint256 slippage, uint256 nonce, bytes signature) external nonpayable
+function sellMarket(address tokenA, address tokenB, uint256 amount, uint256 slippage, uint256 nonce, bytes signature) external payable
 ```
 
 See {IBentureDex-sellMarket}
@@ -419,7 +446,7 @@ See {IBentureDex-setFee}
 ### startSaleMultiple
 
 ```solidity
-function startSaleMultiple(address tokenA, address tokenB, uint256[] amounts, uint256[] prices) external nonpayable
+function startSaleMultiple(address tokenA, address tokenB, uint256[] amounts, uint256[] prices) external payable
 ```
 
 See {IBentureDex-startSaleMultiple}
@@ -438,7 +465,7 @@ See {IBentureDex-startSaleMultiple}
 ### startSaleSingle
 
 ```solidity
-function startSaleSingle(address tokenA, address tokenB, uint256 amount, uint256 price) external nonpayable
+function startSaleSingle(address tokenA, address tokenB, uint256 amount, uint256 price) external payable
 ```
 
 See {IBentureDex-startSaleSingle}
@@ -700,6 +727,17 @@ error InvalidOrderStatus()
 
 
 
+### InvalidPrice
+
+```solidity
+error InvalidPrice()
+```
+
+
+
+
+
+
 ### InvalidSignature
 
 ```solidity
@@ -766,6 +804,17 @@ error NotAdmin()
 
 
 
+### NotEnoughNativeTokens
+
+```solidity
+error NotEnoughNativeTokens()
+```
+
+
+
+
+
+
 ### NotOrderCreator
 
 ```solidity
@@ -825,6 +874,17 @@ error SlippageTooBig(uint256 slippage)
 | Name | Type | Description |
 |---|---|---|
 | slippage | uint256 | undefined |
+
+### TransferFailed
+
+```solidity
+error TransferFailed()
+```
+
+
+
+
+
 
 ### TxAlreadyExecuted
 

@@ -16,6 +16,7 @@ const {
 const { parseUnits, parseEther } = ethers.utils;
 const zeroAddress = ethers.constants.AddressZero;
 const randomAddress = "0x6ef46dc60e62CaaCaB5B4Eb6dfC772d4A039251D";
+const getBalance = ethers.provider.getBalance;
 
 // Initialize the backend account
 const provider = ethers.getDefaultProvider();
@@ -569,19 +570,6 @@ describe("Benture DEX", () => {
                 expect(ids[0]).to.eq(1);
                 expect(ids[1]).to.eq(2);
             });
-
-            it("Should fail to get orders by tokens", async () => {
-                let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
-                );
-
-                await expect(
-                    dex.getOrdersByTokens(zeroAddress, tokenB.address)
-                ).to.be.revertedWithCustomError(
-                    dex,
-                    "InvalidFirstTokenAddress"
-                );
-            });
         });
 
         describe("Check that order exists", () => {
@@ -721,6 +709,270 @@ describe("Benture DEX", () => {
                 await expect(
                     dex.checkMatched(1, 2)
                 ).to.be.revertedWithCustomError(dex, "OrderDoesNotExist");
+            });
+        });
+
+        describe("Get correct lock amount for order", () => {
+            it("Should get correct lock amount for sell orders", async () => {
+                let { dex, adminToken, tokenA, tokenB } = await loadFixture(
+                    deploys
+                );
+
+                let buyAmount = parseEther("10");
+                let limitPrice = parseEther("1.5");
+                let mintAmount = parseEther("1000000");
+
+                await tokenA.mint(clientAcc1.address, mintAmount);
+                await tokenB.mint(clientAcc1.address, mintAmount);
+                await tokenA
+                    .connect(clientAcc1)
+                    .approve(dex.address, mintAmount);
+                await tokenB
+                    .connect(clientAcc1)
+                    .approve(dex.address, mintAmount);
+
+                let initialClientBalance = await tokenB.balanceOf(
+                    clientAcc1.address
+                );
+
+                let shouldBeLocked = await dex.getLockAmount(
+                    tokenA.address,
+                    tokenB.address,
+                    buyAmount,
+                    limitPrice,
+                    1,
+                    1
+                );
+                let shouldBeFee = calcFeeAmount(shouldBeLocked);
+
+                await dex
+                    .connect(clientAcc1)
+                    .sellLimit(
+                        tokenA.address,
+                        tokenB.address,
+                        buyAmount,
+                        limitPrice
+                    );
+
+                let endClientBalance = await tokenB.balanceOf(
+                    clientAcc1.address
+                );
+
+                expect(initialClientBalance.sub(endClientBalance)).to.equal(
+                    shouldBeLocked.add(shouldBeFee)
+                );
+            });
+
+            it("Should get correct lock amount for buy market orders", async () => {
+                let { dex, adminToken, tokenA, tokenB } = await loadFixture(
+                    deploys
+                );
+
+                // Create limit order first to initialize a price
+                let buyAmount = parseEther("10");
+                let slippage = 10;
+                let limitPrice = parseEther("1.5");
+                let mintAmount = parseEther("1000000");
+
+                await tokenA.mint(clientAcc1.address, mintAmount);
+                await tokenB.mint(clientAcc1.address, mintAmount);
+                await tokenA
+                    .connect(clientAcc1)
+                    .approve(dex.address, mintAmount);
+                await tokenB
+                    .connect(clientAcc1)
+                    .approve(dex.address, mintAmount);
+
+                await dex.buyLimit(
+                    tokenA.address,
+                    tokenB.address,
+                    buyAmount,
+                    limitPrice
+                );
+
+                let signatureMarket = await hashAndSignMarket(
+                    dex.address,
+                    tokenA.address,
+                    tokenB.address,
+                    buyAmount,
+                    slippage,
+                    777
+                );
+
+                let shouldBeLocked = await dex.getLockAmount(
+                    tokenA.address,
+                    tokenB.address,
+                    buyAmount,
+                    0,
+                    0,
+                    0
+                );
+                let shouldBeFee = calcFeeAmount(shouldBeLocked);
+
+                let startClientBalance = await tokenB.balanceOf(
+                    clientAcc1.address
+                );
+
+                await dex
+                    .connect(clientAcc1)
+                    .buyMarket(
+                        tokenA.address,
+                        tokenB.address,
+                        buyAmount,
+                        slippage,
+                        777,
+                        signatureMarket
+                    );
+
+                let endClientBalance = await tokenB.balanceOf(
+                    clientAcc1.address
+                );
+
+                // Client pays lock amount and fee
+                expect(startClientBalance.sub(endClientBalance)).to.eq(
+                    shouldBeLocked.add(shouldBeFee)
+                );
+            });
+
+            describe("Should get correct lock amount for buy limit orders", () => {
+                it("Should get correct lock amount if price is not higher than market", async () => {
+                    let { dex, adminToken, tokenA, tokenB } = await loadFixture(
+                        deploys
+                    );
+
+                    let buyAmount = parseEther("10");
+                    let limitPrice = parseEther("1.5");
+                    let mintAmount = parseEther("1000000");
+
+                    await tokenA.mint(clientAcc1.address, mintAmount);
+                    await tokenB.mint(clientAcc1.address, mintAmount);
+                    await tokenA
+                        .connect(clientAcc1)
+                        .approve(dex.address, mintAmount);
+                    await tokenB
+                        .connect(clientAcc1)
+                        .approve(dex.address, mintAmount);
+
+                    let shouldBeLocked = await dex.getLockAmount(
+                        tokenA.address,
+                        tokenB.address,
+                        buyAmount,
+                        limitPrice,
+                        1,
+                        0
+                    );
+                    let shouldBeFee = calcFeeAmount(shouldBeLocked);
+
+                    let startClientBalance = await tokenB.balanceOf(
+                        clientAcc1.address
+                    );
+
+                    await dex
+                        .connect(clientAcc1)
+                        .buyLimit(
+                            tokenA.address,
+                            tokenB.address,
+                            buyAmount,
+                            limitPrice
+                        );
+
+                    let endClientBalance = await tokenB.balanceOf(
+                        clientAcc1.address
+                    );
+
+                    expect(startClientBalance.sub(endClientBalance)).to.equal(
+                        shouldBeLocked.add(shouldBeFee)
+                    );
+                });
+
+                it("Should get correct lock amount if price is much higher than market", async () => {
+                    let { dex, adminToken, tokenA, tokenB } = await loadFixture(
+                        deploys
+                    );
+
+                    let buyAmount = parseEther("10");
+                    let limitPrice = parseEther("1.5");
+                    let mintAmount = parseEther("1000000");
+
+                    await tokenA.mint(clientAcc1.address, mintAmount);
+                    await tokenB.mint(clientAcc1.address, mintAmount);
+                    await tokenA
+                        .connect(clientAcc1)
+                        .approve(dex.address, mintAmount);
+                    await tokenB
+                        .connect(clientAcc1)
+                        .approve(dex.address, mintAmount);
+
+                    let shouldBeLocked = await dex.getLockAmount(
+                        tokenA.address,
+                        tokenB.address,
+                        buyAmount,
+                        limitPrice,
+                        1,
+                        0
+                    );
+                    let shouldBeFee = calcFeeAmount(shouldBeLocked);
+
+                    // Create the first order to initialize pair price
+                    await dex
+                        .connect(clientAcc1)
+                        .buyLimit(
+                            tokenA.address,
+                            tokenB.address,
+                            buyAmount,
+                            limitPrice
+                        );
+
+                    let startClientBalance = await tokenB.balanceOf(
+                        clientAcc1.address
+                    );
+
+                    // Create the second order with price higher than market price
+                    await dex
+                        .connect(clientAcc1)
+                        .buyLimit(
+                            tokenA.address,
+                            tokenB.address,
+                            buyAmount,
+                            limitPrice.mul(5)
+                        );
+
+                    let endClientBalance = await tokenB.balanceOf(
+                        clientAcc1.address
+                    );
+
+                    expect(startClientBalance.sub(endClientBalance)).to.equal(
+                        shouldBeLocked.add(shouldBeFee)
+                    );
+                });
+            });
+
+            it("Should fail to get correct lock amount", async () => {
+                let { dex, adminToken, tokenA, tokenB } = await loadFixture(
+                    deploys
+                );
+
+                await expect(
+                    dex.getLockAmount(
+                        tokenA.address,
+                        tokenB.address,
+                        parseEther("1"),
+                        parseEther("1"),
+                        0,
+                        0
+                    )
+                ).to.be.revertedWithCustomError(dex, "InvalidPrice");
+
+                await expect(
+                    dex.getLockAmount(
+                        tokenA.address,
+                        tokenB.address,
+                        parseEther("1"),
+                        0,
+                        1,
+                        0
+                    )
+                ).to.be.revertedWithCustomError(dex, "InvalidPrice");
             });
         });
     });
@@ -1435,20 +1687,6 @@ describe("Benture DEX", () => {
                         .connect(clientAcc1)
                         .buyLimit(tokenA.address, tokenB.address, 0, limitPrice)
                 ).to.be.revertedWithCustomError(dex, "ZeroAmount");
-
-                await expect(
-                    dex
-                        .connect(clientAcc1)
-                        .buyLimit(
-                            zeroAddress,
-                            tokenB.address,
-                            parseEther("1"),
-                            limitPrice
-                        )
-                ).to.be.revertedWithCustomError(
-                    dex,
-                    "InvalidFirstTokenAddress"
-                );
             });
         });
 
@@ -1867,6 +2105,29 @@ describe("Benture DEX", () => {
                 expect(feeAmount).to.eq(shouldBeFee);
                 expect(lockedAmount).to.eq(shouldBeLocked);
                 expect(status).to.eq(0);
+            });
+
+            it("Should fail to start a single sale of native token", async () => {
+                let { dex, adminToken, tokenA, tokenB } = await loadFixture(
+                    deploys
+                );
+
+                let sellAmount = parseEther("10");
+                let limitPrice = parseEther("1.5");
+
+                await expect(
+                    dex
+                        .connect(ownerAcc)
+                        .startSaleSingle(
+                            zeroAddress,
+                            tokenB.address,
+                            sellAmount,
+                            limitPrice
+                        )
+                ).to.be.revertedWithCustomError(
+                    dex,
+                    "InvalidFirstTokenAddress"
+                );
             });
         });
 
@@ -5080,6 +5341,367 @@ describe("Benture DEX", () => {
                     dex.connect(ownerAcc).withdrawAllFees()
                 ).to.be.revertedWithCustomError(dex, "InvalidStatusForFees");
             });
+        });
+    });
+
+    // #N
+    describe("Native tokens operations", () => {
+        it("Should create orders with native tokens", async () => {
+            let { dex, adminToken, tokenA, tokenB } = await loadFixture(
+                deploys
+            );
+
+            let buyAmount = parseEther("10");
+            let limitPrice = parseEther("1.5");
+            let lockAmountNative = await dex.getLockAmount(
+                tokenA.address,
+                zeroAddress,
+                buyAmount,
+                limitPrice,
+                1,
+                0
+            );
+            let feeRate = await dex.feeRate();
+            let fee = lockAmountNative.mul(feeRate).div(10000);
+            let totalLock = lockAmountNative.add(fee);
+            // Send some native tokens to the client
+            let tx = {
+                to: clientAcc1.address,
+                value: parseEther("5"),
+                gasLimit: 30000,
+            };
+            await ownerAcc.sendTransaction(tx);
+            let startClientBalance = await getBalance(clientAcc1.address);
+            let startDexBalance = await getBalance(dex.address);
+
+            await expect(
+                dex
+                    .connect(clientAcc1)
+                    .buyLimit(
+                        tokenA.address,
+                        zeroAddress,
+                        buyAmount,
+                        limitPrice,
+                        { value: totalLock }
+                    )
+            )
+                .to.emit(dex, "OrderCreated")
+                .withArgs(
+                    1,
+                    clientAcc1.address,
+                    tokenA.address,
+                    zeroAddress,
+                    buyAmount,
+                    1,
+                    0,
+                    limitPrice,
+                    true
+                );
+
+            let endClientBalance = await getBalance(clientAcc1.address);
+            let endDexBalance = await getBalance(dex.address);
+
+            // Pair price should have udpated
+            let [quotedToken, pairPrice] = await dex.getPrice(
+                tokenA.address,
+                zeroAddress
+            );
+            expect(pairPrice).to.eq(limitPrice);
+
+            let shouldBeLocked = calcBuyerLockAmount(
+                buyAmount,
+                limitPrice,
+                true
+            );
+            let shouldBeFee = calcFeeAmount(shouldBeLocked);
+
+            // Client pays lock amount + fee + gas
+            expect(startClientBalance.sub(endClientBalance)).to.be.gt(
+                shouldBeLocked.add(shouldBeFee)
+            );
+            expect(endDexBalance.sub(startDexBalance)).to.eq(
+                shouldBeLocked.add(shouldBeFee)
+            );
+
+            // Check that order was really created
+            let order = await dex.getOrder(1);
+
+            let user = order[0];
+            let firstToken = order[1];
+            let secondToken = order[2];
+            let amount = order[3];
+            let amountFilled = order[4];
+            let type = order[5];
+            let side = order[6];
+            let price = order[7];
+            let isCancellable = order[8];
+            let feeAmount = order[9];
+            let lockedAmount = order[10];
+            let status = order[11];
+
+            expect(user).to.eq(clientAcc1.address);
+            expect(firstToken).to.eq(tokenA.address);
+            expect(secondToken).to.eq(zeroAddress);
+            expect(amount).to.eq(buyAmount);
+            expect(amountFilled).to.eq(0);
+            expect(type).to.eq(1);
+            expect(side).to.eq(0);
+            expect(price).to.eq(limitPrice);
+            expect(isCancellable).to.eq(true);
+            expect(feeAmount).to.eq(shouldBeFee);
+            expect(lockedAmount).to.eq(shouldBeLocked);
+            expect(status).to.eq(0);
+        });
+        it("Should cancel orders with native tokens", async () => {
+            let { dex, adminToken, tokenA, tokenB } = await loadFixture(
+                deploys
+            );
+
+            let buyAmount = parseEther("10");
+            let limitPrice = parseEther("1.5");
+            let mintAmount = parseEther("1000000");
+            // Send some native tokens to the client
+            let tx = {
+                to: clientAcc1.address,
+                value: parseEther("5"),
+                gasLimit: 30000,
+            };
+            await ownerAcc.sendTransaction(tx);
+            let lockAmountNative = await dex.getLockAmount(
+                tokenA.address,
+                zeroAddress,
+                buyAmount,
+                limitPrice,
+                1,
+                0
+            );
+            let feeRate = await dex.feeRate();
+            let fee = lockAmountNative.mul(feeRate).div(10000);
+            let totalLock = lockAmountNative.add(fee);
+            let shouldBeFee = calcFeeAmount(totalLock);
+
+            await tokenA.mint(clientAcc1.address, mintAmount);
+            await tokenB.mint(clientAcc1.address, mintAmount);
+            await tokenA.connect(clientAcc1).approve(dex.address, mintAmount);
+            await tokenB.connect(clientAcc1).approve(dex.address, mintAmount);
+
+            await dex
+                .connect(clientAcc1)
+                .buyLimit(tokenA.address, zeroAddress, buyAmount, limitPrice, {
+                    value: totalLock,
+                });
+
+            let startClientBalance = await getBalance(clientAcc1.address);
+
+            let order = await dex.getOrder(1);
+            let status = order[11];
+            expect(status).to.eq(0);
+
+            await expect(dex.connect(clientAcc1).cancelOrder(1))
+                .to.emit(dex, "OrderCancelled")
+                .withArgs(1);
+
+            let endClientBalance = await getBalance(clientAcc1.address);
+
+            // Whole lock and fee should be returned to the user
+            // User also pays for gas
+            expect(endClientBalance.sub(startClientBalance)).to.be.lt(
+                totalLock.add(shouldBeFee)
+            );
+
+            // Order status should change
+            order = await dex.getOrder(1);
+            status = order[11];
+            expect(status).to.eq(3);
+        });
+        it("Should match orders with native tokens", async () => {
+            let { dex, adminToken, tokenA, tokenB } = await loadFixture(
+                deploys
+            );
+
+            let mintAmount = parseEther("1000000");
+            let sellAmount = parseEther("5");
+            let buyAmount = sellAmount;
+            let limitPrice = parseEther("1.5");
+            let nonce = 777;
+
+            // Mint some tokens to sell
+            await tokenB.mint(clientAcc1.address, mintAmount);
+            await tokenB.connect(clientAcc1).approve(dex.address, mintAmount);
+
+            // Send some native tokens to pay for purchase
+            await tokenA.mint(clientAcc2.address, mintAmount);
+            await tokenA.connect(clientAcc2).approve(dex.address, mintAmount);
+
+            // Balances in both tokens of both users
+            let sellerInitialSellingTokenBalance = await getBalance(
+                clientAcc1.address
+            );
+            let sellerInitialReceivingTokenBalance = await tokenA.balanceOf(
+                clientAcc1.address
+            );
+
+            let buyerInitialPayingTokenBalance = await tokenA.balanceOf(
+                clientAcc2.address
+            );
+            let buyerInitialReceivingTokenBalance = await getBalance(
+                clientAcc2.address
+            );
+
+            let dexInitialSellingTokenBalance = await getBalance(dex.address);
+            let dexInitialReceivingTokenBalance = await tokenA.balanceOf(
+                dex.address
+            );
+
+            let sellerShouldBeLocked = await dex.getLockAmount(
+                tokenA.address,
+                zeroAddress,
+                sellAmount,
+                limitPrice.div(2),
+                1,
+                1
+            );
+            let sellerShouldBeFee = calcFeeAmount(sellerShouldBeLocked);
+
+            let buyerShouldBeLocked = calcBuyerLockAmount(
+                buyAmount,
+                limitPrice,
+                false
+            );
+            let buyerShouldBeSpent = calcBuyerSpentAmount(
+                buyAmount,
+                sellAmount,
+                limitPrice,
+                false,
+                false,
+                true
+            );
+            let buyerShouldBeFee = calcFeeAmount(buyerShouldBeLocked);
+
+            // matchedOrder
+            await dex.connect(clientAcc1).sellLimit(
+                tokenA.address,
+                zeroAddress,
+                sellAmount,
+                // This price should become initial market price
+                limitPrice.mul(2),
+                { value: sellerShouldBeLocked.add(sellerShouldBeFee) }
+            );
+
+            // initOrder
+            await dex
+                .connect(clientAcc2)
+                .buyLimit(zeroAddress, tokenA.address, buyAmount, limitPrice);
+
+            let [, pairInitialPrice] = await dex.getPrice(
+                tokenA.address,
+                zeroAddress
+            );
+
+            let signatureMatch = await hashAndSignMatch(
+                dex.address,
+                2,
+                [1],
+                777
+            );
+
+            await expect(dex.matchOrders(2, [1], nonce, signatureMatch))
+                .to.emit(dex, "OrdersMatched")
+                .withArgs(2, 1);
+
+            let sellerEndSellingTokenBalance = await getBalance(
+                clientAcc1.address
+            );
+            let sellerEndReceivingTokenBalance = await tokenA.balanceOf(
+                clientAcc1.address
+            );
+
+            let buyerEndPayingTokenBalance = await tokenA.balanceOf(
+                clientAcc2.address
+            );
+            let buyerEndReceivingTokenBalance = await getBalance(
+                clientAcc2.address
+            );
+
+            let dexEndSellingTokenBalance = await getBalance(dex.address);
+            let dexEndReceivingTokenBalance = await tokenA.balanceOf(
+                dex.address
+            );
+
+            let [, pairEndPrice] = await dex.getPrice(
+                tokenA.address,
+                zeroAddress
+            );
+
+            // Pair price should decrease 2 times
+            expect(pairEndPrice).to.eq(pairInitialPrice.div(2));
+
+            // Seller sells whole selling amount and pays fee
+            // Seller also pays for gas
+            expect(
+                sellerInitialSellingTokenBalance.sub(
+                    sellerEndSellingTokenBalance
+                )
+            ).to.gt(sellAmount.add(sellerShouldBeFee));
+            // Buyer receives all sold tokens
+            // Buyer also pays for gas for his order creation
+            expect(
+                buyerEndReceivingTokenBalance.sub(
+                    buyerInitialReceivingTokenBalance
+                )
+            ).to.be.lt(sellAmount);
+            // Buyer locks all paying tokens and pays fee
+            expect(
+                buyerInitialPayingTokenBalance.sub(buyerEndPayingTokenBalance)
+            ).to.eq(buyerShouldBeLocked.add(buyerShouldBeFee));
+            // Seller receives payment for sold tokens
+            expect(
+                sellerEndReceivingTokenBalance.sub(
+                    sellerInitialReceivingTokenBalance
+                )
+            ).to.eq(buyerShouldBeSpent);
+
+            // Both orders had the same amount so they both
+            // have to be filled
+            let initOrder = await dex.getOrder(2);
+            let initOrderAmount = initOrder[3];
+            let initOrderAmountFilled = initOrder[4];
+            let initOrderAmountLocked = initOrder[10];
+            let initOrderStatus = initOrder[11];
+
+            let matchedOrder = await dex.getOrder(1);
+            let matchedOrderAmount = matchedOrder[3];
+            let matchedOrderAmountFilled = matchedOrder[4];
+            let matchedOrderAmountLocked = matchedOrder[10];
+            let matchedOrderStatus = matchedOrder[11];
+
+            // Both orders should have a `Closed` status
+            expect(initOrderAmountFilled).to.eq(initOrderAmount);
+            expect(initOrderStatus).to.eq(2);
+
+            expect(matchedOrderAmountFilled).to.eq(matchedOrderAmount);
+            expect(matchedOrderStatus).to.eq(2);
+
+            // Whole lock of sell order should be spent
+            expect(matchedOrderAmountLocked).to.eq(0);
+
+            // Half of lock of buy order should be left
+            expect(initOrderAmountLocked).to.eq(
+                buyerShouldBeLocked.sub(buyerShouldBeSpent)
+            );
+
+            // Only fee from sell order should be left on dex balance
+            expect(
+                dexEndSellingTokenBalance.sub(dexInitialSellingTokenBalance)
+            ).to.eq(sellerShouldBeFee);
+            // Fee and some part of lock of buy order should be left on dex balance
+            expect(
+                dexEndReceivingTokenBalance.sub(dexInitialReceivingTokenBalance)
+            ).to.eq(
+                buyerShouldBeFee
+                    .add(buyerShouldBeLocked)
+                    .sub(buyerShouldBeSpent)
+            );
         });
     });
 });

@@ -12,7 +12,7 @@ The Benture is an investing marketplace, connecting entrepreneurs with investors
 [Networks](#networks)  
 [Wallets](#wallets)  
 [Smart Contract Logic](#logic)  
-[-- BentureDex](#dex)    
+[-- BentureDex](#dex)  
 [Structure of Deploy Output File](#output)  
 [[Known Issues]](#issues)
 
@@ -144,9 +144,9 @@ Wallet's address and private key should be pasted into the `.env` file (see [Pre
 
 **Roles**:
 
-- *Admin*: admin of the project, starts inital sales of tokens
-- *User*: buys project tokens, trades them or any other tokens
-    - Admins can do all the same operations users can.  
+- _Admin_: admin of the project, starts inital sales of tokens
+- _User_: buys project tokens, trades them or any other tokens
+  - Admins can do all the same operations users can.
 
 <a name="dex"/>
 
@@ -158,58 +158,59 @@ Wallet's address and private key should be pasted into the `.env` file (see [Pre
 
 ---
 
-**Admin side**  
+**Admin side**
 
 *Sale orders*    
 After creating the project the admin can sell project tokens to users. Any user buying the project token becomes the member of the project. Admin does this by placing *non-cancellable* limit sell orders (*Sale* orders). This Sale can be interpreted as the ICO of project tokens. Only admins can create Sale orders.  
 No native tokens can be sold in Sell orders.  
 
-*Regular orders*    
+_Regular orders_  
 Apart from creating Sale orders, admins, just like other users, can create "regular" (limit/market sell/buy) orders.
 
-*Fees*  
+_Fees_  
 Admins can withdraw fees paid by users for orders creation. Default fee rate is 0.1% of order amount. Admins can change fee rate.
 
 ---
 
-**User side**    
+**User side**
 
-*Regular orders*     
+_Regular orders_  
 Users can only create "regular" (limit/market sell/buy) orders.
 
-*Fees*  
+_Fees_  
 User pays fees each time he creates an order. Default fee rate is 0.1% of order amount.
 
 ---
 
-**Limit orders**  
+**Limit orders**
+
 - Only admins can create non-cancellabe limit orders (Sale orders). All other limit orders are cancellable by default
 - Do not have a `price slippage` parameter
 
-
 **Market orders**
+
 - Are always non-cancellable
 - Have a `price slippage` parameter. Only negative slippage is taken into account
 
 ---
 
-**Market price**    
+**Market price**  
 Market price is equal to the limit price of the last executed limit order
 
 ---
 
 **Backend signatures**  
 Some functions can only be executed if the transaction contains signature of a backend wallet. This guarantees safety of DEX operations.  
-Following functions require backend signature:  
+Following functions require backend signature:
+
 - `buyMarket`
 - `sellMarket`
-- `matchOrders`  
+- `matchOrders`
 
 ---
 
-**Order matching**    
+**Order matching**  
 Order matching is done off-chain. After that an order matching function is triggered on-chain to execute orders. Only backend wallet is allowed to trigger orders execution.
-
 
 <a name="output"/>
 
@@ -220,8 +221,8 @@ This file contains the result of contracts deployment.
 It is separated in 2 parts. Each of them represents deployment to testnet or mainnet.  
 Each part contains information about all deployed contracts:
 
-- The address of the contract (`address`)  
-- The URL for Polygonscan page with verified code of the contract (`verification`)  
+- The address of the contract (`address`)
+- The URL for Polygonscan page with verified code of the contract (`verification`)
 
 ---
 
