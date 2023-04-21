@@ -203,6 +203,22 @@ interface IBentureDex is IBentureDexErrors {
         address tokenB
     ) external view returns (address, uint256);
 
+    /// @notice Returns the amount necessary to lock to create an order
+    /// @param tokenA The address of the token that is purchased
+    /// @param tokenB The address of the token that is sold
+    /// @param amount The amount of bought/sold tokens
+    /// @param limitPrice The limit price of the order. Zero for market orders
+    /// @param type_ The type of the order
+    /// @param side The side of the order
+    function getLockAmount(
+        address tokenA,
+        address tokenB,
+        uint256 amount,
+        uint256 limitPrice,
+        OrderType type_,
+        OrderSide side
+    ) external view returns (uint256);
+
     /// @notice Checks if orders have matched any time before
     /// @param firstId The ID of the first order to check
     /// @param secondId The ID of the second order to check
@@ -226,7 +242,7 @@ interface IBentureDex is IBentureDexErrors {
         uint256 slippage,
         uint256 nonce,
         bytes memory signature
-    ) external;
+    ) external payable;
 
     /// @notice Creates a sell market order
     /// @param tokenA The address of the token that is purchased
@@ -242,7 +258,7 @@ interface IBentureDex is IBentureDexErrors {
         uint256 slippage,
         uint256 nonce,
         bytes memory signature
-    ) external;
+    ) external payable;
 
     /// @notice Creates an buy limit order
     /// @param tokenA The address of the token that is purchased
@@ -254,7 +270,7 @@ interface IBentureDex is IBentureDexErrors {
         address tokenB,
         uint256 amount,
         uint256 limitPrice
-    ) external;
+    ) external payable;
 
     /// @notice Creates an sell limit order
     /// @param tokenA The address of the token that is purchased
@@ -266,7 +282,7 @@ interface IBentureDex is IBentureDexErrors {
         address tokenB,
         uint256 amount,
         uint256 limitPrice
-    ) external;
+    ) external payable;
 
     /// @notice Cancels the limit order with the given ID.
     ///         Only limit orders can be cancelled
@@ -283,7 +299,7 @@ interface IBentureDex is IBentureDexErrors {
         address tokenB,
         uint256 amount,
         uint256 price
-    ) external;
+    ) external payable;
 
     /// @notice Starts a multiple series sale of project tokens
     /// @param tokenA The address of the token that is received
@@ -295,7 +311,7 @@ interface IBentureDex is IBentureDexErrors {
         address tokenB,
         uint256[] memory amounts,
         uint256[] memory prices
-    ) external;
+    ) external payable;
 
     /// @notice Executes matched orders
     /// @param initId The ID of the market/limit order

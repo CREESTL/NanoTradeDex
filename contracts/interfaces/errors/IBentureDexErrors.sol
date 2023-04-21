@@ -21,4 +21,7 @@ interface IBentureDexErrors {
     error ZeroAmount();
     error ZeroAddress();
     error NotOrderCreator();
+    error TransferFailed();
+    error NotEnoughNativeTokens();
+    error InvalidPrice();
 }

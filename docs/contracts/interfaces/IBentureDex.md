@@ -13,7 +13,7 @@
 ### buyLimit
 
 ```solidity
-function buyLimit(address tokenA, address tokenB, uint256 amount, uint256 limitPrice) external nonpayable
+function buyLimit(address tokenA, address tokenB, uint256 amount, uint256 limitPrice) external payable
 ```
 
 Creates an buy limit order
@@ -32,7 +32,7 @@ Creates an buy limit order
 ### buyMarket
 
 ```solidity
-function buyMarket(address tokenA, address tokenB, uint256 amount, uint256 slippage, uint256 nonce, bytes signature) external nonpayable
+function buyMarket(address tokenA, address tokenB, uint256 amount, uint256 slippage, uint256 nonce, bytes signature) external payable
 ```
 
 Creates a buy market order
@@ -110,6 +110,33 @@ Checks that order with the given ID exists
 | Name | Type | Description |
 |---|---|---|
 | _0 | bool | True if order with the given ID exists. Otherwise - false |
+
+### getLockAmount
+
+```solidity
+function getLockAmount(address tokenA, address tokenB, uint256 amount, uint256 limitPrice, enum IBentureDex.OrderType type_, enum IBentureDex.OrderSide side) external view returns (uint256)
+```
+
+Returns the amount necessary to lock to create an order
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| tokenA | address | The address of the token that is purchased |
+| tokenB | address | The address of the token that is sold |
+| amount | uint256 | The amount of bought/sold tokens |
+| limitPrice | uint256 | The limit price of the order. Zero for market orders |
+| type_ | enum IBentureDex.OrderType | The type of the order |
+| side | enum IBentureDex.OrderSide | The side of the order |
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | uint256 | undefined |
 
 ### getOrder
 
@@ -235,7 +262,7 @@ Executes matched orders
 ### sellLimit
 
 ```solidity
-function sellLimit(address tokenA, address tokenB, uint256 amount, uint256 limitPrice) external nonpayable
+function sellLimit(address tokenA, address tokenB, uint256 amount, uint256 limitPrice) external payable
 ```
 
 Creates an sell limit order
@@ -254,7 +281,7 @@ Creates an sell limit order
 ### sellMarket
 
 ```solidity
-function sellMarket(address tokenA, address tokenB, uint256 amount, uint256 slippage, uint256 nonce, bytes signature) external nonpayable
+function sellMarket(address tokenA, address tokenB, uint256 amount, uint256 slippage, uint256 nonce, bytes signature) external payable
 ```
 
 Creates a sell market order
@@ -307,7 +334,7 @@ Sets a new fee rate
 ### startSaleMultiple
 
 ```solidity
-function startSaleMultiple(address tokenA, address tokenB, uint256[] amounts, uint256[] prices) external nonpayable
+function startSaleMultiple(address tokenA, address tokenB, uint256[] amounts, uint256[] prices) external payable
 ```
 
 Starts a multiple series sale of project tokens
@@ -326,7 +353,7 @@ Starts a multiple series sale of project tokens
 ### startSaleSingle
 
 ```solidity
-function startSaleSingle(address tokenA, address tokenB, uint256 amount, uint256 price) external nonpayable
+function startSaleSingle(address tokenA, address tokenB, uint256 amount, uint256 price) external payable
 ```
 
 Starts a single series sale of project tokens
@@ -555,6 +582,17 @@ error InvalidOrderStatus()
 
 
 
+### InvalidPrice
+
+```solidity
+error InvalidPrice()
+```
+
+
+
+
+
+
 ### InvalidSignature
 
 ```solidity
@@ -621,6 +659,17 @@ error NotAdmin()
 
 
 
+### NotEnoughNativeTokens
+
+```solidity
+error NotEnoughNativeTokens()
+```
+
+
+
+
+
+
 ### NotOrderCreator
 
 ```solidity
@@ -680,6 +729,17 @@ error SlippageTooBig(uint256 slippage)
 | Name | Type | Description |
 |---|---|---|
 | slippage | uint256 | undefined |
+
+### TransferFailed
+
+```solidity
+error TransferFailed()
+```
+
+
+
+
+
 
 ### TxAlreadyExecuted
 
