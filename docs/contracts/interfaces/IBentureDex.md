@@ -37,7 +37,7 @@ function buyMarket(address tokenA, address tokenB, uint256 amount, uint256 slipp
 
 Creates a buy market order
 
-
+*Cannot create the first order of the orderbook*
 
 #### Parameters
 
@@ -110,6 +110,29 @@ Checks that order with the given ID exists
 | Name | Type | Description |
 |---|---|---|
 | _0 | bool | True if order with the given ID exists. Otherwise - false |
+
+### checkPairExists
+
+```solidity
+function checkPairExists(address tokenA, address tokenB) external view returns (bool)
+```
+
+Checks if pair of provided tokens exists
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| tokenA | address | The address of the first token |
+| tokenB | address | The address of the second token |
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | bool | True if pair exists.Otherwise - false |
 
 ### getLockAmount
 
@@ -286,7 +309,7 @@ function sellMarket(address tokenA, address tokenB, uint256 amount, uint256 slip
 
 Creates a sell market order
 
-
+*Cannot create the first order of the orderbook*
 
 #### Parameters
 
@@ -604,17 +627,6 @@ error InvalidSignature()
 
 
 
-### InvalidStatusForFees
-
-```solidity
-error InvalidStatusForFees()
-```
-
-
-
-
-
-
 ### NoFeesToWithdraw
 
 ```solidity
@@ -685,6 +697,17 @@ error NotOrderCreator()
 
 ```solidity
 error OrderDoesNotExist()
+```
+
+
+
+
+
+
+### PairNotCreated
+
+```solidity
+error PairNotCreated()
 ```
 
 

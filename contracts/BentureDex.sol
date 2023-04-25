@@ -9,7 +9,6 @@ import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "./interfaces/IBentureDex.sol";
-import "hardhat/console.sol";
 
 /// @title Contract that controlls creation and execution of market and limit orders
 contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
@@ -60,10 +59,25 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
     /// @dev 100% in basis points (1 bp = 1 / 100 of 1%)
     uint256 private constant HUNDRED_PERCENT = 10000;
 
+    /// @dev Updates quoted token of the pair.
+    ///      Should be applied only to sale orders functions
+    ///      because pairs can be created only in sale orders.
+    ///      Update of quoted tokens can be interpreted as pair creation
     modifier updateQuotes(address tokenA, address tokenB) {
         // If none of the tokens is quoted, `tokenB_` becomes a quoted token
         if (!_isQuoted[tokenA][tokenB] && !_isQuoted[tokenB][tokenA]) {
             _isQuoted[tokenA][tokenB] = true;
+        }
+        _;
+    }
+
+    /// @dev Checks that a pair of provided tokens has been created earlier.
+    ///      Should be applied to buy/sell order functions.
+    modifier onlyWhenPairExists(address tokenA, address tokenB) {
+        // If none of the tokens is quoted, no pairs with these tokens
+        // have been created yet
+        if (!_isQuoted[tokenA][tokenB] && !_isQuoted[tokenB][tokenA]) {
+            revert PairNotCreated();
         }
         _;
     }
@@ -129,6 +143,19 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         address tokenB
     ) external view returns (uint256[] memory) {
         return _tokensToOrders[tokenA][tokenB];
+    }
+
+    /// @notice See {IBentureDex-checkPairExists}
+    function checkPairExists(
+        address tokenA,
+        address tokenB
+    ) external view returns (bool) {
+        // If none of the tokens is quoted, no pairs with these tokens
+        // have been created yet
+        if (!_isQuoted[tokenA][tokenB] && !_isQuoted[tokenB][tokenA]) {
+            return false;
+        }
+        return true;
     }
 
     /// @notice See {IBentureDex-getPrice}
@@ -220,7 +247,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         uint256 slippage,
         uint256 nonce,
         bytes memory signature
-    ) external payable nonReentrant updateQuotes(tokenA, tokenB) {
+    ) external payable onlyWhenPairExists(tokenA, tokenB) nonReentrant {
         // Verify signature
         {
             bytes32 txHash = _getTxHashMarket(
@@ -248,9 +275,6 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
             slippage,
             false
         );
-
-        // No market orders can be created if market price is 0
-        _checkZeroPrice(order.tokenA, order.tokenB);
 
         uint256 lockAmount = _getLockAmount(
             order.tokenA,
@@ -283,7 +307,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         uint256 slippage,
         uint256 nonce,
         bytes memory signature
-    ) external payable nonReentrant updateQuotes(tokenA, tokenB) {
+    ) external payable onlyWhenPairExists(tokenA, tokenB) nonReentrant {
         // Verify signature
         {
             bytes32 txHash = _getTxHashMarket(
@@ -312,9 +336,6 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
             false
         );
 
-        // No market orders can be created if market price is 0
-        _checkZeroPrice(order.tokenA, order.tokenB);
-
         // User has to lock exactly the amount of `tokenB` he is selling
         uint256 lockAmount = amount;
 
@@ -339,7 +360,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         address tokenB,
         uint256 amount,
         uint256 limitPrice
-    ) external payable nonReentrant updateQuotes(tokenA, tokenB) {
+    ) external payable onlyWhenPairExists(tokenA, tokenB) nonReentrant {
         Order memory order = _prepareOrder(
             tokenA,
             tokenB,
@@ -390,7 +411,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         address tokenB,
         uint256 amount,
         uint256 limitPrice
-    ) external payable nonReentrant updateQuotes(tokenA, tokenB) {
+    ) external payable onlyWhenPairExists(tokenA, tokenB) nonReentrant {
         Order memory order = _prepareOrder(
             tokenA,
             tokenB,
@@ -528,7 +549,8 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
                 Order storage order = _orders[ids[j]];
                 // Only fees of closed orders can be withdrawn
                 if (order.status != OrderStatus.Closed)
-                    revert InvalidStatusForFees();
+                    // One unmatched orders should not stop iteration
+                    continue;
                 uint256 transferAmount = order.feeAmount;
 
                 // Delete order from IDs array to reduce iteration
@@ -729,17 +751,6 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         // Recover the address of the user who signed the tx
         address recoveredUser = clearHash.recover(signature);
         return recoveredUser == backendAcc;
-    }
-
-    /// @dev Checks that market price is not zero and reverts otherwise
-    /// @param tokenA The first token of the pair
-    /// @param tokenB The second token of the pair
-    function _checkZeroPrice(address tokenA, address tokenB) private view {
-        // The price of the pair in quoted tokens
-        uint256 marketPrice = _getPrice(tokenA, tokenB);
-        // If market price is 0 that means no limit orders have been created or matched
-        // yet. In this case no market orders can be created.
-        if (marketPrice == 0) revert ZeroPrice();
     }
 
     /// @dev Calculates the amount of tokens to be locked when creating an order
@@ -1253,7 +1264,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         address tokenB,
         uint256 amount,
         uint256 price
-    ) private {
+    ) private updateQuotes(tokenA, tokenB) {
         // Native tokens cannot be sold by admins
         if (tokenA == address(0)) revert InvalidFirstTokenAddress();
 

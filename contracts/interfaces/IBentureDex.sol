@@ -193,6 +193,15 @@ interface IBentureDex is IBentureDexErrors {
         address tokenB
     ) external view returns (uint256[] memory);
 
+    /// @notice Checks if pair of provided tokens exists
+    /// @param tokenA The address of the first token
+    /// @param tokenB The address of the second token
+    /// @return True if pair exists.Otherwise - false
+    function checkPairExists(
+        address tokenA,
+        address tokenB
+    ) external view returns (bool);
+
     /// @notice Returns the price of the pair of tokens
     /// @param tokenA The address of the first token of the pair
     /// @param tokenB The address of the second token of the pair
@@ -229,6 +238,7 @@ interface IBentureDex is IBentureDexErrors {
     ) external view returns (bool);
 
     /// @notice Creates a buy market order
+    /// @dev Cannot create the first order of the orderbook
     /// @param tokenA The address of the token that is purchased
     /// @param tokenB The address of the token that is sold
     /// @param amount The amount of active tokens
@@ -245,6 +255,7 @@ interface IBentureDex is IBentureDexErrors {
     ) external payable;
 
     /// @notice Creates a sell market order
+    /// @dev Cannot create the first order of the orderbook
     /// @param tokenA The address of the token that is purchased
     /// @param tokenB The address of the token that is sold
     /// @param amount The amount of active tokens

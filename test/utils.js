@@ -112,15 +112,15 @@ async function hashAndSignMarket(
 }
 
 // Calculates lock amount for *BUY* orders
-// For sell orders it's alwats just their `order.amount`
+// For sell orders it's always just their `order.amount`
 // amount: The amount of tokens sold / bought
 // price: The *order* price in quoted tokens
-// quotedInInitB: True if `tokenB` of the *order* is a quoted token of the pair
-function calcBuyerLockAmount(amount, limitPrice, quotedInInitB) {
+// quotedInOrderTokenB: True if `tokenB` of the *buy order* is a quoted token of the pair
+function calcBuyerLockAmount(amount, limitPrice, quotedInOrderTokenB) {
     console.log("\nIn JS in get lock amount: ");
     console.log("Amount: ", amount.toString());
     console.log("*Limit* price: ", limitPrice.toString());
-    if (quotedInInitB) {
+    if (quotedInOrderTokenB) {
         console.log(
             "Amount to lock: ",
             amount.mul(limitPrice).div(PRICE_PRECISION).toString()
@@ -140,7 +140,7 @@ function calcBuyerLockAmount(amount, limitPrice, quotedInInitB) {
 // initOrderAmount: The amount of init order
 // matchedOrderAmount: The amount of matched order
 // marketPrice: The price in quoted tokens
-// quotedInInitB: True if `tokenB` of the *order* is a quoted token of the pair
+// quotedInInitB: True if `tokenB` of the *init order* (not always buy) is a quoted token of the pair
 // buyMoreThanSell: True if buy order amount is greater than sell order amount
 // initOrderIsBuy: True if buy order is initial order
 function calcBuyerSpentAmount(
@@ -173,7 +173,7 @@ function calcBuyerSpentAmount(
                     .div(marketPrice);
             }
         } else {
-            console.log("Sell more than buy");
+            console.log("Sell more than buy or equal");
             let amountToInit = initOrderAmount;
             if (quotedInInitB) {
                 buyerAmountSpent = amountToInit
@@ -188,9 +188,9 @@ function calcBuyerSpentAmount(
         }
         // Second branch of `getAmounts`
     } else {
-        console.log("Init order in sell");
+        console.log("Init order is sell");
         if (!buyMoreThanSell) {
-            console.log("Sell more than buy");
+            console.log("Sell more than buy or equal");
             let amountToMatched = matchedOrderAmount;
             if (quotedInInitB) {
                 buyerAmountSpent = amountToMatched
@@ -223,7 +223,7 @@ function calcBuyerSpentAmount(
 // initOrderAmount: The amount of init order
 // matchedOrderAmount: The amount of matched order
 // marketPrice: The price in quoted tokens
-// quotedInInitB: True if `tokenB` of the *order* is a quoted token of the pair
+// quotedInInitB: True if `tokenB` of the *init order* (not always sell) is a quoted token of the pair
 // sellMoreThanBuy: True if sell order amount is greater than buy order amount
 // initOrderIsSell: True if sell order is initial order
 function calcSellerSpentAmount(
@@ -243,7 +243,7 @@ function calcSellerSpentAmount(
     if (!initOrderIsSell) {
         console.log("Init order is buy");
         if (!sellMoreThanBuy) {
-            console.log("Buy more than sell");
+            console.log("Buy more than sell or equal");
             sellerAmountSpent = matchedOrderAmount;
         } else {
             console.log("Sell more than buy");
@@ -256,7 +256,7 @@ function calcSellerSpentAmount(
             console.log("Sell more than buy");
             sellerAmountSpent = matchedOrderAmount;
         } else {
-            console.log("Buy more than sell");
+            console.log("Buy more than sell or equal");
             sellerAmountSpent = initOrderAmount;
         }
     }
