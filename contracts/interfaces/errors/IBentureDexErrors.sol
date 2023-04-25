@@ -12,7 +12,6 @@ interface IBentureDexErrors {
     error NoQuotedTokens();
     error ZeroPrice();
     error NoFeesToWithdraw();
-    error InvalidStatusForFees();
     error NotAdmin();
     error DifferentLength();
     error SameBackend();
@@ -24,4 +23,5 @@ interface IBentureDexErrors {
     error TransferFailed();
     error NotEnoughNativeTokens();
     error InvalidPrice();
+    error PairNotCreated();
 }

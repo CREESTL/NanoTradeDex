@@ -178,6 +178,29 @@ See {IBentureDex-checkOrderExists}
 |---|---|---|
 | _0 | bool | undefined |
 
+### checkPairExists
+
+```solidity
+function checkPairExists(address tokenA, address tokenB) external view returns (bool)
+```
+
+See {IBentureDex-checkPairExists}
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| tokenA | address | undefined |
+| tokenB | address | undefined |
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | bool | undefined |
+
 ### feeRate
 
 ```solidity
@@ -749,17 +772,6 @@ error InvalidSignature()
 
 
 
-### InvalidStatusForFees
-
-```solidity
-error InvalidStatusForFees()
-```
-
-
-
-
-
-
 ### NoFeesToWithdraw
 
 ```solidity
@@ -830,6 +842,17 @@ error NotOrderCreator()
 
 ```solidity
 error OrderDoesNotExist()
+```
+
+
+
+
+
+
+### PairNotCreated
+
+```solidity
+error PairNotCreated()
 ```
 
 
