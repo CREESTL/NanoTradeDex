@@ -101,6 +101,16 @@ interface IBentureDex is IBentureDexErrors {
     /// @param newFeeRate The new set fee rate
     event FeeRateChanged(uint256 oldFeeRate, uint256 newFeeRate);
 
+    /// @notice Indicates that backend address was changed
+    /// @param oldAcc The address of the old backend account
+    /// @param newAcc The address of the new backend account
+    event BackendChanged(address oldAcc, address newAcc);
+
+    /// @notice Indicates that admin token address was changed
+    /// @param oldAdminToken The address of the old admin token
+    /// @param newAdminToken The address of the new admin token
+    event AdminTokenChanged(address oldAdminToken, address newAdminToken);
+
     /// @notice Indicates that a single series sale has started
     /// @param tokenA The purchased token
     /// @param tokenB The sold token
@@ -338,9 +348,19 @@ interface IBentureDex is IBentureDexErrors {
         bytes calldata signature
     ) external;
 
+    /// @notice Sets the address of the backend account
+    /// @param acc The address of the backend account
+    /// @dev This function should be called right after contract deploy.
+    ///      Otherwise, order creation/cancelling/matching will not work.
+    function setBackend(address acc) external;
+
     /// @notice Sets a new fee rate
     /// @param newFeeRate A new fee rate
     function setFee(uint256 newFeeRate) external;
+
+    /// @notice Sets address of the admin token
+    /// @param token The address of the admin token
+    function setAdminToken(address token) external;
 
     /// @notice Withdraws fees accumulated by creation of specified orders
     /// @param tokens The list of addresses of active tokens of the order
@@ -348,10 +368,4 @@ interface IBentureDex is IBentureDexErrors {
 
     /// @notice Withdraws all fees accumulated by creation of orders
     function withdrawAllFees() external;
-
-    /// @notice Sets the address of the backend account
-    /// @param acc The address of the backend account
-    /// @dev This function should be called right after contract deploy.
-    ///      Otherwise, order creation/cancelling/matching will not work.
-    function setBackend(address acc) external;
 }

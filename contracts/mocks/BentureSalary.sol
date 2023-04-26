@@ -48,6 +48,16 @@ contract BentureSalary is
     mapping(address => mapping(address => EnumerableSetUpgradeable.UintSet))
         private employeeToAdminToSalaryId;
 
+    /// @dev Mapping from employee address to the project tokens addresses
+    ///      of the projects he works on
+    // One employee can work on multiple projects
+    mapping(address => EnumerableSetUpgradeable.AddressSet)
+        private employeeToProjectTokens;
+    /// @dev Inverse mapping for `employeeToProjectToken`
+    // One project can have multiple employees
+    mapping(address => EnumerableSetUpgradeable.AddressSet)
+        private projectTokenToEmployees;
+
     /// @dev Uses to check if user is BentureAdmin tokens holder
     modifier onlyAdmin() {
         IBentureAdmin(bentureAdminToken).checkOwner(msg.sender);
@@ -67,36 +77,28 @@ contract BentureSalary is
         bentureAdminToken = adminTokenAddress;
     }
 
-    /// @notice Returns the name of employee.
-    /// @param employeeAddress Address of employee.
-    /// @return name The name of employee.
+    /// @notice See {IBentureSalary-getNameOfEmployee}
     function getNameOfEmployee(
         address employeeAddress
     ) external view returns (string memory name) {
         return names[employeeAddress];
     }
 
-    /// @notice Returns the array of admins of employee.
-    /// @param employeeAddress Address of employee.
-    /// @return admins The array of admins of employee.
+    /// @notice See {IBentureSalary-getAdminsByEmployee}
     function getAdminsByEmployee(
         address employeeAddress
     ) external view returns (address[] memory admins) {
         return employeeToAdmins[employeeAddress].values();
     }
 
-    /// @notice Returns the array of employees of admin.
-    /// @param adminAddress Address of admin.
-    /// @return employees The array of employees of admin.
+    /// @notice See {IBentureSalary-getEmployeesByAdmin}
     function getEmployeesByAdmin(
         address adminAddress
     ) external view returns (address[] memory employees) {
         return adminToEmployees[adminAddress].values();
     }
 
-    /// @notice Returns array of salaries of employee.
-    /// @param employeeAddress Address of employee.
-    /// @return ids Array of salaries id of employee.
+    /// @notice See {IBentureSalary-getSalariesIdByEmployeeAndAdmin}
     function getSalariesIdByEmployeeAndAdmin(
         address employeeAddress,
         address adminAddress
@@ -105,19 +107,14 @@ contract BentureSalary is
             employeeToAdminToSalaryId[employeeAddress][adminAddress].values();
     }
 
-    /// @notice Returns salary by ID.
-    /// @param salaryId Id of SalaryInfo.
-    /// @return salary SalaryInfo by ID.
+    /// @notice See {IBentureSalary-getSalaryById}
     function getSalaryById(
         uint256 salaryId
     ) external view returns (SalaryInfo memory salary) {
         return salaryById[salaryId];
     }
 
-    /// @notice Sets new or changes current name of the employee.
-    /// @param employeeAddress Address of employee.
-    /// @param name New name of employee.
-    /// @dev Only admin can call this method.
+    /// @notice See {IBentureSalary-setNameToEmployee}
     function setNameToEmployee(
         address employeeAddress,
         string memory name
@@ -132,9 +129,7 @@ contract BentureSalary is
         emit EmployeeNameChanged(employeeAddress, name);
     }
 
-    /// @notice Removes name from employee.
-    /// @param employeeAddress Address of employee.
-    /// @dev Only admin can call this method.
+    /// @notice See {IBentureSalary-removeNameFromEmployee}
     function removeNameFromEmployee(
         address employeeAddress
     ) external onlyAdmin {
@@ -145,48 +140,72 @@ contract BentureSalary is
         emit EmployeeNameRemoved(employeeAddress);
     }
 
-    /// @notice Adds new employee.
-    /// @param employeeAddress Address of employee.
-    /// @dev Only admin can call this method.
-    function addEmployee(address employeeAddress) external onlyAdmin {
-        if (checkIfUserIsAdminOfEmployee(employeeAddress, msg.sender)) {
-            revert AllreadyEmployee();
+    /// @notice See {IBentureSalary-addEmployeeToProject}
+    function addEmployeeToProject(
+        address employeeAddress,
+        address projectToken
+    ) external onlyAdmin {
+        // Same employee cannot be added to one project more than once
+        if (checkIfUserInProject(employeeAddress, projectToken)) {
+            revert AlreadyInProject();
         }
+
+        // Admin should be the admin of the project he wants to add employee to
+        if (!checkIfAdminOfProject(msg.sender, projectToken)) {
+            revert NotAdminOfProject();
+        }
+
+        employeeToProjectTokens[employeeAddress].add(projectToken);
+        projectTokenToEmployees[projectToken].add(employeeAddress);
+
         adminToEmployees[msg.sender].add(employeeAddress);
         employeeToAdmins[employeeAddress].add(msg.sender);
-        emit EmployeeAdded(employeeAddress, msg.sender);
+        emit EmployeeAdded(employeeAddress, projectToken, msg.sender);
     }
 
-    /// @notice Removes employee.
-    /// @param employeeAddress Address of employee.
-    /// @dev Only admin can call this method.
-    function removeEmployee(address employeeAddress) external onlyAdmin {
-        if (!checkIfUserIsEmployeeOfAdmin(msg.sender, employeeAddress)) {
-            revert AlreadyNotAnEmployee();
+    /// @notice See {IBentureSalary-removeEmployeeFromProject}
+    function removeEmployeeFromProject(
+        address employeeAddress,
+        address projectToken
+    ) external onlyAdmin {
+        // Admin should be the admin of the project he wants to add employee to
+        if (!checkIfAdminOfProject(msg.sender, projectToken)) {
+            revert NotAdminOfProject();
         }
-
+        // User must be on the project
+        if (!checkIfUserInProject(employeeAddress, projectToken)) {
+            revert EmployeeNotInProject();
+        }
+        // User must be an employee of the admin
+        if (!checkIfUserIsEmployeeOfAdmin(msg.sender, employeeAddress)) {
+            revert NotEmployeeOfAdmin();
+        }
         if (
             employeeToAdminToSalaryId[employeeAddress][msg.sender].length() > 0
         ) {
-            uint256[] memory id = employeeToAdminToSalaryId[employeeAddress][
+            uint256[] memory ids = employeeToAdminToSalaryId[employeeAddress][
                 msg.sender
             ].values();
             uint256 arrayLength = employeeToAdminToSalaryId[employeeAddress][
                 msg.sender
             ].length();
             for (uint256 i = 0; i < arrayLength; i++) {
-                if (salaryById[id[i]].employer == msg.sender) {
-                    removeSalaryFromEmployee(id[i]);
+                if (salaryById[ids[i]].employer == msg.sender) {
+                    removeSalaryFromEmployee(ids[i]);
                 }
             }
         }
 
+        employeeToProjectTokens[employeeAddress].remove(projectToken);
+        projectTokenToEmployees[projectToken].remove(employeeAddress);
+
         adminToEmployees[msg.sender].remove(employeeAddress);
         employeeToAdmins[employeeAddress].remove(msg.sender);
+
+        emit EmployeeRemoved(employeeAddress, projectToken, msg.sender);
     }
 
-    /// @notice Withdraws all of employee's salary.
-    /// @dev Anyone can call this method. No restrictions.
+    /// @notice See {IBentureSalary-withdrawAllSalaries}
     function withdrawAllSalaries() external {
         uint256 adminsLength = employeeToAdmins[msg.sender].length();
         uint256 salariesLength;
@@ -204,17 +223,12 @@ contract BentureSalary is
         }
     }
 
-    /// @notice Withdraws employee's salary.
-    /// @param salaryId IDs of employee salaries.
-    /// @dev Anyone can call this method. No restrictions.
+    /// @notice See {IBentureSalary-withdrawSalary}
     function withdrawSalary(uint256 salaryId) external nonReentrant {
         _withdrawSalary(salaryId);
     }
 
-    /// @notice Removes periods from salary
-    /// @param salaryId ID of target salary
-    /// @param amountOfPeriodsToDelete Amount of periods to delete from salary
-    /// @dev Only admin can call this method.
+    /// @notice See {IBentureSalary-removePeriodsFromSalary}
     function removePeriodsFromSalary(
         uint256 salaryId,
         uint256 amountOfPeriodsToDelete
@@ -243,13 +257,10 @@ contract BentureSalary is
                 _salary.amountOfPeriods -
                 amountOfPeriodsToDelete;
         }
-        emit SalaryPeriodsRemoved(_salary.employee, msg.sender, _salary);
+        emit SalaryPeriodsRemoved(salaryId, _salary.employee, msg.sender);
     }
 
-    /// @notice Adds periods to salary
-    /// @param salaryId ID of target salary
-    /// @param tokensAmountPerPeriod Array of periods to add to salary
-    /// @dev Only admin can call this method.
+    /// @notice See {IBentureSalary-addPeriodsToSalary}
     function addPeriodsToSalary(
         uint256 salaryId,
         uint256[] memory tokensAmountPerPeriod
@@ -297,15 +308,10 @@ contract BentureSalary is
         _salary.amountOfPeriods =
             _salary.amountOfPeriods +
             tokensAmountPerPeriod.length;
-        emit SalaryPeriodsAdded(_salary.employee, msg.sender, _salary);
+        emit SalaryPeriodsAdded(_salary.id, _salary.employee, msg.sender);
     }
 
-    /// @notice Adds salary to employee.
-    /// @param employeeAddress Address of employee.
-    /// @param periodDuration Duration of one period.
-    /// @param amountOfPeriods Amount of periods.
-    /// @param tokensAmountPerPeriod Amount of tokens per period.
-    /// @dev Only admin can call this method.
+    /// @notice See {IBentureSalary-addSalaryToEmployee}
     function addSalaryToEmployee(
         address employeeAddress,
         uint256 periodDuration,
@@ -347,13 +353,10 @@ contract BentureSalary is
         _salary.employee = employeeAddress;
         employeeToAdminToSalaryId[employeeAddress][msg.sender].add(_salary.id);
         salaryById[_salary.id] = _salary;
-        emit EmployeeSalaryAdded(employeeAddress, msg.sender, _salary);
+        emit EmployeeSalaryAdded(_salary.id, employeeAddress, msg.sender);
     }
 
-    /// @notice Returns true if user is employee for admin and False if not.
-    /// @param adminAddress Address of admin.
-    /// @param employeeAddress Address of employee.
-    /// @return isEmployee True if user is employee for admin. False if not.
+    /// @notice See {IBentureSalary-checkIfUserIsEmployeeOfAdmin}
     function checkIfUserIsEmployeeOfAdmin(
         address adminAddress,
         address employeeAddress
@@ -361,10 +364,7 @@ contract BentureSalary is
         return adminToEmployees[adminAddress].contains(employeeAddress);
     }
 
-    /// @notice Returns true if user is admin for employee and False if not.
-    /// @param employeeAddress Address of employee.
-    /// @param adminAddress Address of admin.
-    /// @return isAdmin True if user is admin for employee. False if not.
+    /// @notice See {IBentureSalary-checkIfUserIsAdminOfEmployee}
     function checkIfUserIsAdminOfEmployee(
         address employeeAddress,
         address adminAddress
@@ -372,9 +372,30 @@ contract BentureSalary is
         return employeeToAdmins[employeeAddress].contains(adminAddress);
     }
 
-    /// @notice Returns amount of pending salary.
-    /// @param salaryId Salary ID.
-    /// @return salaryAmount Amount of pending salary.
+    /// @notice See {IBentureSalary-checkIfUserInProject}
+    function checkIfUserInProject(
+        address employeeAddress,
+        address projectTokenAddress
+    ) public view returns (bool) {
+        return
+            projectTokenToEmployees[projectTokenAddress].contains(
+                employeeAddress
+            );
+    }
+
+    /// @notice See {IBentureSalary-checkIfAdminOfProject}
+    function checkIfAdminOfProject(
+        address adminAddress,
+        address projectTokenAddress
+    ) public view returns (bool) {
+        return
+            IBentureAdmin(bentureAdminToken).checkAdminOfProject(
+                adminAddress,
+                projectTokenAddress
+            );
+    }
+
+    /// @notice See {IBentureSalary-getSalaryAmount}
     function getSalaryAmount(
         uint256 salaryId
     ) public view returns (uint256 salaryAmount) {
@@ -425,9 +446,7 @@ contract BentureSalary is
         return 0;
     }
 
-    /// @notice Removes salary from employee.
-    /// @param salaryId ID of employee salary.
-    /// @dev Only admin can call this method.
+    /// @notice See {IBentureSalary-removeSalaryFromEmployee}
     function removeSalaryFromEmployee(uint256 salaryId) public onlyAdmin {
         SalaryInfo memory _salary = salaryById[salaryId];
         if (!checkIfUserIsAdminOfEmployee(_salary.employee, msg.sender)) {
@@ -439,10 +458,19 @@ contract BentureSalary is
 
         uint256 amountToPay = getSalaryAmount(salaryId);
 
+        _salary.amountWithdrawn += amountToPay;
+
         employeeToAdminToSalaryId[_salary.employee][msg.sender].remove(
             salaryId
         );
         delete salaryById[_salary.id];
+
+        emit EmployeeSalaryRemoved(
+            salaryId,
+            _salary.employee,
+            msg.sender,
+            amountToPay
+        );
 
         /// @dev Transfer tokens from the employer's wallet to the employee's wallet
         IERC20Upgradeable(_salary.tokenAddress).safeTransferFrom(
@@ -486,6 +514,8 @@ contract BentureSalary is
                 _salary.amountOfWithdrawals +
                 periodsToPay;
 
+            _salary.amountWithdrawn += toPay;
+
             /// @dev Transfer tokens from the employer's wallet to the employee's wallet
             IERC20Upgradeable(_salary.tokenAddress).safeTransferFrom(
                 _salary.employer,
@@ -494,9 +524,10 @@ contract BentureSalary is
             );
 
             emit EmployeeSalaryClaimed(
+                salaryId,
                 _salary.employee,
                 _salary.employer,
-                salaryById[salaryId]
+                toPay
             );
         }
     }

@@ -60,6 +60,23 @@ function _getTxHashMatch(uint256 initId, uint256[] matchedIds, uint256 nonce) ex
 |---|---|---|
 | _0 | bytes32 | undefined |
 
+### adminToken
+
+```solidity
+function adminToken() external view returns (address)
+```
+
+The address of the admin token
+
+
+
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | address | undefined |
+
 ### backendAcc
 
 ```solidity
@@ -434,6 +451,22 @@ See {IBentureDex-sellMarket}
 | nonce | uint256 | undefined |
 | signature | bytes | undefined |
 
+### setAdminToken
+
+```solidity
+function setAdminToken(address token) external nonpayable
+```
+
+See {IBentureDex-setAdminToken}
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| token | address | undefined |
+
 ### setBackend
 
 ```solidity
@@ -550,6 +583,40 @@ See {IBentureDex-withdrawFees}
 
 
 ## Events
+
+### AdminTokenChanged
+
+```solidity
+event AdminTokenChanged(address oldAdminToken, address newAdminToken)
+```
+
+Indicates that admin token address was changed
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| oldAdminToken  | address | undefined |
+| newAdminToken  | address | undefined |
+
+### BackendChanged
+
+```solidity
+event BackendChanged(address oldAcc, address newAcc)
+```
+
+Indicates that backend address was changed
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| oldAcc  | address | undefined |
+| newAcc  | address | undefined |
 
 ### FeeRateChanged
 
@@ -717,6 +784,17 @@ Indicates that a single series sale has started
 
 ## Errors
 
+### AdminTokenNotSet
+
+```solidity
+error AdminTokenNotSet()
+```
+
+
+
+
+
+
 ### DifferentLength
 
 ```solidity
@@ -853,28 +931,6 @@ error OrderDoesNotExist()
 
 ```solidity
 error PairNotCreated()
-```
-
-
-
-
-
-
-### SameBackend
-
-```solidity
-error SameBackend()
-```
-
-
-
-
-
-
-### SameFee
-
-```solidity
-error SameFee()
 ```
 
 

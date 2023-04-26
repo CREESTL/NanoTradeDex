@@ -322,6 +322,22 @@ Creates a sell market order
 | nonce | uint256 | A unique integer for each tx call |
 | signature | bytes | The signature used to sign the hash of the message |
 
+### setAdminToken
+
+```solidity
+function setAdminToken(address token) external nonpayable
+```
+
+Sets address of the admin token
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| token | address | The address of the admin token |
+
 ### setBackend
 
 ```solidity
@@ -422,6 +438,40 @@ Withdraws fees accumulated by creation of specified orders
 
 
 ## Events
+
+### AdminTokenChanged
+
+```solidity
+event AdminTokenChanged(address oldAdminToken, address newAdminToken)
+```
+
+Indicates that admin token address was changed
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| oldAdminToken  | address | The address of the old admin token |
+| newAdminToken  | address | The address of the new admin token |
+
+### BackendChanged
+
+```solidity
+event BackendChanged(address oldAcc, address newAcc)
+```
+
+Indicates that backend address was changed
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| oldAcc  | address | The address of the old backend account |
+| newAcc  | address | The address of the new backend account |
 
 ### FeeRateChanged
 
@@ -572,6 +622,17 @@ Indicates that a single series sale has started
 
 ## Errors
 
+### AdminTokenNotSet
+
+```solidity
+error AdminTokenNotSet()
+```
+
+
+
+
+
+
 ### DifferentLength
 
 ```solidity
@@ -708,28 +769,6 @@ error OrderDoesNotExist()
 
 ```solidity
 error PairNotCreated()
-```
-
-
-
-
-
-
-### SameBackend
-
-```solidity
-error SameBackend()
-```
-
-
-
-
-
-
-### SameFee
-
-```solidity
-error SameFee()
 ```
 
 

@@ -9,6 +9,7 @@ import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "./interfaces/IBentureDex.sol";
+import "./interfaces/IBentureAdmin.sol";
 
 /// @title Contract that controlls creation and execution of market and limit orders
 contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
@@ -25,6 +26,8 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
     uint256 public feeRate;
     /// @notice The address of the backend account
     address public backendAcc;
+    /// @notice The address of the admin token
+    address public adminToken;
     /// @dev Incrementing IDs of orders
     Counters.Counter private _orderId;
     /// @dev Mapping from order ID to order
@@ -79,6 +82,13 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         if (!_isQuoted[tokenA][tokenB] && !_isQuoted[tokenB][tokenA]) {
             revert PairNotCreated();
         }
+        _;
+    }
+
+    /// @dev Checks that user is admin of any project
+    modifier onlyAdminOfAny(address user) {
+        if (adminToken == address(0)) revert AdminTokenNotSet();
+        if (!IBentureAdmin(adminToken).checkAdminOfAny(user)) revert NotAdmin();
         _;
     }
 
@@ -167,60 +177,6 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
             revert NoQuotedTokens();
         address quotedToken = _isQuoted[tokenA][tokenB] ? tokenB : tokenA;
         return (quotedToken, _getPrice(tokenA, tokenB));
-    }
-
-    /// @notice See {IBentureDex-getLockAmount}
-    function getLockAmount(
-        address tokenA,
-        address tokenB,
-        uint256 amount,
-        uint256 limitPrice,
-        OrderType type_,
-        OrderSide side
-    ) public view returns (uint256 lockAmount) {
-        // For market orders limit price should be zero
-        if (type_ == OrderType.Market && limitPrice != 0) revert InvalidPrice();
-        // For limit orders limit price should be greater than zero
-        if (type_ == OrderType.Limit && limitPrice == 0) revert InvalidPrice();
-
-        // In any sell order user locks exactly the amount of tokens sold
-        // sellMarket
-        // sellLimit
-        if (side == OrderSide.Sell) {
-            lockAmount = amount;
-        }
-
-        // buyMarket
-        if (type_ == OrderType.Market && side == OrderSide.Buy) {
-            lockAmount = _getLockAmount(
-                tokenA,
-                tokenB,
-                amount,
-                _getPrice(tokenA, tokenB)
-            );
-        }
-
-        // buyLimit
-        if (type_ == OrderType.Limit && side == OrderSide.Buy) {
-            // If user wants to create a buy limit order with limit price much higher
-            // than the market price, then this order will instantly be matched with
-            // other limit (sell) orders that have a lower limit price
-            // In this case not the whole locked amount of tokens will be used and the rest
-            // should be returned to the user. We can avoid that by locking the amount of
-            // tokens according to the market price instead of limit price of the order
-            // We can think of this order as a market order
-            uint256 marketPrice = _getPrice(tokenA, tokenB);
-            if (limitPrice > marketPrice && marketPrice != 0) {
-                lockAmount = _getLockAmount(
-                    tokenA,
-                    tokenB,
-                    amount,
-                    marketPrice
-                );
-            } else {
-                lockAmount = _getLockAmount(tokenA, tokenB, amount, limitPrice);
-            }
-        }
     }
 
     /// @notice See (IBentureDex-checkMatched)
@@ -512,16 +468,76 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
 
     /// @notice See {IBentureDex-setBackend}
     function setBackend(address acc) external onlyOwner {
-        if (acc == backendAcc) revert SameBackend();
         if (acc == address(0)) revert ZeroAddress();
+        emit BackendChanged(backendAcc, acc);
         backendAcc = acc;
     }
 
     /// @notice See {IBentureDex-setFee}
     function setFee(uint256 newFeeRate) external onlyOwner {
-        if (newFeeRate == feeRate) revert SameFee();
         emit FeeRateChanged(feeRate, newFeeRate);
         feeRate = newFeeRate;
+    }
+
+    /// @notice See {IBentureDex-setAdminToken}
+    function setAdminToken(address token) external onlyOwner {
+        if (token == address(0)) revert ZeroAddress();
+        emit AdminTokenChanged(adminToken, token);
+        adminToken = token;
+    }
+
+    /// @notice See {IBentureDex-getLockAmount}
+    function getLockAmount(
+        address tokenA,
+        address tokenB,
+        uint256 amount,
+        uint256 limitPrice,
+        OrderType type_,
+        OrderSide side
+    ) public view returns (uint256 lockAmount) {
+        // For market orders limit price should be zero
+        if (type_ == OrderType.Market && limitPrice != 0) revert InvalidPrice();
+        // For limit orders limit price should be greater than zero
+        if (type_ == OrderType.Limit && limitPrice == 0) revert InvalidPrice();
+
+        // In any sell order user locks exactly the amount of tokens sold
+        // sellMarket
+        // sellLimit
+        if (side == OrderSide.Sell) {
+            lockAmount = amount;
+        }
+
+        // buyMarket
+        if (type_ == OrderType.Market && side == OrderSide.Buy) {
+            lockAmount = _getLockAmount(
+                tokenA,
+                tokenB,
+                amount,
+                _getPrice(tokenA, tokenB)
+            );
+        }
+
+        // buyLimit
+        if (type_ == OrderType.Limit && side == OrderSide.Buy) {
+            // If user wants to create a buy limit order with limit price much higher
+            // than the market price, then this order will instantly be matched with
+            // other limit (sell) orders that have a lower limit price
+            // In this case not the whole locked amount of tokens will be used and the rest
+            // should be returned to the user. We can avoid that by locking the amount of
+            // tokens according to the market price instead of limit price of the order
+            // We can think of this order as a market order
+            uint256 marketPrice = _getPrice(tokenA, tokenB);
+            if (limitPrice > marketPrice && marketPrice != 0) {
+                lockAmount = _getLockAmount(
+                    tokenA,
+                    tokenB,
+                    amount,
+                    marketPrice
+                );
+            } else {
+                lockAmount = _getLockAmount(tokenA, tokenB, amount, limitPrice);
+            }
+        }
     }
 
     /// @notice See {IBentureDex-checkOrderExists}
@@ -1264,7 +1280,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         address tokenB,
         uint256 amount,
         uint256 price
-    ) private updateQuotes(tokenA, tokenB) {
+    ) private updateQuotes(tokenA, tokenB) onlyAdminOfAny(msg.sender) {
         // Native tokens cannot be sold by admins
         if (tokenA == address(0)) revert InvalidFirstTokenAddress();
 

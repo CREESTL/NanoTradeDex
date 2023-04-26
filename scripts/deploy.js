@@ -32,6 +32,10 @@ async function main() {
     await dex.setBackend(backendAcc.address);
     console.log(`[${contractName}]: Backend address set!`);
 
+    console.log(
+        `[${contractName}]: \n\n[NOTICE!] Don't forget to set admin token address by hand!\n\n`
+    );
+
     // Verify
     console.log(`[${contractName}]: Start of Verification...`);
 

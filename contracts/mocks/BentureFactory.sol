@@ -25,6 +25,11 @@ contract BentureFactory is
 
     receive() external payable {}
 
+    /// @notice See {IBentureFactory-lastProducedToken}
+    function lastProducedToken() external view returns (address) {
+        return _lastProducedToken;
+    }
+
     /// @notice Set a `Benture` contract address
     /// @param bentureAddress_ The address of `Benture` contract
     function initialize(address bentureAddress_) public initializer {
@@ -37,20 +42,7 @@ contract BentureFactory is
         bentureAddress = bentureAddress_;
     }
 
-    /// @notice Returns the address of the produced ERC20 token
-    /// @return The address of the produced ERC20 token
-    function lastProducedToken() external view returns (address) {
-        return _lastProducedToken;
-    }
-
-    /// @notice Creates a new ERC20 token and mints an admin token proving ownership
-    /// @param name The name of the token
-    /// @param symbol The symbol of the token
-    /// @param decimals Number of decimals of the token
-    /// @param mintable Token may be either mintable or not. Can be changed later.
-    /// @param maxTotalSupply Maximum amount of tokens to be minted
-    /// @param adminToken_ Address of the admin token for controlled token
-    /// @dev Anyone can call this method. No restrictions.
+    /// @notice See {IBentureFactory-createERC20Token}
     function createERC20Token(
         string memory name,
         string memory symbol,

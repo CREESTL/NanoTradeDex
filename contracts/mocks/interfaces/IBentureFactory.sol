@@ -29,9 +29,9 @@ interface IBentureFactory is IBentureFactoryErrors {
 
     /// @dev Indicates that a new ERC20 token was created
     event CreateERC20Token(
-        string indexed name,
-        string indexed symbol,
-        address indexed tokenAddress,
+        string name,
+        string symbol,
+        address tokenAddress,
         uint8 decimals,
         bool mintable
     );

@@ -38,7 +38,7 @@ contract BentureProducedToken is ERC20, IBentureProducedToken {
     /// @dev Checks if caller is an admin token holder
     modifier hasAdminToken() {
         if (
-            !IBentureAdmin(_adminToken).verifyAdminToken(
+            !IBentureAdmin(_adminToken).checkAdminOfProject(
                 msg.sender,
                 address(this)
             )
@@ -99,38 +99,32 @@ contract BentureProducedToken is ERC20, IBentureProducedToken {
         _adminToken = adminToken_;
     }
 
-    /// @notice Indicates whether the token is mintable or not
-    /// @return True if the token is mintable. False - if it is not
+    /// @notice See {IBentureProducedToken-mintable}
     function mintable() external view override returns (bool) {
         return _mintable;
     }
 
-    /// @notice Returns the array of addresses of all token holders
-    /// @return The array of addresses of all token holders
+    /// @notice See {IBentureProducedToken-holders}
     function holders() external view returns (address[] memory) {
         return _holders.values();
     }
 
-    /// @notice Returns the max total supply of the token
-    /// @return The max total supply of the token
+    /// @notice See {IBentureProducedToken-maxTotalSupply}
     function maxTotalSupply() external view returns (uint256) {
         return _maxTotalSupply;
     }
 
-    /// @notice Checks if user is an admin of this token
-    /// @param account The address to check
-    /// @return True if user has admin token. Otherwise - false.
+    /// @notice See {IBentureProducedToken-checkAdmin}
     function checkAdmin(address account) external view returns (bool) {
         // This reverts. Does not return boolean.
         return
-            IBentureAdmin(_adminToken).verifyAdminToken(account, address(this));
+            IBentureAdmin(_adminToken).checkAdminOfProject(
+                account,
+                address(this)
+            );
     }
 
-    /// @notice Creates tokens and assigns them to account, increasing the total supply.
-    /// @param to The receiver of tokens
-    /// @param amount The amount of tokens to mint
-    /// @dev Can only be called by the owner of the admin NFT
-    /// @dev Can only be called when token is mintable
+    /// @notice See {IBentureProducedToken-mint}
     function mint(
         address to,
         uint256 amount
@@ -141,15 +135,14 @@ contract BentureProducedToken is ERC20, IBentureProducedToken {
         if (totalSupply() + amount > _maxTotalSupply) {
             revert SupplyExceedsMaximumSupply();
         }
-        emit ControlledTokenCreated(to, amount);
+        emit ProjectTokenMinted(to, amount);
         // Add receiver of tokens to holders list if he isn't there already
         _holders.add(to);
         // Mint tokens to the receiver anyways
         _mint(to, amount);
     }
 
-    /// @notice Burns user's tokens
-    /// @param amount The amount of tokens to burn
+    /// @notice See {IBentureProducedToken-burn}
     function burn(uint256 amount) external override {
         address caller = msg.sender;
         if (amount == 0) {
@@ -158,7 +151,7 @@ contract BentureProducedToken is ERC20, IBentureProducedToken {
         if (balanceOf(caller) == 0) {
             revert NoTokensToBurn();
         }
-        emit ControlledTokenBurnt(caller, amount);
+        emit ProjectTokenBurnt(caller, amount);
         _burn(caller, amount);
         // If caller does not have any tokens - remove the address from holders
         if (balanceOf(msg.sender) == 0) {
@@ -169,8 +162,7 @@ contract BentureProducedToken is ERC20, IBentureProducedToken {
         }
     }
 
-    /// @notice Returns the name of the token
-    /// @return The name of the token
+    /// @notice See {IBentureProducedToken-name}
     function name()
         public
         view
@@ -180,8 +172,7 @@ contract BentureProducedToken is ERC20, IBentureProducedToken {
         return _tokenName;
     }
 
-    /// @notice Returns the symbol of the token
-    /// @return The symbol of the token
+    /// @notice See {IBentureProducedToken-symbol}
     function symbol()
         public
         view
@@ -191,8 +182,7 @@ contract BentureProducedToken is ERC20, IBentureProducedToken {
         return _tokenSymbol;
     }
 
-    /// @notice Returns number of decimals of the token
-    /// @return The number of decimals of the token
+    /// @notice See {IBentureProducedToken-decimals}
     function decimals()
         public
         view
@@ -202,9 +192,7 @@ contract BentureProducedToken is ERC20, IBentureProducedToken {
         return _decimals;
     }
 
-    /// @notice Checks if the address is a holder
-    /// @param account The address to check
-    /// @return True if address is a holder. False if it is not
+    /// @notice See {IBentureProducedToken-isHolder}
     function isHolder(address account) public view returns (bool) {
         return _holders.contains(account);
     }
@@ -232,7 +220,7 @@ contract BentureProducedToken is ERC20, IBentureProducedToken {
         if (!isHolder(from)) {
             revert NoTokensToTransfer();
         }
-        emit ControlledTokenTransferred(from, to, amount);
+        emit ProjectTokenTransferred(from, to, amount);
         // If the receiver is not yet a holder, he becomes a holder
         _holders.add(to);
         // If all tokens of the holder get transferred - he is no longer a holder
