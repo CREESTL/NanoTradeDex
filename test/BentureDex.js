@@ -24,8 +24,8 @@ const backendAcc = new ethers.Wallet(process.env.BACKEND_PRIVATE_KEY, provider);
 
 // #H
 describe("Benture DEX", () => {
-    // Deploy all contracts before each test suite
-    async function deploys() {
+    // Deploys all contracts, creates tokens, creates two orders, sets quoted tokens
+    async function deploysQuotedB() {
         [ownerAcc, clientAcc1, clientAcc2, clientAcc3] =
             await ethers.getSigners();
 
@@ -113,7 +113,7 @@ describe("Benture DEX", () => {
         await tokenA.approve(dex.address, mintAmount);
         await tokenB.approve(dex.address, mintAmount);
 
-        // Start sale and create two pairs of tokens
+        // Start sales and create two pairs of tokens
 
         let initialLimitPriceAB = parseEther("1.5");
         let initialLimitPriceBA = parseEther("1.5");
@@ -146,11 +146,108 @@ describe("Benture DEX", () => {
         };
     }
 
+    // Deploys all contracts, creates tokens, does not set any quoted tokens or create orders
+    async function deploysNoQuoted() {
+        [ownerAcc, clientAcc1, clientAcc2, clientAcc3] =
+            await ethers.getSigners();
+
+        let dexTx = await ethers.getContractFactory("BentureDex");
+        let dex = await dexTx.deploy();
+        await dex.deployed();
+
+        // Set backend address
+        await dex.setBackend(backendAcc.address);
+
+        // Deploy dividend-distribution contract
+        let bentureTx = await ethers.getContractFactory("Benture");
+        let benture = await upgrades.deployProxy(bentureTx, [], {
+            initializer: "initialize",
+            kind: "uups",
+        });
+        await benture.deployed();
+
+        // Deploy a factory contract
+        let factoryTx = await ethers.getContractFactory("BentureFactory");
+        let factory = await upgrades.deployProxy(factoryTx, [benture.address], {
+            initializer: "initialize",
+            kind: "uups",
+        });
+        await factory.deployed();
+
+        await benture.setFactoryAddress(factory.address);
+
+        // Deploy an admin token (ERC721)
+        let adminTx = await ethers.getContractFactory("BentureAdmin");
+        let adminToken = await upgrades.deployProxy(
+            adminTx,
+            [factory.address],
+            {
+                initializer: "initialize",
+                kind: "uups",
+            }
+        );
+        await adminToken.deployed();
+
+        // Set admin token for DEX
+        await dex.setAdminToken(adminToken.address);
+
+        // Max supply for all factory created tokens
+        let maxSupply = parseEther("1000000000000000000");
+
+        // Create new ERC20 and ERC721 and assign them to caller (owner)
+        await factory.createERC20Token(
+            "tokenA",
+            "tokenA",
+            18,
+            true,
+            maxSupply,
+            // Provide the address of the previously deployed ERC721
+            adminToken.address
+        );
+
+        // Get the address of the last ERC20 token produced in the factory
+        let tokenAAddress = await factory.lastProducedToken();
+        let tokenA = await ethers.getContractAt(
+            "BentureProducedToken",
+            tokenAAddress
+        );
+
+        // Deploy another ERC20 in order to have a tokenB
+        await factory.createERC20Token(
+            "tokenB",
+            "tokenB",
+            18,
+            true,
+            maxSupply,
+            adminToken.address
+        );
+
+        let tokenBAddress = await factory.lastProducedToken();
+        let tokenB = await ethers.getContractAt(
+            "BentureProducedToken",
+            tokenBAddress
+        );
+
+        // Premint tokens to owner and allow dex to spend all tokens
+        let mintAmount = parseEther("1000000");
+        await tokenA.mint(ownerAcc.address, mintAmount);
+        await tokenB.mint(ownerAcc.address, mintAmount);
+        await tokenA.approve(dex.address, mintAmount);
+        await tokenB.approve(dex.address, mintAmount);
+
+        return {
+            dex,
+            adminToken,
+            tokenA,
+            tokenB,
+        };
+    }
+
     // #D
     describe("Deployment", () => {
         it("Should deploy and have correct stats", async () => {
             let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                deploys
+                deploysQuotedB
             );
 
             expect(await dex.feeRate()).to.eq(10);
@@ -165,7 +262,7 @@ describe("Benture DEX", () => {
         describe("Update quotes", () => {
             it("Should update quoted token on first order creation", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
 
                 let buyAmount = parseEther("10");
@@ -188,7 +285,7 @@ describe("Benture DEX", () => {
             });
             it("Should not update existing quoted token", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
 
                 let buyAmount = parseEther("10");
@@ -227,7 +324,7 @@ describe("Benture DEX", () => {
             it("Should only allow backend to call some functions once", async () => {
                 let nonce = 777;
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
 
                 let buyAmount = parseEther("10");
@@ -294,7 +391,7 @@ describe("Benture DEX", () => {
 
             it("Should fail to call functions if signature is invalid", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
 
                 let nonce = 777;
@@ -315,7 +412,7 @@ describe("Benture DEX", () => {
         describe("Only allow orders when pair exists", () => {
             it("Should check that pair exists before order creation", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
 
                 let buyAmount = parseEther("10");
@@ -348,7 +445,7 @@ describe("Benture DEX", () => {
         describe("Allow only admins to start sales", () => {
             it("Should fail to start a single sale if caller is not admin of any project", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
 
                 let sellAmount = parseEther("10");
@@ -373,7 +470,7 @@ describe("Benture DEX", () => {
         describe("Set fee rate", () => {
             it("Should set new fee", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
                 let oldFee = await dex.feeRate();
                 await expect(dex.setFee(oldFee.mul(2)))
@@ -385,7 +482,7 @@ describe("Benture DEX", () => {
 
             it("Should fail to set new fee if caller is not owner", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
                 let oldFee = await dex.feeRate();
                 await expect(
@@ -397,7 +494,7 @@ describe("Benture DEX", () => {
         describe("Set backend", () => {
             it("Should set new backend", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
                 let oldBackend = await dex.backendAcc();
                 await expect(dex.setBackend(randomAddress))
@@ -410,7 +507,7 @@ describe("Benture DEX", () => {
 
             it("Should fail to set new backend if caller is not owner", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
                 await expect(
                     dex.connect(clientAcc1).setBackend(randomAddress)
@@ -419,7 +516,7 @@ describe("Benture DEX", () => {
 
             it("Should fail to set zero address backend", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
                 await expect(
                     dex.setBackend(zeroAddress)
@@ -430,7 +527,7 @@ describe("Benture DEX", () => {
         describe("Set admin token address", () => {
             it("Should set new admin token address", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
                 let oldAdminToken = await dex.adminToken();
                 await expect(dex.setAdminToken(randomAddress))
@@ -442,7 +539,7 @@ describe("Benture DEX", () => {
             });
             it("Should fail to set new admin token address", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
                 await expect(
                     dex.setAdminToken(zeroAddress)
@@ -456,7 +553,7 @@ describe("Benture DEX", () => {
         describe("Get orders", () => {
             it("Should get orders created by a user", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
 
                 let buyAmount = parseEther("10");
@@ -514,7 +611,7 @@ describe("Benture DEX", () => {
 
             it("Should fail to get orders of zero address user", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
 
                 await expect(
@@ -524,7 +621,7 @@ describe("Benture DEX", () => {
 
             it("Should get order by id", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
 
                 let buyAmount = parseEther("10");
@@ -583,7 +680,7 @@ describe("Benture DEX", () => {
 
             it("Should fail to get unexisting order", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
 
                 await expect(dex.getOrder(777)).to.be.revertedWithCustomError(
@@ -594,7 +691,7 @@ describe("Benture DEX", () => {
 
             it("Should get list of orders by tokens", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
 
                 let ids = await dex
@@ -653,7 +750,7 @@ describe("Benture DEX", () => {
         describe("Check that order exists", () => {
             it("Should check that order exists", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
 
                 expect(await dex.checkOrderExists(0)).to.eq(false);
@@ -689,7 +786,7 @@ describe("Benture DEX", () => {
         describe("Check that two orders matched", () => {
             it("Should check that two orders matched", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
 
                 let buyAmount = parseEther("10");
@@ -753,7 +850,7 @@ describe("Benture DEX", () => {
 
             it("Should fail to check matched orders if they don't exist", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
 
                 // First of IDs does not exist and reverts
@@ -795,7 +892,7 @@ describe("Benture DEX", () => {
         describe("Get correct lock amount for order", () => {
             it("Should get correct lock amount for sell orders", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
 
                 let buyAmount = parseEther("10");
@@ -845,7 +942,7 @@ describe("Benture DEX", () => {
 
             it("Should get correct lock amount for buy market orders", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
 
                 // Create limit order first to initialize a price
@@ -917,7 +1014,7 @@ describe("Benture DEX", () => {
             describe("Should get correct lock amount for buy limit orders", () => {
                 it("Should get correct lock amount if price is not higher than market", async () => {
                     let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                        deploys
+                        deploysQuotedB
                     );
 
                     let buyAmount = parseEther("10");
@@ -967,7 +1064,7 @@ describe("Benture DEX", () => {
 
                 it("Should get correct lock amount if price is much higher than market", async () => {
                     let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                        deploys
+                        deploysQuotedB
                     );
 
                     let buyAmount = parseEther("10");
@@ -987,7 +1084,7 @@ describe("Benture DEX", () => {
                         tokenA.address,
                         tokenB.address,
                         buyAmount,
-                        limitPrice,
+                        limitPrice.mul(5),
                         1,
                         0
                     );
@@ -1029,7 +1126,7 @@ describe("Benture DEX", () => {
 
             it("Should fail to get correct lock amount", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
 
                 await expect(
@@ -1059,7 +1156,7 @@ describe("Benture DEX", () => {
         describe("Check that pair exists", () => {
             it("Should check that pair exists", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
 
                 let sellAmount = parseEther("10");
@@ -1080,7 +1177,7 @@ describe("Benture DEX", () => {
         describe("Get pair price", () => {
             it("Should get the price of the pair", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
 
                 let buyAmount = parseEther("10");
@@ -1113,7 +1210,7 @@ describe("Benture DEX", () => {
             });
             it("Should fail to get the price of the pair", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
 
                 await expect(
@@ -1129,7 +1226,7 @@ describe("Benture DEX", () => {
         describe("Buy orders", () => {
             it("Should create market buy orders", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
 
                 // Create limit order first to initialize a price
@@ -1239,7 +1336,7 @@ describe("Benture DEX", () => {
 
             it("Should fail to create market buy orders with invalid signature", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
 
                 // Create limit order first to initialize a price
@@ -1312,7 +1409,7 @@ describe("Benture DEX", () => {
         describe("Sell orders", () => {
             it("Should create market sell orders", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
 
                 // Create limit order first to initialize a price
@@ -1418,7 +1515,7 @@ describe("Benture DEX", () => {
 
             it("Should fail to create market sell orders with invalid signature", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
 
                 // Create limit order first to initialize a price
@@ -1494,7 +1591,7 @@ describe("Benture DEX", () => {
         describe("Buy orders", () => {
             it("Should create limit buy orders", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
 
                 let buyAmount = parseEther("10");
@@ -1597,7 +1694,7 @@ describe("Benture DEX", () => {
 
             it("Should lock according to market price if limit price is much higher", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
 
                 let buyAmount = parseEther("10");
@@ -1703,7 +1800,7 @@ describe("Benture DEX", () => {
             // Test for _prepareOrder internal function
             it("Should fail to create limit order with invalid parameters", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
 
                 let limitPrice = parseEther("1.5");
@@ -1730,7 +1827,7 @@ describe("Benture DEX", () => {
         describe("Sell orders", () => {
             it("Should create limit sell orders", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
 
                 let sellAmount = parseEther("10");
@@ -1835,7 +1932,7 @@ describe("Benture DEX", () => {
         // so only cancelling of limit buy orders is checked for simplicity
         it("Should cancel freshly created order", async () => {
             let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                deploys
+                deploysQuotedB
             );
 
             let buyAmount = parseEther("10");
@@ -1888,7 +1985,7 @@ describe("Benture DEX", () => {
 
         it("Should cancel partially executed order", async () => {
             let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                deploys
+                deploysQuotedB
             );
 
             let sellAmount = parseEther("10");
@@ -1999,7 +2096,7 @@ describe("Benture DEX", () => {
 
         it("Should fail to cancel order", async () => {
             let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                deploys
+                deploysQuotedB
             );
 
             let buyAmount = parseEther("10");
@@ -2071,7 +2168,7 @@ describe("Benture DEX", () => {
         describe("Single sale", () => {
             it("Should start a single sale", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
 
                 let sellAmount = parseEther("10");
@@ -2148,7 +2245,7 @@ describe("Benture DEX", () => {
 
             it("Should fail to start a single sale of native token", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
 
                 let sellAmount = parseEther("10");
@@ -2174,7 +2271,7 @@ describe("Benture DEX", () => {
         describe("Multiple sale", () => {
             it("Should start multiple sale", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
 
                 let sellAmount1 = parseEther("5");
@@ -2341,7 +2438,7 @@ describe("Benture DEX", () => {
 
             it("Should fail to start multiple sale with different arrays", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
 
                 let sellAmount1 = parseEther("5");
@@ -2383,7 +2480,7 @@ describe("Benture DEX", () => {
                 describe("Full execution", () => {
                     it("Should match new limit order with existing limit order", async () => {
                         let { dex, adminToken, tokenA, tokenB } =
-                            await loadFixture(deploys);
+                            await loadFixture(deploysQuotedB);
 
                         let mintAmount = parseEther("1000000");
                         let sellAmount = parseEther("10");
@@ -2581,7 +2678,7 @@ describe("Benture DEX", () => {
                 describe("Partial execution", () => {
                     it("Should match new limit order with existing limit order", async () => {
                         let { dex, adminToken, tokenA, tokenB } =
-                            await loadFixture(deploys);
+                            await loadFixture(deploysQuotedB);
 
                         let mintAmount = parseEther("1000000");
                         let sellAmount = parseEther("10");
@@ -2776,7 +2873,7 @@ describe("Benture DEX", () => {
                 describe("Full execution", () => {
                     it("Should match new limit order with existing limit order", async () => {
                         let { dex, adminToken, tokenA, tokenB } =
-                            await loadFixture(deploys);
+                            await loadFixture(deploysQuotedB);
 
                         let mintAmount = parseEther("1000000");
                         let sellAmount = parseEther("10");
@@ -2966,7 +3063,7 @@ describe("Benture DEX", () => {
                 describe("Partial execution", () => {
                     it("Should match new limit order with existing limit order", async () => {
                         let { dex, adminToken, tokenA, tokenB } =
-                            await loadFixture(deploys);
+                            await loadFixture(deploysQuotedB);
 
                         let mintAmount = parseEther("1000000");
                         let sellAmount = parseEther("10");
@@ -3165,7 +3262,7 @@ describe("Benture DEX", () => {
                     describe("Full execution", () => {
                         it("Should match new market order with existing limit order", async () => {
                             let { dex, adminToken, tokenA, tokenB } =
-                                await loadFixture(deploys);
+                                await loadFixture(deploysQuotedB);
 
                             let mintAmount = parseEther("1000000");
                             let sellAmount = parseEther("10");
@@ -3362,7 +3459,7 @@ describe("Benture DEX", () => {
                     describe("Partial execution", () => {
                         it("Should match new market order with existing limit order", async () => {
                             let { dex, adminToken, tokenA, tokenB } =
-                                await loadFixture(deploys);
+                                await loadFixture(deploysQuotedB);
 
                             let mintAmount = parseEther("1000000");
                             let sellAmount = parseEther("10");
@@ -3567,7 +3664,7 @@ describe("Benture DEX", () => {
                     describe("Full execution", () => {
                         it("Should match new market order with existing limit order", async () => {
                             let { dex, adminToken, tokenA, tokenB } =
-                                await loadFixture(deploys);
+                                await loadFixture(deploysQuotedB);
 
                             let mintAmount = parseEther("1000000");
                             let sellAmount = parseEther("10");
@@ -3769,7 +3866,7 @@ describe("Benture DEX", () => {
                     describe("Partial execution", () => {
                         it("Should match new market order with existing limit order", async () => {
                             let { dex, adminToken, tokenA, tokenB } =
-                                await loadFixture(deploys);
+                                await loadFixture(deploysQuotedB);
 
                             let mintAmount = parseEther("1000000");
                             let sellAmount = parseEther("10");
@@ -3978,7 +4075,7 @@ describe("Benture DEX", () => {
             describe("Reverts", () => {
                 it("Should revert if slippage was too high", async () => {
                     let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                        deploys
+                        deploysQuotedB
                     );
 
                     let mintAmount = parseEther("1000000");
@@ -4058,13 +4155,35 @@ describe("Benture DEX", () => {
                     // All orders are fully executed
                     it("Should match greater buy order with smaller sell order when buy order tokenB is quoted", async () => {
                         let { dex, adminToken, tokenA, tokenB } =
-                            await loadFixture(deploys);
+                            await loadFixture(deploysNoQuoted);
 
-                        let mintAmount = parseEther("1000000");
+                        // Start sales and create two pairs of tokens
+
+                        // ID1
                         let sellAmount = parseEther("10");
+                        let mintAmount = parseEther("1000000");
                         let buyAmount = sellAmount.mul(2);
                         let limitPrice = parseEther("1.5");
                         let nonce = 777;
+
+                        await dex
+                            .connect(ownerAcc)
+                            .startSaleSingle(
+                                tokenB.address,
+                                tokenA.address,
+                                sellAmount,
+                                limitPrice
+                            );
+
+                        // ID2
+                        await dex
+                            .connect(ownerAcc)
+                            .startSaleSingle(
+                                tokenA.address,
+                                tokenB.address,
+                                sellAmount,
+                                limitPrice
+                            );
 
                         // Mint some tokens to sell
                         await tokenB.mint(clientAcc1.address, mintAmount);
@@ -4105,13 +4224,13 @@ describe("Benture DEX", () => {
                         let buyerShouldBeLocked = calcBuyerLockAmount(
                             buyAmount,
                             limitPrice,
-                            false
+                            true
                         );
                         let buyerShouldBeSpent = calcBuyerSpentAmount(
                             buyAmount,
                             sellAmount,
                             limitPrice,
-                            false,
+                            true,
                             true,
                             true
                         );
@@ -4245,13 +4364,33 @@ describe("Benture DEX", () => {
 
                     it("Should match smaller buy order with greater sell order when buy order tokenB is quoted", async () => {
                         let { dex, adminToken, tokenA, tokenB } =
-                            await loadFixture(deploys);
+                            await loadFixture(deploysNoQuoted);
 
-                        let mintAmount = parseEther("1000000");
                         let sellAmount = parseEther("10");
-                        let buyAmount = sellAmount;
+                        let mintAmount = parseEther("1000000");
+                        let buyAmount = sellAmount.div(2);
                         let limitPrice = parseEther("1.5");
                         let nonce = 777;
+
+                        // ID1
+                        await dex
+                            .connect(ownerAcc)
+                            .startSaleSingle(
+                                tokenB.address,
+                                tokenA.address,
+                                sellAmount,
+                                limitPrice
+                            );
+
+                        // ID2
+                        await dex
+                            .connect(ownerAcc)
+                            .startSaleSingle(
+                                tokenA.address,
+                                tokenB.address,
+                                sellAmount,
+                                limitPrice
+                            );
 
                         // Mint some tokens to sell
                         await tokenB.mint(clientAcc1.address, mintAmount);
@@ -4286,19 +4425,27 @@ describe("Benture DEX", () => {
                             await tokenA.balanceOf(dex.address);
 
                         let sellerShouldBeLocked = sellAmount;
+                        let sellerShouldBeSpent = calcSellerSpentAmount(
+                            buyAmount,
+                            sellAmount,
+                            limitPrice,
+                            true,
+                            true,
+                            false
+                        );
                         let sellerShouldBeFee =
                             calcFeeAmount(sellerShouldBeLocked);
 
                         let buyerShouldBeLocked = calcBuyerLockAmount(
                             buyAmount,
                             limitPrice,
-                            false
+                            true
                         );
                         let buyerShouldBeSpent = calcBuyerSpentAmount(
                             buyAmount,
                             sellAmount,
                             limitPrice,
-                            false,
+                            true,
                             false,
                             true
                         );
@@ -4368,7 +4515,7 @@ describe("Benture DEX", () => {
                             buyerEndReceivingTokenBalance.sub(
                                 buyerInitialReceivingTokenBalance
                             )
-                        ).to.eq(sellAmount);
+                        ).to.eq(sellerShouldBeSpent);
                         // Buyer locks all paying tokens and pays fee
                         expect(
                             buyerInitialPayingTokenBalance.sub(
@@ -4394,42 +4541,64 @@ describe("Benture DEX", () => {
                         let matchedOrderAmountLocked = matchedOrder[10];
                         let matchedOrderStatus = matchedOrder[11];
 
-                        // Both orders should be closed
+                        // Buy order should be closed
                         expect(initOrderAmountFilled).to.eq(initOrderAmount);
-                        expect(matchedOrderAmountFilled).to.eq(
-                            matchedOrderAmount
-                        );
-                        expect(matchedOrderStatus).to.eq(2);
                         expect(initOrderStatus).to.eq(2);
 
-                        // Whole lock of both orders gets spent
-                        expect(matchedOrderAmountLocked).to.eq(0);
+                        // Whole lock of buy order should be spent
                         expect(initOrderAmountLocked).to.eq(0);
+                        // Half of lock of sell order should be left
+                        expect(matchedOrderAmountLocked).to.eq(
+                            sellerShouldBeLocked.sub(sellerShouldBeSpent)
+                        );
 
-                        // Only fee from both orders should be left on dex balance
-                        expect(
-                            dexEndSellingTokenBalance.sub(
-                                dexInitialSellingTokenBalance
-                            )
-                        ).to.eq(sellerShouldBeFee);
-                        // Fee and some locked amount should be left from buy order
+                        // Only fee from buy order should be left
                         expect(
                             dexEndReceivingTokenBalance.sub(
                                 dexInitialReceivingTokenBalance
                             )
                         ).to.eq(buyerShouldBeFee);
+                        // Fee and some locked amount should be left from sell order
+                        expect(
+                            dexEndSellingTokenBalance.sub(
+                                dexInitialSellingTokenBalance
+                            )
+                        ).to.eq(
+                            sellerShouldBeLocked
+                                .sub(sellerShouldBeSpent)
+                                .add(sellerShouldBeFee)
+                        );
                     });
 
                     it("Should match greater sell order with smaller buy order when sell order tokenB is quoted", async () => {
                         let { dex, adminToken, tokenA, tokenB } =
-                            await loadFixture(deploys);
+                            await loadFixture(deploysNoQuoted);
 
+                        let sellAmount = parseEther("10");
                         let mintAmount = parseEther("1000000");
-                        let buyAmount = parseEther("10");
-                        // Seller is ready to sell twice as much
-                        let sellAmount = buyAmount.mul(2);
+                        let buyAmount = sellAmount.div(2);
                         let limitPrice = parseEther("1.5");
                         let nonce = 777;
+
+                        // ID1
+                        await dex
+                            .connect(ownerAcc)
+                            .startSaleSingle(
+                                tokenB.address,
+                                tokenA.address,
+                                sellAmount,
+                                limitPrice
+                            );
+
+                        // ID2
+                        await dex
+                            .connect(ownerAcc)
+                            .startSaleSingle(
+                                tokenA.address,
+                                tokenB.address,
+                                sellAmount,
+                                limitPrice
+                            );
 
                         // Mint some tokens to sell
                         await tokenB.mint(clientAcc1.address, mintAmount);
@@ -4465,13 +4634,13 @@ describe("Benture DEX", () => {
                         let buyerShouldBeLocked = calcBuyerLockAmount(
                             buyAmount,
                             limitPrice,
-                            true
+                            false
                         );
                         let buyerShouldBeSpent = calcBuyerSpentAmount(
                             sellAmount,
                             buyAmount,
                             limitPrice,
-                            false,
+                            true,
                             false,
                             false
                         );
@@ -4590,7 +4759,7 @@ describe("Benture DEX", () => {
                         expect(matchedOrderAmountLocked).to.eq(0);
                         // Half of lock of sell order should be left
                         expect(initOrderAmountLocked).to.eq(
-                            sellerShouldBeLocked.div(2)
+                            sellerShouldBeLocked.sub(sellerShouldBeSpent)
                         );
 
                         // Only fee from buy order should be left
@@ -4614,7 +4783,7 @@ describe("Benture DEX", () => {
 
                 it("Should match greater sell order with smaller buy order when sell order tokenA is quoted", async () => {
                     let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                        deploys
+                        deploysQuotedB
                     );
 
                     let mintAmount = parseEther("1000000");
@@ -4785,7 +4954,7 @@ describe("Benture DEX", () => {
                     expect(matchedOrderAmountLocked).to.eq(0);
                     // Half of lock of sell order should be left
                     expect(initOrderAmountLocked).to.eq(
-                        sellerShouldBeLocked.div(2)
+                        sellerShouldBeLocked.sub(sellerShouldBeSpent)
                     );
 
                     // Only fee from buy order should be left
@@ -4808,7 +4977,7 @@ describe("Benture DEX", () => {
 
                 it("Should match smaller sell order with greater buy order when sell order tokenA is quoted", async () => {
                     let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                        deploys
+                        deploysQuotedB
                     );
 
                     let mintAmount = parseEther("1000000");
@@ -5011,7 +5180,7 @@ describe("Benture DEX", () => {
         describe("Part of fees", () => {
             it("Should withdraw fees in two tokens", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
 
                 let mintAmount = parseEther("1000000");
@@ -5120,7 +5289,7 @@ describe("Benture DEX", () => {
         describe("All fees", () => {
             it("Should withdraw fees in all tokens", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
 
                 let mintAmount = parseEther("1000000");
@@ -5230,7 +5399,7 @@ describe("Benture DEX", () => {
         describe("Reverts", () => {
             it("Should fail to withdraw fees", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
+                    deploysQuotedB
                 );
 
                 // Locked token cannot have a zero address
@@ -5250,7 +5419,7 @@ describe("Benture DEX", () => {
     describe("Native tokens operations", () => {
         it("Should create orders with native tokens", async () => {
             let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                deploys
+                deploysQuotedB
             );
 
             // Create a pair with native tokens
@@ -5369,9 +5538,53 @@ describe("Benture DEX", () => {
             expect(lockedAmount).to.eq(shouldBeLocked);
             expect(status).to.eq(0);
         });
+        it("Should fail to create orders with native tokens", async () => {
+            let { dex, adminToken, tokenA, tokenB } = await loadFixture(
+                deploysQuotedB
+            );
+
+            // Create a pair with native tokens
+            let limitPriceForNative = parseEther("1.5");
+            let sellAmountNative = parseEther("4");
+            let feeRate = await dex.feeRate();
+            let feeNative = sellAmountNative.mul(feeRate).div(10000);
+            let totalLockNative = sellAmountNative.add(feeNative);
+            await dex
+                .connect(ownerAcc)
+                .startSaleSingle(
+                    tokenA.address,
+                    zeroAddress,
+                    sellAmountNative,
+                    limitPriceForNative,
+                    { value: totalLockNative }
+                );
+
+            let buyAmount = parseEther("10");
+            let limitPrice = parseEther("1.5");
+            let lockAmountNative = await dex.getLockAmount(
+                tokenA.address,
+                zeroAddress,
+                buyAmount,
+                limitPrice,
+                1,
+                0
+            );
+
+            await expect(
+                dex
+                    .connect(clientAcc1)
+                    .buyLimit(
+                        tokenA.address,
+                        zeroAddress,
+                        buyAmount,
+                        limitPrice,
+                        { value: 0 }
+                    )
+            ).to.be.revertedWithCustomError(dex, "NotEnoughNativeTokens");
+        });
         it("Should cancel orders with native tokens", async () => {
             let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                deploys
+                deploysQuotedB
             );
 
             // Create a pair with native tokens
@@ -5448,7 +5661,7 @@ describe("Benture DEX", () => {
         });
         it("Should match orders with native tokens", async () => {
             let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                deploys
+                deploysQuotedB
             );
 
             // Create a pair with native tokens
