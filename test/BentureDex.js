@@ -66,6 +66,9 @@ describe("Benture DEX", () => {
         );
         await adminToken.deployed();
 
+        // Set admin token for DEX
+        await dex.setAdminToken(adminToken.address);
+
         // Max supply for all factory created tokens
         let maxSupply = parseEther("1000000000000000000");
 
@@ -152,6 +155,7 @@ describe("Benture DEX", () => {
 
             expect(await dex.feeRate()).to.eq(10);
             expect(await dex.backendAcc()).to.eq(backendAcc.address);
+            expect(await dex.adminToken()).to.eq(adminToken.address);
         });
     });
 
@@ -341,6 +345,27 @@ describe("Benture DEX", () => {
                 ).to.be.revertedWithCustomError(dex, "PairNotCreated");
             });
         });
+        describe("Allow only admins to start sales", () => {
+            it("Should fail to start a single sale if caller is not admin of any project", async () => {
+                let { dex, adminToken, tokenA, tokenB } = await loadFixture(
+                    deploys
+                );
+
+                let sellAmount = parseEther("10");
+                let limitPrice = parseEther("1.5");
+
+                await expect(
+                    dex
+                        .connect(clientAcc1)
+                        .startSaleSingle(
+                            tokenA.address,
+                            tokenB.address,
+                            sellAmount,
+                            limitPrice
+                        )
+                ).to.be.revertedWithCustomError(dex, "NotAdmin");
+            });
+        });
     });
 
     // #S
@@ -351,7 +376,9 @@ describe("Benture DEX", () => {
                     deploys
                 );
                 let oldFee = await dex.feeRate();
-                await dex.setFee(oldFee.mul(2));
+                await expect(dex.setFee(oldFee.mul(2)))
+                    .to.emit(dex, "FeeRateChanged")
+                    .withArgs(oldFee, oldFee.mul(2));
                 let newFee = await dex.feeRate();
                 expect(newFee.div(oldFee)).to.eq(2);
             });
@@ -365,17 +392,6 @@ describe("Benture DEX", () => {
                     dex.connect(clientAcc1).setFee(oldFee.mul(2))
                 ).to.be.revertedWith("Ownable: caller is not the owner");
             });
-
-            it("Should fail to set same fee rate", async () => {
-                let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
-                );
-                let oldFee = await dex.feeRate();
-                await expect(dex.setFee(oldFee)).to.be.revertedWithCustomError(
-                    dex,
-                    "SameFee"
-                );
-            });
         });
 
         describe("Set backend", () => {
@@ -384,7 +400,9 @@ describe("Benture DEX", () => {
                     deploys
                 );
                 let oldBackend = await dex.backendAcc();
-                await dex.setBackend(randomAddress);
+                await expect(dex.setBackend(randomAddress))
+                    .to.emit(dex, "BackendChanged")
+                    .withArgs(backendAcc.address, randomAddress);
                 let newBackend = await dex.backendAcc();
                 expect(oldBackend).not.to.eq(newBackend);
                 expect(newBackend).to.eq(randomAddress);
@@ -399,21 +417,35 @@ describe("Benture DEX", () => {
                 ).to.be.revertedWith("Ownable: caller is not the owner");
             });
 
-            it("Should fail to set same backend", async () => {
-                let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploys
-                );
-                await expect(
-                    dex.setBackend(backendAcc.address)
-                ).to.be.revertedWithCustomError(dex, "SameBackend");
-            });
-
             it("Should fail to set zero address backend", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
                     deploys
                 );
                 await expect(
                     dex.setBackend(zeroAddress)
+                ).to.be.revertedWithCustomError(dex, "ZeroAddress");
+            });
+        });
+
+        describe("Set admin token address", () => {
+            it("Should set new admin token address", async () => {
+                let { dex, adminToken, tokenA, tokenB } = await loadFixture(
+                    deploys
+                );
+                let oldAdminToken = await dex.adminToken();
+                await expect(dex.setAdminToken(randomAddress))
+                    .to.emit(dex, "AdminTokenChanged")
+                    .withArgs(adminToken.address, randomAddress);
+                let newAdminToken = await dex.adminToken();
+                expect(oldAdminToken).not.to.eq(newAdminToken);
+                expect(newAdminToken).to.eq(randomAddress);
+            });
+            it("Should fail to set new admin token address", async () => {
+                let { dex, adminToken, tokenA, tokenB } = await loadFixture(
+                    deploys
+                );
+                await expect(
+                    dex.setAdminToken(zeroAddress)
                 ).to.be.revertedWithCustomError(dex, "ZeroAddress");
             });
         });

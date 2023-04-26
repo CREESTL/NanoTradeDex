@@ -8,13 +8,12 @@ interface IBentureDexErrors {
     error InvalidSignature();
     error OrderDoesNotExist();
     error InvalidFirstTokenAddress();
-    error SameFee();
     error NoQuotedTokens();
+    error AdminTokenNotSet();
     error ZeroPrice();
     error NoFeesToWithdraw();
     error NotAdmin();
     error DifferentLength();
-    error SameBackend();
     error NonCancellable();
     error InvalidOrderStatus();
     error ZeroAmount();

@@ -8,11 +8,14 @@ interface IBentureSalaryErrors {
     error EmptyName();
     error NotAllowedToRemoveName();
     error AllreadyEmployee();
-    error AlreadyNotAnEmployee();
+    error NotEmployeeOfAdmin();
     error NotEmployeeForThisSalary();
     error NotAdminForEmployee();
+    error NotAdminOfProject();
+    error EmployeeNotInProject();
     error SalaryEnded();
     error NotEnoughTokensAllowed();
     error InvalidAmountOfPeriods();
     error NotAdminForThisSalary();
+    error AlreadyInProject();
 }

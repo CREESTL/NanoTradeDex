@@ -11,6 +11,7 @@ interface IBentureSalary is IBentureSalaryErrors {
         uint256 periodDuration;
         uint256 amountOfPeriods;
         uint256 amountOfWithdrawals;
+        uint256 amountWithdrawn;
         address tokenAddress;
         uint256[] tokensAmountPerPeriod;
         uint256 lastWithdrawalTime;
@@ -47,15 +48,23 @@ interface IBentureSalary is IBentureSalaryErrors {
     /// @dev Only admin can call this method.
     function removeNameFromEmployee(address employeeAddress) external;
 
-    /// @notice Adds new employee.
-    /// @param employeeAddress Address of employee.
+    /// @notice Adds new employee to admin's project
+    /// @param employeeAddress Address of employee
+    /// @param projectToken The address of the project token
     /// @dev Only admin can call this method.
-    function addEmployee(address employeeAddress) external;
+    function addEmployeeToProject(
+        address employeeAddress,
+        address projectToken
+    ) external;
 
-    /// @notice Removes employee.
+    /// @notice Removes employee from admin's project
     /// @param employeeAddress Address of employee.
+    /// @param projectToken The address of the project token
     /// @dev Only admin can call this method.
-    function removeEmployee(address employeeAddress) external;
+    function removeEmployeeFromProject(
+        address employeeAddress,
+        address projectToken
+    ) external;
 
     /// @notice Withdraws all of employee's salary.
     /// @dev Anyone can call this method. No restrictions.
@@ -90,6 +99,24 @@ interface IBentureSalary is IBentureSalaryErrors {
         address employeeAddress,
         address adminAddress
     ) external view returns (bool isAdmin);
+
+    /// @notice Returns true if user is already working on the project
+    /// @param employeeAddress The address of the user to check
+    /// @param projectTokenAddress The address of the project token to check
+    /// @return True if user is already working on the project
+    function checkIfUserInProject(
+        address employeeAddress,
+        address projectTokenAddress
+    ) external view returns (bool);
+
+    /// @notice Returns true if user is an admin of the given project token
+    /// @param adminAddress The address of the user to check
+    /// @param projectTokenAddress The address of the project token to check
+    /// @return True if user is an admin of the given project token
+    function checkIfAdminOfProject(
+        address adminAddress,
+        address projectTokenAddress
+    ) external view returns (bool);
 
     /// @notice Returns array of salaries of employee.
     /// @param employeeAddress Address of employee.
@@ -150,59 +177,60 @@ interface IBentureSalary is IBentureSalaryErrors {
     /// @dev Only admin can call this method.
     function removeSalaryFromEmployee(uint256 salaryId) external;
 
-    /// @notice Emits when user was added to Employees of Admin
+    /// @notice Emits when user was added to Employees of Admin's project
     event EmployeeAdded(
         address indexed employeeAddress,
+        address indexed projectToken,
         address indexed adminAddress
     );
 
     /// @notice Emits when user was removed from Employees of Admin
     event EmployeeRemoved(
         address indexed employeeAddress,
+        address indexed projectToken,
         address indexed adminAddress
     );
 
     /// @notice Emits when Employee's name was added or changed
-    event EmployeeNameChanged(
-        address indexed employeeAddress,
-        string indexed name
-    );
+    event EmployeeNameChanged(address employeeAddress, string name);
 
     /// @notice Emits when name was removed from Employee
-    event EmployeeNameRemoved(address indexed employeeAddress);
+    event EmployeeNameRemoved(address employeeAddress);
 
     /// @notice Emits when salary was added to Employee
     event EmployeeSalaryAdded(
-        address indexed employeeAddress,
-        address indexed adminAddress,
-        SalaryInfo indexed salary
+        uint256 id,
+        address employeeAddress,
+        address adminAddress
     );
 
     /// @notice Emits when salary was removed from Employee
     event EmployeeSalaryRemoved(
-        address indexed employeeAddress,
-        address indexed adminAddress,
-        SalaryInfo indexed salary
+        uint256 id,
+        address employeeAddress,
+        address adminAddress,
+        uint256 amount
     );
 
     /// @notice Emits when Employee withdraws salary
     event EmployeeSalaryClaimed(
-        address indexed employeeAddress,
-        address indexed adminAddress,
-        SalaryInfo indexed salary
+        uint256 id,
+        address employeeAddress,
+        address adminAddress,
+        uint256 amount
     );
 
     /// @notice Emits when Admin adds periods to salary
     event SalaryPeriodsAdded(
-        address indexed employeeAddress,
-        address indexed adminAddress,
-        SalaryInfo indexed salary
+        uint256 id,
+        address employeeAddress,
+        address adminAddress
     );
 
     /// @notice Emits when Admin removes periods from salary
     event SalaryPeriodsRemoved(
-        address indexed employeeAddress,
-        address indexed adminAddress,
-        SalaryInfo indexed salary
+        uint256 id,
+        address employeeAddress,
+        address adminAddress
     );
 }

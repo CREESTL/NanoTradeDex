@@ -51,16 +51,12 @@ interface IBentureProducedToken is IERC20, IBentureProducedTokenErrors {
     /// @param amount The amount of tokens to burn
     function burn(uint256 amount) external;
 
-    /// @notice Indicates that a new ERC20 was created
-    event ControlledTokenCreated(address indexed account, uint256 amount);
+    /// @notice Indicates that ERC20 tokens of new prokect were minted
+    event ProjectTokenMinted(address account, uint256 amount);
 
-    /// @notice Indicates that a new ERC20 was burnt
-    event ControlledTokenBurnt(address indexed account, uint256 amount);
+    /// @notice Indicates that ERC20 of new project were burnt
+    event ProjectTokenBurnt(address account, uint256 amount);
 
     /// @notice Indicates that a new ERC20 was transferred
-    event ControlledTokenTransferred(
-        address indexed from,
-        address indexed to,
-        uint256 amount
-    );
+    event ProjectTokenTransferred(address from, address to, uint256 amount);
 }
