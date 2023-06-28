@@ -610,15 +610,13 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
     }
 
     /// @dev Calculates price slippage in basis points
-    /// @param oldPrice Old price of pair of tokens
-    /// @param newPrice New price of pair of tokens
+    /// @param minPrice Min price of pair of tokens
+    /// @param maxPrice Max price of pair of tokens
     /// @return Price slippage in basis points
     function _calcSlippage(
-        uint256 oldPrice,
-        uint256 newPrice
+        uint256 minPrice,
+        uint256 maxPrice
     ) private pure returns (uint256) {
-        uint256 minPrice = newPrice > oldPrice ? oldPrice : newPrice;
-        uint256 maxPrice = newPrice > oldPrice ? newPrice : oldPrice;
         uint256 priceDif = maxPrice - minPrice;
         uint256 slippage = (priceDif * HUNDRED_PERCENT) / maxPrice;
         return slippage;
@@ -631,9 +629,21 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
     function _checkSlippage(
         uint256 oldPrice,
         uint256 newPrice,
-        uint256 allowedSlippage
+        uint256 allowedSlippage,
+        OrderSide side
     ) private pure {
-        uint256 slippage = _calcSlippage(oldPrice, newPrice);
+        uint256 slippage = 0;
+
+        if (side == OrderSide.Buy) {
+            if (newPrice > oldPrice) {
+                slippage = _calcSlippage(oldPrice, newPrice);
+            }
+        } else {
+            if (newPrice < oldPrice) {
+                slippage = _calcSlippage(newPrice, oldPrice);
+            }
+        }
+
         if (slippage > allowedSlippage) {
             revert SlippageTooBig(slippage);
         }
@@ -950,7 +960,8 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
                     // Expressed in pair's quoted tokens
                     _getPrice(initOrder.tokenA, initOrder.tokenB),
                     _getNewPrice(initOrder, matchedOrder),
-                    matchedOrder.slippage
+                    matchedOrder.slippage,
+                    matchedOrder.side
                 );
             }
 
