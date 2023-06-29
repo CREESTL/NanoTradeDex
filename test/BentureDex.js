@@ -2174,6 +2174,7 @@ describe("Benture DEX", () => {
                 let sellAmount = parseEther("10");
                 let limitPrice = parseEther("1.5");
                 let mintAmount = parseEther("1000000");
+                let expectedOrderId = 3;
 
                 let startOwnerBalance = await tokenB.balanceOf(
                     ownerAcc.address
@@ -2192,6 +2193,7 @@ describe("Benture DEX", () => {
                 )
                     .to.emit(dex, "SaleStarted")
                     .withArgs(
+                        expectedOrderId,
                         tokenA.address,
                         tokenB.address,
                         sellAmount,
