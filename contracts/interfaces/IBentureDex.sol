@@ -240,6 +240,10 @@ interface IBentureDex is IBentureDexErrors {
         OrderSide side
     ) external view returns (uint256);
 
+    /// @notice Checks if token is verified
+    /// @param token The address of the token
+    function getIsTokenVerified(address token) external view returns (bool);
+
     /// @notice Checks if orders have matched any time before
     /// @param firstId The ID of the first order to check
     /// @param secondId The ID of the second order to check
@@ -363,6 +367,11 @@ interface IBentureDex is IBentureDexErrors {
     /// @notice Sets address of the admin token
     /// @param token The address of the admin token
     function setAdminToken(address token) external;
+
+    /// @notice Sets the verification status of the token
+    /// @param token The address of the token
+    /// @param verified New verification status of the token
+    function setIsTokenVerified(address token, bool verified) external;
 
     /// @notice Withdraws fees accumulated by creation of specified orders
     /// @param tokens The list of addresses of active tokens of the order

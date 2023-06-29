@@ -58,6 +58,9 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
     /// @notice Marks transaction hashes that have been executed already.
     ///         Prevents Replay Attacks
     mapping(bytes32 => bool) private _executed;
+    /// @dev Mapping from token to boolean indicating
+    ///      that token is verified
+    mapping(address => bool) private _isTokenVerified;
 
     /// @dev 100% in basis points (1 bp = 1 / 100 of 1%)
     uint256 private constant HUNDRED_PERCENT = 10000;
@@ -486,6 +489,11 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         adminToken = token;
     }
 
+    /// @notice See {IBentureDex-setIsTokenVerified}
+    function setIsTokenVerified(address token, bool verified) external onlyOwner {
+        _isTokenVerified[token] = verified;
+    }
+
     /// @notice See {IBentureDex-getLockAmount}
     function getLockAmount(
         address tokenA,
@@ -538,6 +546,11 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
                 lockAmount = _getLockAmount(tokenA, tokenB, amount, limitPrice);
             }
         }
+    }
+
+    /// @notice See {IBentureDex-getIsTokenVerified}
+    function getIsTokenVerified(address token) external view returns (bool) {
+        return _isTokenVerified[token];
     }
 
     /// @notice See {IBentureDex-checkOrderExists}
