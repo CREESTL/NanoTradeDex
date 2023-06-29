@@ -2176,6 +2176,8 @@ describe("Benture DEX", () => {
                 let mintAmount = parseEther("1000000");
                 let expectedOrderId = 3;
 
+                expect(await dex.checkOrderExists(expectedOrderId)).to.be.false;
+
                 let startOwnerBalance = await tokenB.balanceOf(
                     ownerAcc.address
                 );
@@ -2216,7 +2218,7 @@ describe("Benture DEX", () => {
                 );
 
                 // Check that order was really created
-                let order = await dex.getOrder(3);
+                let order = await dex.getOrder(expectedOrderId);
 
                 let user = order[0];
                 let firstToken = order[1];
