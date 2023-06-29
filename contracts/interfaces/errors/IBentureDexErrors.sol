@@ -23,4 +23,5 @@ interface IBentureDexErrors {
     error NotEnoughNativeTokens();
     error InvalidPrice();
     error PairNotCreated();
+    error InvalidDecimals();
 }

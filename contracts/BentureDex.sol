@@ -49,6 +49,9 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
     ///      .e.g (USDT => DOGE => 420)
     ///      Each price is multiplied by `PRICE_PRECISION`
     mapping(address => mapping(address => uint256)) private _pairPrices;
+    /// @dev Mapping from unquoted token of the pair to the quoted
+    ///      token of the pair to the pair decimals
+    mapping(address => mapping(address => uint8)) private _pairDecimals;
     /// @dev Mapping from address of token to list of IDs of orders
     ///      in which fees were paid in this order
     mapping(address => EnumerableSet.UintSet) private _tokensToFeesIds;
@@ -180,6 +183,15 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
             revert NoQuotedTokens();
         address quotedToken = _isQuoted[tokenA][tokenB] ? tokenB : tokenA;
         return (quotedToken, _getPrice(tokenA, tokenB));
+    }
+
+    /// @notice See {IBentureDex-getDecimals}
+    function getDecimals(
+        address tokenA,
+        address tokenB
+    ) external view returns (uint8) {
+        (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
+        return _pairDecimals[token0][token1];
     }
 
     /// @notice See (IBentureDex-checkMatched)
@@ -492,6 +504,13 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
     /// @notice See {IBentureDex-setIsTokenVerified}
     function setIsTokenVerified(address token, bool verified) external onlyOwner {
         _isTokenVerified[token] = verified;
+    }
+
+    /// @notice See {IBentureDex-setDecimals}
+    function setDecimals(address tokenA, address tokenB, uint8 decimals) external onlyOwner {
+        if (decimals < 4) revert InvalidDecimals();
+        (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
+        _pairDecimals[token0][token1] = decimals;
     }
 
     /// @notice See {IBentureDex-getLockAmount}
@@ -1299,6 +1318,13 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         }
     }
 
+    function _checkAndInitPairDecimals(address tokenA, address tokenB) private {
+        (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
+
+        if (_pairDecimals[token0][token1] == 0)
+            _pairDecimals[token0][token1] = 4;
+    }
+
     function _startSaleSingle(
         address tokenA,
         address tokenB,
@@ -1323,6 +1349,8 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         emit SaleStarted(order.id, tokenA, tokenB, amount, price);
 
         _updatePairPriceOnLimit(order);
+
+        _checkAndInitPairDecimals(tokenA, tokenB);
 
         // User has to lock exactly the amount of `tokenB` he is selling
         uint256 lockAmount = amount;
