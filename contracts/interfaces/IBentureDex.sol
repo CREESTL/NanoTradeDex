@@ -117,6 +117,7 @@ interface IBentureDex is IBentureDexErrors {
     /// @param amount The amount of sold tokens
     /// @param price The price at which the sell is made
     event SaleStarted(
+        uint256 orderId,
         address tokenA,
         address tokenB,
         uint256 amount,
@@ -140,13 +141,14 @@ interface IBentureDex is IBentureDexErrors {
     /// @notice Indicates that fees collected with one token were withdrawn
     /// @param token The address of the token in which fees were collected
     /// @param amount The amount of fees withdrawn
-    event FeesWithdrawn(address token, uint256 amount);
+    event FeesWithdrawn(uint256 orderId, address token, uint256 amount);
 
     /// @dev Indicates that 2/3 of block gas limit was spent during the
     ///      iteration inside the contract method
+    /// @param orderId ID of the order during the operation with which the gas limit was reached
     /// @param gasLeft How much gas was used
     /// @param gasLimit The block gas limit
-    event GasLimitReached(uint256 gasLeft, uint256 gasLimit);
+    event GasLimitReached(uint256 orderId, uint256 gasLeft, uint256 gasLimit);
 
     /// @notice Returns the list of IDs of orders user has created
     /// @param user The address of the user

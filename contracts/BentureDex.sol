@@ -435,14 +435,14 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         uint256 lastGasLeft = gasleft();
 
         for (uint256 i = 0; i < amounts.length; i++) {
-            _startSaleSingle(tokenA, tokenB, amounts[i], prices[i]);
+            uint256 orderId = _startSaleSingle(tokenA, tokenB, amounts[i], prices[i]);
 
             lastGasLeft = gasleft();
             // Increase the total amount of gas spent
             gasSpent += lastGasLeft - gasleft();
             // Check that no more than 2/3 of block gas limit was spent
             if (gasSpent >= gasThreshold) {
-                emit GasLimitReached(gasSpent, block.gaslimit);
+                emit GasLimitReached(orderId, gasSpent, block.gaslimit);
                 break;
             }
         }
@@ -572,7 +572,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
                 // Delete order from IDs array to reduce iteration
                 _tokensToFeesIds[lockedToken].remove(ids[j]);
 
-                emit FeesWithdrawn(lockedToken, transferAmount);
+                emit FeesWithdrawn(order.id, lockedToken, transferAmount);
 
                 // Transfer all withdraw fees to the owner
                 if (lockedToken != address(0)) {
@@ -592,7 +592,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
                 gasSpent += lastGasLeft - gasleft();
                 // Check that no more than 2/3 of block gas limit was spent
                 if (gasSpent >= gasThreshold) {
-                    emit GasLimitReached(gasSpent, block.gaslimit);
+                    emit GasLimitReached(order.id, gasSpent, block.gaslimit);
                     break;
                 }
             }
@@ -1008,7 +1008,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
             gasSpent += lastGasLeft - gasleft();
             // Check that no more than 2/3 of block gas limit was spent
             if (gasSpent >= (block.gaslimit * 2) / 3) {
-                emit GasLimitReached(gasSpent, block.gaslimit);
+                emit GasLimitReached(initOrder.id, gasSpent, block.gaslimit);
                 // No revert here. Part of changes will take place
                 break;
             }
@@ -1291,11 +1291,9 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         address tokenB,
         uint256 amount,
         uint256 price
-    ) private updateQuotes(tokenA, tokenB) onlyAdminOfAny(msg.sender) {
+    ) private updateQuotes(tokenA, tokenB) onlyAdminOfAny(msg.sender) returns(uint256) {
         // Native tokens cannot be sold by admins
         if (tokenA == address(0)) revert InvalidFirstTokenAddress();
-
-        emit SaleStarted(tokenA, tokenB, amount, price);
 
         Order memory order = _prepareOrder(
             tokenA,
@@ -1308,6 +1306,8 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
             // Orders are NON-cancellable
             false
         );
+
+        emit SaleStarted(order.id, tokenA, tokenB, amount, price);
 
         _updatePairPriceOnLimit(order);
 
@@ -1327,5 +1327,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         order.feeAmount = feeAmount;
 
         _createOrder(order, lockAmount);
+
+        return order.id;
     }
 }
