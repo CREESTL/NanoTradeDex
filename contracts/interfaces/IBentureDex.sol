@@ -145,10 +145,21 @@ interface IBentureDex is IBentureDexErrors {
 
     /// @dev Indicates that 2/3 of block gas limit was spent during the
     ///      iteration inside the contract method
-    /// @param orderId ID of the order during the operation with which the gas limit was reached
+    /// @param orderId ID of the order during the operation with which the 2/3 of block gas limit was spent
     /// @param gasLeft How much gas was used
     /// @param gasLimit The block gas limit
     event GasLimitReached(uint256 orderId, uint256 gasLeft, uint256 gasLimit);
+
+    /// @notice Indicates that token verification status changed
+    /// @param token The address of the token whose status has changed
+    /// @param verified New token verify status
+    event IsTokenVerifiedChanged(address token, bool verified);
+
+    /// @notice Indicates that pair decimals changed
+    /// @param tokenA The address of the first token of the pair
+    /// @param tokenB The address of the second token of the pair
+    /// @param decimals New pair decimals
+    event DecimalsChanged(address tokenA, address tokenB, uint8 decimals);
 
     /// @notice Returns the list of IDs of orders user has created
     /// @param user The address of the user

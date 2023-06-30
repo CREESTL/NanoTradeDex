@@ -189,7 +189,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
     function getDecimals(
         address tokenA,
         address tokenB
-    ) external view returns (uint8) {
+    ) public view returns (uint8) {
         (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
         return _pairDecimals[token0][token1];
     }
@@ -503,14 +503,13 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
 
     /// @notice See {IBentureDex-setIsTokenVerified}
     function setIsTokenVerified(address token, bool verified) external onlyOwner {
+        emit IsTokenVerifiedChanged(token, verified);
         _isTokenVerified[token] = verified;
     }
 
     /// @notice See {IBentureDex-setDecimals}
     function setDecimals(address tokenA, address tokenB, uint8 decimals) external onlyOwner {
-        if (decimals < 4) revert InvalidDecimals();
-        (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
-        _pairDecimals[token0][token1] = decimals;
+        _setDecimals(tokenA, tokenB, decimals);
     }
 
     /// @notice See {IBentureDex-getLockAmount}
@@ -1318,11 +1317,16 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         }
     }
 
-    function _checkAndInitPairDecimals(address tokenA, address tokenB) private {
+    function _setDecimals(address tokenA, address tokenB, uint8 decimals) private {
+        if (decimals < 4) revert InvalidDecimals();
+        emit DecimalsChanged(tokenA, tokenB, decimals);
         (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
+        _pairDecimals[token0][token1] = decimals;
+    }
 
-        if (_pairDecimals[token0][token1] == 0)
-            _pairDecimals[token0][token1] = 4;
+    function _checkAndInitPairDecimals(address tokenA, address tokenB) private {
+        if (getDecimals(tokenA, tokenB) == 0)
+            _setDecimals(tokenA, tokenB, 4);
     }
 
     function _startSaleSingle(
