@@ -4096,7 +4096,7 @@ describe("Benture DEX", () => {
 
             // #MAR
             describe("Reverts", () => {
-                it("Should revert if slippage was too high", async () => {
+                it("Should revert if slippage was too high(Buy side)", async () => {
                     let { dex, adminToken, tokenA, tokenB } = await loadFixture(
                         deploysQuotedB
                     );
@@ -4151,6 +4151,78 @@ describe("Benture DEX", () => {
                             tokenB.address,
                             tokenA.address,
                             buyAmount,
+                            slippage,
+                            nonce,
+                            signatureMarket
+                        );
+
+                    let signatureMatch = await hashAndSignMatch(
+                        dex.address,
+                        4,
+                        [3],
+                        nonce
+                    );
+
+                    await expect(
+                        dex.matchOrders(4, [3], nonce, signatureMatch)
+                    ).to.be.revertedWithCustomError(dex, "SlippageTooBig");
+                });
+
+                it("Should revert if slippage was too high(Sell side)", async () => {
+                    let { dex, adminToken, tokenA, tokenB } = await loadFixture(
+                        deploysQuotedB
+                    );
+
+                    let mintAmount = parseEther("1000000");
+                    let sellAmount = parseEther("10");
+                    let buyAmount = sellAmount;
+                    // Make slippage 10%. Revert in any case
+                    let slippage = 10;
+                    // Initial price to be set in the first order
+                    let initialPrice = parseEther("1");
+                    // Price of the second order should be lower to cause slippage
+                    let limitPrice = initialPrice.mul(5);
+                    let nonce = 777;
+
+                    // Mint some tokens to sell
+                    await tokenB.mint(clientAcc1.address, mintAmount);
+                    await tokenB
+                        .connect(clientAcc1)
+                        .approve(dex.address, mintAmount);
+
+                    // Mint some tokens to pay for purchase
+                    await tokenA.mint(clientAcc2.address, mintAmount);
+                    await tokenA
+                        .connect(clientAcc2)
+                        .approve(dex.address, mintAmount);
+
+                    // Create another limit order to be matched later
+                    // ID3
+                    await dex
+                        .connect(clientAcc1)
+                        .buyLimit(
+                            tokenA.address,
+                            tokenB.address,
+                            buyAmount,
+                            limitPrice
+                        );
+
+                    let signatureMarket = await hashAndSignMarket(
+                        dex.address,
+                        tokenB.address,
+                        tokenA.address,
+                        sellAmount,
+                        slippage,
+                        nonce
+                    );
+
+                    // ID4
+                    await dex
+                        .connect(clientAcc2)
+                        .sellMarket(
+                            tokenB.address,
+                            tokenA.address,
+                            sellAmount,
                             slippage,
                             nonce,
                             signatureMarket
