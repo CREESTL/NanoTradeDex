@@ -228,18 +228,37 @@ describe("Benture DEX", () => {
             tokenBAddress
         );
 
+        // Deploy another ERC20 in order to have a tokenC
+        await factory.createERC20Token(
+            "tokenC",
+            "tokenC",
+            18,
+            true,
+            maxSupply,
+            adminToken.address
+        );
+
+        let tokenCAddress = await factory.lastProducedToken();
+        let tokenC = await ethers.getContractAt(
+            "BentureProducedToken",
+            tokenCAddress
+        );
+
         // Premint tokens to owner and allow dex to spend all tokens
         let mintAmount = parseEther("1000000");
         await tokenA.mint(ownerAcc.address, mintAmount);
         await tokenB.mint(ownerAcc.address, mintAmount);
+        await tokenC.mint(ownerAcc.address, mintAmount);
         await tokenA.approve(dex.address, mintAmount);
         await tokenB.approve(dex.address, mintAmount);
+        await tokenC.approve(dex.address, mintAmount);
 
         return {
             dex,
             adminToken,
             tokenA,
             tokenB,
+            tokenC
         };
     }
 
@@ -5873,6 +5892,162 @@ describe("Benture DEX", () => {
                     .add(buyerShouldBeLocked)
                     .sub(buyerShouldBeSpent)
             );
+        });
+    });
+
+    describe("Test pair decimals", () => {
+        it("Should set decimals for new pair if not already setted by admin", async () => {
+            let { dex, adminToken, tokenA, tokenB, tokenC } = await loadFixture(
+                deploysNoQuoted
+            );
+
+            expect(await dex.getDecimals(tokenA.address, tokenC.address)).to.be.equal(0);
+
+            // Create a pair with native tokens
+            let limitPriceForNative = parseEther("1.5");
+            let sellAmountNative = parseEther("4");
+            let feeRate = await dex.feeRate();
+            let feeNative = sellAmountNative.mul(feeRate).div(10000);
+            let totalLockNative = sellAmountNative.add(feeNative);
+            await expect(dex
+                .connect(ownerAcc)
+                .startSaleSingle(
+                    tokenA.address,
+                    tokenC.address,
+                    sellAmountNative,
+                    limitPriceForNative,
+                    { value: totalLockNative }
+                )).to.be.emit(dex, "DecimalsChanged")
+                .withArgs(
+                    tokenA.address,
+                    tokenC.address,
+                    4
+                );
+
+            expect(await dex.getDecimals(tokenA.address, tokenC.address)).to.be.equal(4);
+        });
+
+        it("Should set decimals for pair by admin", async () => {
+            let { dex, adminToken, tokenA, tokenB, tokenC } = await loadFixture(
+                deploysNoQuoted
+            );
+
+            expect(await dex.getDecimals(tokenA.address, tokenC.address)).to.be.equal(0);
+
+            await expect(dex.setDecimals(tokenA.address, tokenC.address, 6))
+                .to.be.emit(dex, "DecimalsChanged")
+                .withArgs(
+                    tokenA.address,
+                    tokenC.address,
+                    6
+                );
+
+            expect(await dex.getDecimals(tokenA.address, tokenC.address)).to.be.equal(6);
+        });
+
+        it("Should revert set decimals for pair by NOT admin", async () => {
+            let { dex, adminToken, tokenA, tokenB, tokenC } = await loadFixture(
+                deploysNoQuoted
+            );
+
+            expect(await dex.getDecimals(tokenA.address, tokenC.address)).to.be.equal(0);
+
+            await expect(dex.connect(clientAcc1).setDecimals(tokenA.address, tokenC.address, 6)).to.be.revertedWith(
+                "Ownable: caller is not the owner"
+            );
+        });
+
+        it("Should revert set decimals if decimals < 4", async () => {
+            let { dex, adminToken, tokenA, tokenB, tokenC } = await loadFixture(
+                deploysNoQuoted
+            );
+
+            expect(await dex.getDecimals(tokenA.address, tokenC.address)).to.be.equal(0);
+
+            await expect(dex.setDecimals(tokenA.address, tokenC.address, 3))
+                .to.be.revertedWithCustomError(dex, "InvalidDecimals");
+        });
+
+        it("Should NOT set decimals for pair if already setted by admin", async () => {
+            let { dex, adminToken, tokenA, tokenB, tokenC } = await loadFixture(
+                deploysNoQuoted
+            );
+
+            await dex.setDecimals(tokenA.address, tokenC.address, 6);
+
+            expect(await dex.getDecimals(tokenA.address, tokenC.address)).to.be.equal(6);
+
+            // Create a pair with native tokens
+            let limitPriceForNative = parseEther("1.5");
+            let sellAmountNative = parseEther("4");
+            let feeRate = await dex.feeRate();
+            let feeNative = sellAmountNative.mul(feeRate).div(10000);
+            let totalLockNative = sellAmountNative.add(feeNative);
+            await expect(dex
+                .connect(ownerAcc)
+                .startSaleSingle(
+                    tokenA.address,
+                    tokenC.address,
+                    sellAmountNative,
+                    limitPriceForNative,
+                    { value: totalLockNative }
+                )).to.be.not.emit(dex, "DecimalsChanged");
+
+            expect(await dex.getDecimals(tokenA.address, tokenC.address)).to.be.equal(6);
+        });
+
+        it("Should NOT set decimals for pair if already setted default", async () => {
+            let { dex, adminToken, tokenA, tokenB } = await loadFixture(
+                deploysQuotedB
+            );
+
+            expect(await dex.getDecimals(tokenA.address, tokenB.address)).to.be.equal(4);
+
+            // Create a pair with native tokens
+            let limitPriceForNative = parseEther("1.5");
+            let sellAmountNative = parseEther("4");
+            let feeRate = await dex.feeRate();
+            let feeNative = sellAmountNative.mul(feeRate).div(10000);
+            let totalLockNative = sellAmountNative.add(feeNative);
+            await expect(dex
+                .connect(ownerAcc)
+                .startSaleSingle(
+                    tokenA.address,
+                    tokenB.address,
+                    sellAmountNative,
+                    limitPriceForNative,
+                    { value: totalLockNative }
+                )).to.be.not.emit(dex, "DecimalsChanged");
+
+            expect(await dex.getDecimals(tokenA.address, tokenB.address)).to.be.equal(4);
+        });
+    });
+
+    describe("Test token verify", () => {
+        it("Should mark token as verify by admin", async () => {
+            let { dex, adminToken, tokenA, tokenB } = await loadFixture(
+                deploysQuotedB
+            );
+
+            expect(await dex.getIsTokenVerified(tokenA.address)).to.be.false;
+
+            await expect(dex.setIsTokenVerified(tokenA.address, true))
+                .to.be.emit(dex, "IsTokenVerifiedChanged")
+                .withArgs(
+                    tokenA.address,
+                    true
+                );
+
+            expect(await dex.getIsTokenVerified(tokenA.address)).to.be.true;
+        });
+
+        it("Should revert mark token as verify by NOT admin", async () => {
+            let { dex, adminToken, tokenA, tokenB } = await loadFixture(
+                deploysQuotedB
+            );
+
+            await expect(dex.connect(clientAcc1).setIsTokenVerified(tokenA.address, true))
+                .to.be.rejectedWith("Ownable: caller is not the owner");
         });
     });
 });
