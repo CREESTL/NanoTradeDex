@@ -6049,5 +6049,14 @@ describe("Benture DEX", () => {
             await expect(dex.connect(clientAcc1).setIsTokenVerified(tokenA.address, true))
                 .to.be.rejectedWith("Ownable: caller is not the owner");
         });
+
+        it("Should revert mark token if token address = 0", async () => {
+            let { dex, adminToken, tokenA, tokenB } = await loadFixture(
+                deploysQuotedB
+            );
+
+            await expect(dex.setIsTokenVerified(zeroAddress, true))
+                .to.be.revertedWithCustomError(dex, "ZeroAddress");;
+        });
     });
 });
