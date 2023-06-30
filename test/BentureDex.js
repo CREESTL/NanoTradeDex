@@ -5896,27 +5896,23 @@ describe("Benture DEX", () => {
     });
 
     describe("Test pair decimals", () => {
-        it("Should set decimals for new pair if not already setted by admin", async () => {
+        it("Should set decimals for new pair", async () => {
             let { dex, adminToken, tokenA, tokenB, tokenC } = await loadFixture(
                 deploysNoQuoted
             );
 
             expect(await dex.getDecimals(tokenA.address, tokenC.address)).to.be.equal(0);
 
-            // Create a pair with native tokens
-            let limitPriceForNative = parseEther("1.5");
-            let sellAmountNative = parseEther("4");
-            let feeRate = await dex.feeRate();
-            let feeNative = sellAmountNative.mul(feeRate).div(10000);
-            let totalLockNative = sellAmountNative.add(feeNative);
+            let buyAmount = parseEther("10");
+            let limitPrice = parseEther("1.5");
+
             await expect(dex
                 .connect(ownerAcc)
                 .startSaleSingle(
                     tokenA.address,
                     tokenC.address,
-                    sellAmountNative,
-                    limitPriceForNative,
-                    { value: totalLockNative }
+                    buyAmount,
+                    limitPrice,
                 )).to.be.emit(dex, "DecimalsChanged")
                 .withArgs(
                     tokenA.address,
@@ -5932,7 +5928,24 @@ describe("Benture DEX", () => {
                 deploysNoQuoted
             );
 
-            expect(await dex.getDecimals(tokenA.address, tokenC.address)).to.be.equal(0);
+            let buyAmount = parseEther("10");
+            let limitPrice = parseEther("1.5");
+
+            await expect(dex
+                .connect(ownerAcc)
+                .startSaleSingle(
+                    tokenA.address,
+                    tokenC.address,
+                    buyAmount,
+                    limitPrice,
+                )).to.be.emit(dex, "DecimalsChanged")
+                .withArgs(
+                    tokenA.address,
+                    tokenC.address,
+                    4
+                );
+
+            expect(await dex.getDecimals(tokenA.address, tokenC.address)).to.be.equal(4);
 
             await expect(dex.setDecimals(tokenA.address, tokenC.address, 6))
                 .to.be.emit(dex, "DecimalsChanged")
@@ -5968,32 +5981,22 @@ describe("Benture DEX", () => {
                 .to.be.revertedWithCustomError(dex, "InvalidDecimals");
         });
 
-        it("Should NOT set decimals for pair if already setted by admin", async () => {
+        it("Should revert if pair not created", async () => {
             let { dex, adminToken, tokenA, tokenB, tokenC } = await loadFixture(
                 deploysNoQuoted
             );
 
-            await dex.setDecimals(tokenA.address, tokenC.address, 6);
+            await expect(dex.setDecimals(tokenA.address, tokenC.address, 6))
+                .to.be.revertedWithCustomError(dex, "PairNotCreated");
+        });
 
-            expect(await dex.getDecimals(tokenA.address, tokenC.address)).to.be.equal(6);
+        it("Should revert if first token address = 0", async () => {
+            let { dex, adminToken, tokenA, tokenB, tokenC } = await loadFixture(
+                deploysNoQuoted
+            );
 
-            // Create a pair with native tokens
-            let limitPriceForNative = parseEther("1.5");
-            let sellAmountNative = parseEther("4");
-            let feeRate = await dex.feeRate();
-            let feeNative = sellAmountNative.mul(feeRate).div(10000);
-            let totalLockNative = sellAmountNative.add(feeNative);
-            await expect(dex
-                .connect(ownerAcc)
-                .startSaleSingle(
-                    tokenA.address,
-                    tokenC.address,
-                    sellAmountNative,
-                    limitPriceForNative,
-                    { value: totalLockNative }
-                )).to.be.not.emit(dex, "DecimalsChanged");
-
-            expect(await dex.getDecimals(tokenA.address, tokenC.address)).to.be.equal(6);
+            await expect(dex.setDecimals(zeroAddress, tokenC.address, 6))
+                .to.be.revertedWithCustomError(dex, "InvalidFirstTokenAddress");
         });
 
         it("Should NOT set decimals for pair if already setted default", async () => {

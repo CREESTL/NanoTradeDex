@@ -190,8 +190,11 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         address tokenA,
         address tokenB
     ) public view returns (uint8) {
-        (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
-        return _pairDecimals[token0][token1];
+        if (_isQuoted[tokenA][tokenB]) {
+            return _pairDecimals[tokenA][tokenB];
+        } else {
+            return _pairDecimals[tokenB][tokenA];
+        }
     }
 
     /// @notice See (IBentureDex-checkMatched)
@@ -510,6 +513,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
 
     /// @notice See {IBentureDex-setDecimals}
     function setDecimals(address tokenA, address tokenB, uint8 decimals) external onlyOwner {
+        if (tokenA == address(0)) revert InvalidFirstTokenAddress();
         _setDecimals(tokenA, tokenB, decimals);
     }
 
@@ -1320,9 +1324,16 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
 
     function _setDecimals(address tokenA, address tokenB, uint8 decimals) private {
         if (decimals < 4) revert InvalidDecimals();
+        if (!_isQuoted[tokenA][tokenB] && !_isQuoted[tokenB][tokenA])
+            revert PairNotCreated();
+        
         emit DecimalsChanged(tokenA, tokenB, decimals);
-        (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
-        _pairDecimals[token0][token1] = decimals;
+
+        if (_isQuoted[tokenA][tokenB]) {
+            _pairDecimals[tokenA][tokenB] = decimals;
+        } else {
+            _pairDecimals[tokenB][tokenA] = decimals;
+        }
     }
 
     function _checkAndInitPairDecimals(address tokenA, address tokenB) private {
