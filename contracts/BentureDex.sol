@@ -503,6 +503,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
 
     /// @notice See {IBentureDex-setIsTokenVerified}
     function setIsTokenVerified(address token, bool verified) external onlyOwner {
+        if (token == address(0)) revert ZeroAddress();
         emit IsTokenVerifiedChanged(token, verified);
         _isTokenVerified[token] = verified;
     }
