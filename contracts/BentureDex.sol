@@ -1341,12 +1341,36 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
             _setDecimals(tokenA, tokenB, 4);
     }
 
+    function _checkAdminOfControlledTokens(address user, address tokenA, address tokenB) private view {
+        if (adminToken == address(0)) revert AdminTokenNotSet();
+        bool isAdminA = true;
+        bool isAdminB = true;
+        if (tokenA != address(0) && IBentureAdmin(adminToken).checkIsControlled(tokenA)) {
+            if (!IBentureAdmin(adminToken).checkAdminOfProject(user, tokenA)) {
+                isAdminA = false;
+            }
+        }
+        if (tokenB != address(0) && IBentureAdmin(adminToken).checkIsControlled(tokenB)) {
+            if (!IBentureAdmin(adminToken).checkAdminOfProject(user, tokenB)) {
+                isAdminB = false;
+            }
+        }
+
+        if (!isAdminA && !isAdminB) revert NotAdmin();
+    }
+
     function _startSaleSingle(
         address tokenA,
         address tokenB,
         uint256 amount,
         uint256 price
-    ) private updateQuotes(tokenA, tokenB) onlyAdminOfAny(msg.sender) returns(uint256) {
+    ) 
+        private
+        updateQuotes(tokenA, tokenB)
+        onlyAdminOfAny(msg.sender)
+        returns(uint256)
+    {
+        _checkAdminOfControlledTokens(msg.sender, tokenA, tokenB);
         // Native tokens cannot be sold by admins
         if (tokenA == address(0)) revert InvalidFirstTokenAddress();
 
