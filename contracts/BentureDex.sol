@@ -646,15 +646,17 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
     }
 
     /// @dev Calculates price slippage in basis points
-    /// @param minPrice Min price of pair of tokens
-    /// @param maxPrice Max price of pair of tokens
+    /// @param oldPrice Old price of pair of tokens
+    /// @param newPrice New price of pair of tokens
     /// @return Price slippage in basis points
     function _calcSlippage(
-        uint256 minPrice,
-        uint256 maxPrice
+        uint256 oldPrice,
+        uint256 newPrice
     ) private pure returns (uint256) {
+        uint256 minPrice = newPrice > oldPrice ? oldPrice : newPrice;
+        uint256 maxPrice = newPrice > oldPrice ? newPrice : oldPrice;
         uint256 priceDif = maxPrice - minPrice;
-        uint256 slippage = (priceDif * HUNDRED_PERCENT) / maxPrice;
+        uint256 slippage = (priceDif * HUNDRED_PERCENT) / oldPrice;
         return slippage;
     }
 
@@ -676,7 +678,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
             }
         } else {
             if (newPrice < oldPrice) {
-                slippage = _calcSlippage(newPrice, oldPrice);
+                slippage = _calcSlippage(oldPrice, newPrice);
             }
         }
 
