@@ -244,21 +244,40 @@ describe("Benture DEX", () => {
             tokenCAddress
         );
 
+        // Deploy another ERC20 in order to have a tokenD
+        await factory.connect(clientAcc2).createERC20Token(
+            "tokenD",
+            "tokenD",
+            18,
+            true,
+            maxSupply,
+            adminToken.address
+        );
+
+        let tokenDAddress = await factory.lastProducedToken();
+        let tokenD = await ethers.getContractAt(
+            "BentureProducedToken",
+            tokenDAddress
+        );
+
         // Premint tokens to owner and allow dex to spend all tokens
         let mintAmount = parseEther("1000000");
         await tokenA.mint(ownerAcc.address, mintAmount);
         await tokenB.mint(ownerAcc.address, mintAmount);
         await tokenC.mint(ownerAcc.address, mintAmount);
+        await tokenD.connect(clientAcc2).mint(clientAcc2.address, mintAmount);
         await tokenA.approve(dex.address, mintAmount);
         await tokenB.approve(dex.address, mintAmount);
         await tokenC.approve(dex.address, mintAmount);
+        await tokenD.connect(clientAcc2).approve(dex.address, mintAmount);
 
         return {
             dex,
             adminToken,
             tokenA,
             tokenB,
-            tokenC
+            tokenC,
+            tokenD
         };
     }
 
@@ -2185,7 +2204,7 @@ describe("Benture DEX", () => {
     describe("Sale", () => {
         // #SS
         describe("Single sale", () => {
-            it("Should start a single sale", async () => {
+            it("Should start a single sale by first token admin", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
                     deploysQuotedB
                 );
@@ -2266,27 +2285,140 @@ describe("Benture DEX", () => {
                 expect(status).to.eq(0);
             });
 
-            it("Should fail to start a single sale of native token", async () => {
-                let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploysQuotedB
+            it("Should start a single sale by second token admin", async () => {
+                let { dex, adminToken, tokenA, tokenB, tokenD } = await loadFixture(
+                    deploysNoQuoted
                 );
 
                 let sellAmount = parseEther("10");
                 let limitPrice = parseEther("1.5");
+                let expectedOrderId = 1;
+
+                await expect(
+                    dex
+                        .connect(clientAcc2)
+                        .startSaleSingle(
+                            tokenA.address,
+                            tokenD.address,
+                            sellAmount,
+                            limitPrice
+                        )
+                )
+                    .to.emit(dex, "SaleStarted")
+                    .withArgs(
+                        expectedOrderId,
+                        tokenA.address,
+                        tokenD.address,
+                        sellAmount,
+                        limitPrice
+                    );
+            });
+
+            it("Should start a single sale(two uncontrolled tokens)", async () => {
+                let { dex } = await loadFixture(
+                    deploysNoQuoted
+                );
+
+                const tokenTx = await ethers.getContractFactory("ERC20Mintable");
+                const token1 = await tokenTx.deploy("Token 1", "T1");
+                await token1.deployed();
+                const token2 = await tokenTx.deploy("Token 2", "T2");
+                await token2.deployed();
+
+                let mintAmount = parseEther("1000000");
+                await token1.mint(ownerAcc.address, mintAmount);
+                await token1.approve(dex.address, mintAmount);
+                await token2.mint(ownerAcc.address, mintAmount);
+                await token2.approve(dex.address, mintAmount);
+
+                let sellAmount = parseEther("10");
+                let limitPrice = parseEther("1.5");
+                let expectedOrderId = 1;
 
                 await expect(
                     dex
                         .connect(ownerAcc)
                         .startSaleSingle(
-                            zeroAddress,
-                            tokenB.address,
+                            token1.address,
+                            token2.address,
                             sellAmount,
                             limitPrice
                         )
-                ).to.be.revertedWithCustomError(
-                    dex,
-                    "InvalidFirstTokenAddress"
-                );
+                )
+                    .to.emit(dex, "SaleStarted")
+                    .withArgs(
+                        expectedOrderId,
+                        token1.address,
+                        token2.address,
+                        sellAmount,
+                        limitPrice
+                    );
+            });
+
+            describe("Reverts", () => {
+                let params;
+                beforeEach(async () => {
+                    params = await loadFixture(
+                        deploysNoQuoted
+                    );
+                });
+
+                it("Should fail to start a single sale of native token", async () => {
+                    let { dex, adminToken, tokenA, tokenB } = await loadFixture(
+                        deploysQuotedB
+                    );
+    
+                    let sellAmount = parseEther("10");
+                    let limitPrice = parseEther("1.5");
+    
+                    await expect(
+                        dex
+                            .connect(ownerAcc)
+                            .startSaleSingle(
+                                zeroAddress,
+                                tokenB.address,
+                                sellAmount,
+                                limitPrice
+                            )
+                    ).to.be.revertedWithCustomError(
+                        dex,
+                        "InvalidFirstTokenAddress"
+                    );
+                });
+
+                it("Should revert if user NOT admin of any", async () => {
+                    let sellAmount = parseEther("10");
+                    let limitPrice = parseEther("1.5");
+
+                    await expect(
+                        params.dex
+                            .connect(clientAcc1)
+                            .startSaleSingle(
+                                params.tokenA.address,
+                                params.tokenB.address,
+                                sellAmount,
+                                limitPrice
+                            )
+                    )
+                        .to.be.revertedWithCustomError(params.dex, "NotAdmin");
+                });
+
+                it("Should revert if user NOT admin of tokenA or TokenB", async () => {
+                    let sellAmount = parseEther("10");
+                    let limitPrice = parseEther("1.5");
+
+                    await expect(
+                        params.dex
+                            .connect(clientAcc2)
+                            .startSaleSingle(
+                                params.tokenA.address,
+                                params.tokenB.address,
+                                sellAmount,
+                                limitPrice
+                            )
+                    )
+                        .to.be.revertedWithCustomError(params.dex, "NotAdmin");
+                });
             });
         });
 
