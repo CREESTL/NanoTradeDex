@@ -646,18 +646,14 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
     }
 
     /// @dev Calculates price slippage in basis points
+    /// @param priceDif Difference between old and new price
     /// @param oldPrice Old price of pair of tokens
-    /// @param newPrice New price of pair of tokens
-    /// @return Price slippage in basis points
+    /// @return slippage Price slippage in basis points
     function _calcSlippage(
-        uint256 oldPrice,
-        uint256 newPrice
-    ) private pure returns (uint256) {
-        uint256 minPrice = newPrice > oldPrice ? oldPrice : newPrice;
-        uint256 maxPrice = newPrice > oldPrice ? newPrice : oldPrice;
-        uint256 priceDif = maxPrice - minPrice;
-        uint256 slippage = (priceDif * HUNDRED_PERCENT) / oldPrice;
-        return slippage;
+        uint256 priceDif,
+        uint256 oldPrice
+    ) private pure returns (uint256 slippage) {
+        slippage = (priceDif * HUNDRED_PERCENT) / oldPrice;
     }
 
     /// @dev Checks that price slippage is not too high
@@ -674,11 +670,11 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
 
         if (side == OrderSide.Buy) {
             if (newPrice > oldPrice) {
-                slippage = _calcSlippage(oldPrice, newPrice);
+                slippage = _calcSlippage(newPrice - oldPrice, oldPrice);
             }
         } else {
             if (newPrice < oldPrice) {
-                slippage = _calcSlippage(oldPrice, newPrice);
+                slippage = _calcSlippage(oldPrice - newPrice, oldPrice);
             }
         }
 
