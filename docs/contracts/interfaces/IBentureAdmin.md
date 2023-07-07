@@ -71,6 +71,28 @@ Checks if the provided user owns an admin token controlling the provided ERC20 t
 |---|---|---|
 | _0 | bool | True if user has admin token. Otherwise - false. |
 
+### checkIsControlled
+
+```solidity
+function checkIsControlled(address ERC20Address) external view returns (bool)
+```
+
+Checks if the provided token address is controlled ERC20 token
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| ERC20Address | address | The address of the potentially controlled ERC20 token |
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | bool | True if provided token is an ERC20 controlled token. Otherwise - false. |
+
 ### checkOwner
 
 ```solidity

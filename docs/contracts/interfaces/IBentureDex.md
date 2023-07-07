@@ -134,6 +134,28 @@ Checks if pair of provided tokens exists
 |---|---|---|
 | _0 | bool | True if pair exists.Otherwise - false |
 
+### getIsTokenVerified
+
+```solidity
+function getIsTokenVerified(address token) external view returns (bool)
+```
+
+Checks if token is verified
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| token | address | The address of the token |
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | bool | undefined |
+
 ### getLockAmount
 
 ```solidity
@@ -370,6 +392,23 @@ Sets a new fee rate
 |---|---|---|
 | newFeeRate | uint256 | A new fee rate |
 
+### setIsTokenVerified
+
+```solidity
+function setIsTokenVerified(address token, bool verified) external nonpayable
+```
+
+Sets the verification status of the token
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| token | address | The address of the token |
+| verified | bool | New verification status of the token |
+
 ### startSaleMultiple
 
 ```solidity
@@ -473,6 +512,24 @@ Indicates that backend address was changed
 | oldAcc  | address | The address of the old backend account |
 | newAcc  | address | The address of the new backend account |
 
+### DecimalsChanged
+
+```solidity
+event DecimalsChanged(address tokenA, address tokenB, uint8 decimals)
+```
+
+Indicates that pair decimals changed
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| tokenA  | address | The address of the first token of the pair |
+| tokenB  | address | The address of the second token of the pair |
+| decimals  | uint8 | New pair decimals |
+
 ### FeeRateChanged
 
 ```solidity
@@ -493,7 +550,7 @@ Indicates that order fee rate was changed
 ### FeesWithdrawn
 
 ```solidity
-event FeesWithdrawn(address token, uint256 amount)
+event FeesWithdrawn(uint256 orderId, address token, uint256 amount)
 ```
 
 Indicates that fees collected with one token were withdrawn
@@ -504,13 +561,14 @@ Indicates that fees collected with one token were withdrawn
 
 | Name | Type | Description |
 |---|---|---|
+| orderId  | uint256 | undefined |
 | token  | address | The address of the token in which fees were collected |
 | amount  | uint256 | The amount of fees withdrawn |
 
 ### GasLimitReached
 
 ```solidity
-event GasLimitReached(uint256 gasLeft, uint256 gasLimit)
+event GasLimitReached(uint256 orderId, uint256 gasLeft, uint256 gasLimit)
 ```
 
 
@@ -521,8 +579,26 @@ event GasLimitReached(uint256 gasLeft, uint256 gasLimit)
 
 | Name | Type | Description |
 |---|---|---|
+| orderId  | uint256 | ID of the order during the operation with which the 2/3 of block gas limit was spent |
 | gasLeft  | uint256 | How much gas was used |
 | gasLimit  | uint256 | The block gas limit |
+
+### IsTokenVerifiedChanged
+
+```solidity
+event IsTokenVerifiedChanged(address token, bool verified)
+```
+
+Indicates that token verification status changed
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| token  | address | The address of the token whose status has changed |
+| verified  | bool | New token verify status |
 
 ### OrderCancelled
 
@@ -602,7 +678,7 @@ Indicates that price of the pair was changed
 ### SaleStarted
 
 ```solidity
-event SaleStarted(address tokenA, address tokenB, uint256 amount, uint256 price)
+event SaleStarted(uint256 orderId, address tokenA, address tokenB, uint256 amount, uint256 price)
 ```
 
 Indicates that a single series sale has started
@@ -613,6 +689,7 @@ Indicates that a single series sale has started
 
 | Name | Type | Description |
 |---|---|---|
+| orderId  | uint256 | undefined |
 | tokenA  | address | The purchased token |
 | tokenB  | address | The sold token |
 | amount  | uint256 | The amount of sold tokens |
@@ -637,6 +714,17 @@ error AdminTokenNotSet()
 
 ```solidity
 error DifferentLength()
+```
+
+
+
+
+
+
+### InvalidDecimals
+
+```solidity
+error InvalidDecimals()
 ```
 
 

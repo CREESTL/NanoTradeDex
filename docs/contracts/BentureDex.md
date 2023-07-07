@@ -235,6 +235,51 @@ Percentage of each order being paid as fee (in basis points)
 |---|---|---|
 | _0 | uint256 | undefined |
 
+### getDecimals
+
+```solidity
+function getDecimals(address tokenA, address tokenB) external view returns (uint8)
+```
+
+See {IBentureDex-getDecimals}
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| tokenA | address | undefined |
+| tokenB | address | undefined |
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | uint8 | undefined |
+
+### getIsTokenVerified
+
+```solidity
+function getIsTokenVerified(address token) external view returns (bool)
+```
+
+See {IBentureDex-getIsTokenVerified}
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| token | address | undefined |
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | bool | undefined |
+
 ### getLockAmount
 
 ```solidity
@@ -483,6 +528,24 @@ See {IBentureDex-setBackend}
 |---|---|---|
 | acc | address | undefined |
 
+### setDecimals
+
+```solidity
+function setDecimals(address tokenA, address tokenB, uint8 decimals) external nonpayable
+```
+
+See {IBentureDex-setDecimals}
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| tokenA | address | undefined |
+| tokenB | address | undefined |
+| decimals | uint8 | undefined |
+
 ### setFee
 
 ```solidity
@@ -498,6 +561,23 @@ See {IBentureDex-setFee}
 | Name | Type | Description |
 |---|---|---|
 | newFeeRate | uint256 | undefined |
+
+### setIsTokenVerified
+
+```solidity
+function setIsTokenVerified(address token, bool verified) external nonpayable
+```
+
+See {IBentureDex-setIsTokenVerified}
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| token | address | undefined |
+| verified | bool | undefined |
 
 ### startSaleMultiple
 
@@ -618,6 +698,24 @@ Indicates that backend address was changed
 | oldAcc  | address | undefined |
 | newAcc  | address | undefined |
 
+### DecimalsChanged
+
+```solidity
+event DecimalsChanged(address tokenA, address tokenB, uint8 decimals)
+```
+
+Indicates that pair decimals changed
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| tokenA  | address | undefined |
+| tokenB  | address | undefined |
+| decimals  | uint8 | undefined |
+
 ### FeeRateChanged
 
 ```solidity
@@ -638,7 +736,7 @@ Indicates that order fee rate was changed
 ### FeesWithdrawn
 
 ```solidity
-event FeesWithdrawn(address token, uint256 amount)
+event FeesWithdrawn(uint256 orderId, address token, uint256 amount)
 ```
 
 Indicates that fees collected with one token were withdrawn
@@ -649,13 +747,14 @@ Indicates that fees collected with one token were withdrawn
 
 | Name | Type | Description |
 |---|---|---|
+| orderId  | uint256 | undefined |
 | token  | address | undefined |
 | amount  | uint256 | undefined |
 
 ### GasLimitReached
 
 ```solidity
-event GasLimitReached(uint256 gasLeft, uint256 gasLimit)
+event GasLimitReached(uint256 orderId, uint256 gasLeft, uint256 gasLimit)
 ```
 
 
@@ -666,8 +765,26 @@ event GasLimitReached(uint256 gasLeft, uint256 gasLimit)
 
 | Name | Type | Description |
 |---|---|---|
+| orderId  | uint256 | undefined |
 | gasLeft  | uint256 | undefined |
 | gasLimit  | uint256 | undefined |
+
+### IsTokenVerifiedChanged
+
+```solidity
+event IsTokenVerifiedChanged(address token, bool verified)
+```
+
+Indicates that token verification status changed
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| token  | address | undefined |
+| verified  | bool | undefined |
 
 ### OrderCancelled
 
@@ -764,7 +881,7 @@ Indicates that price of the pair was changed
 ### SaleStarted
 
 ```solidity
-event SaleStarted(address tokenA, address tokenB, uint256 amount, uint256 price)
+event SaleStarted(uint256 orderId, address tokenA, address tokenB, uint256 amount, uint256 price)
 ```
 
 Indicates that a single series sale has started
@@ -775,6 +892,7 @@ Indicates that a single series sale has started
 
 | Name | Type | Description |
 |---|---|---|
+| orderId  | uint256 | undefined |
 | tokenA  | address | undefined |
 | tokenB  | address | undefined |
 | amount  | uint256 | undefined |
@@ -799,6 +917,17 @@ error AdminTokenNotSet()
 
 ```solidity
 error DifferentLength()
+```
+
+
+
+
+
+
+### InvalidDecimals
+
+```solidity
+error InvalidDecimals()
 ```
 
 
