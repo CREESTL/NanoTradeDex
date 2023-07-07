@@ -13,6 +13,7 @@ interface IBentureFactory is IBentureFactoryErrors {
     /// @notice Creates a new ERC20 token and mints an admin token proving ownership
     /// @param name The name of the token
     /// @param symbol The symbol of the token
+    /// @param ipfsUrl The URL to IPFS with project metadata
     /// @param decimals Number of decimals of the token
     /// @param mintable Token may be either mintable or not. Can be changed later.
     /// @param maxTotalSupply Maximum amount of tokens to be minted
@@ -21,6 +22,7 @@ interface IBentureFactory is IBentureFactoryErrors {
     function createERC20Token(
         string memory name,
         string memory symbol,
+        string memory ipfsUrl,
         uint8 decimals,
         bool mintable,
         uint256 maxTotalSupply,
@@ -31,6 +33,7 @@ interface IBentureFactory is IBentureFactoryErrors {
     event CreateERC20Token(
         string name,
         string symbol,
+        string ipfsUrl,
         address tokenAddress,
         uint8 decimals,
         bool mintable

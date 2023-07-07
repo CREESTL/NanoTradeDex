@@ -17,6 +17,8 @@ contract BentureProducedToken is ERC20, IBentureProducedToken {
     string private _tokenSymbol;
     /// @dev The number of decimals of the token
     uint8 private _decimals;
+    /// @dev IPFS URL with project metadata
+    string private _ipfsUrl;
     /// @dev Mintability of the token
     bool private _mintable;
     /// @dev The address of the admin token has to be provided in order
@@ -60,6 +62,7 @@ contract BentureProducedToken is ERC20, IBentureProducedToken {
     constructor(
         string memory name_,
         string memory symbol_,
+        string memory ipfsUrl_,
         uint8 decimals_,
         bool mintable_,
         uint256 maxTotalSupply_,
@@ -93,6 +96,7 @@ contract BentureProducedToken is ERC20, IBentureProducedToken {
         }
         _tokenName = name_;
         _tokenSymbol = symbol_;
+        _ipfsUrl = ipfsUrl_;
         _decimals = decimals_;
         _mintable = mintable_;
         _maxTotalSupply = maxTotalSupply_;
@@ -107,6 +111,11 @@ contract BentureProducedToken is ERC20, IBentureProducedToken {
     /// @notice See {IBentureProducedToken-holders}
     function holders() external view returns (address[] memory) {
         return _holders.values();
+    }
+
+    /// @notice See {IBentureProducedTokne-ipfsUrl}
+    function ipfsUrl() external view returns (string memory) {
+        return _ipfsUrl;
     }
 
     /// @notice See {IBentureProducedToken-maxTotalSupply}
