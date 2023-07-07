@@ -10,7 +10,7 @@ require("solidity-coverage");
 require("hardhat-gas-reporter");
 require("@primitivefi/hardhat-dodoc");
 
-const { POLYGONSCAN_API_KEY, ACC_PRIVATE_KEY } = process.env;
+const { POLYGONSCAN_API_KEY, ACC_PRIVATE_KEY, ALCHEMY_MUMBAI } = process.env;
 
 module.exports = {
     solidity: {
@@ -34,8 +34,9 @@ module.exports = {
             accounts: [ACC_PRIVATE_KEY],
         },
         polygon_testnet: {
-            url: `https://matic-mumbai.chainstacklabs.com`,
+            url: `https://polygon-mumbai.g.alchemy.com/v2/${ALCHEMY_MUMBAI}`,
             accounts: [ACC_PRIVATE_KEY],
+            gas: 16_000_000,
         },
     },
     mocha: {
