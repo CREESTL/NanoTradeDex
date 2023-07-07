@@ -1,0 +1,48 @@
+{
+  "polygon_testnet": {
+    "Benture": {
+      "address": "0x2c2f73e037BC52dd4E70451D05D3D2881434fE17"
+    },
+    "BentureAdmin": {
+      "address": "0x9184A899D6f5a0f412F3d77e9F1638c2d61C18eA"
+    },
+    "BentureFactory": {
+      "address": "0x525DD86Bbc92F7c97623CfB7ae10C67071b94984"
+    },
+    "BentureSalary": {
+      "address": "0x1F665Ee84362c42024A5AA8Ff4175f9aC9ec36c6"
+    },
+    "BentureDex": {
+      "address": "0x761133053bDdFD7C9C307c6a278c62885DafF37E"
+    },
+    "OrigToken": {
+      "address": "0xd663469E583647317c1EDff72BB33AA737bd9685"
+    },
+    "DistToken": {
+      "address": "0x1B00daAcaf1ee2f18d98C4F77cFe85df950A6eFC"
+    }
+  },
+  "polygon_mainnet": {
+    "Benture": {
+      "address": ""
+    },
+    "BentureAdmin": {
+      "address": ""
+    },
+    "BentureFactory": {
+      "address": ""
+    },
+    "BentureSalary": {
+      "address": ""
+    },
+    "BentureDex": {
+      "address": ""
+    },
+    "OrigToken": {
+      "address": ""
+    },
+    "DistToken": {
+      "address": ""
+    }
+  }
+}
