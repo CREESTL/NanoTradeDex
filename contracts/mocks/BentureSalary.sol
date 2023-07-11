@@ -212,8 +212,10 @@ contract BentureSalary is
         employeeToProjectTokens[employeeAddress].remove(projectToken);
         projectTokenToEmployees[projectToken].remove(employeeAddress);
 
-        adminToEmployees[msg.sender].remove(employeeAddress);
-        employeeToAdmins[employeeAddress].remove(msg.sender);
+        if (!_checkEmployeeInAnotherProject(employeeAddress)) {
+            adminToEmployees[msg.sender].remove(employeeAddress);
+            employeeToAdmins[employeeAddress].remove(msg.sender);
+        }
 
         emit EmployeeRemoved(employeeAddress, projectToken, msg.sender);
     }
@@ -557,6 +559,17 @@ contract BentureSalary is
                 toPay
             );
         }
+    }
+
+    /// @dev The function checks if there is an employee on another project of current(msg.sender = project admin) admin
+    function _checkEmployeeInAnotherProject(address employeeAddress) private view returns (bool) {
+        address[] memory projects = employeeToProjectTokens[employeeAddress].values();
+
+        for (uint256 i = 0; i < projects.length; i++) {
+            if (checkIfAdminOfProject(msg.sender, projects[i])) return true;
+        }
+
+        return false;
     }
 
     function _payingPeriodsCounter(
