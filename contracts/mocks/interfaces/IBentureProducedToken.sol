@@ -18,6 +18,10 @@ interface IBentureProducedToken is IERC20, IBentureProducedTokenErrors {
     /// @return The number of decimals of the token
     function decimals() external view returns (uint8);
 
+    /// @notice Returns IPFS URL with project metadata
+    /// @return IPFS URL with project metadata
+    function ipfsUrl() external view returns (string memory);
+
     /// @notice Indicates whether the token is mintable or not
     /// @return True if the token is mintable. False - if it is not
     function mintable() external view returns (bool);

@@ -95,6 +95,20 @@ contract BentureAdmin is
         return true;
     }
 
+    /// @notice See {IBentureAdmin-checkIsControlled}
+    function checkIsControlled(
+        address ERC20Address
+    ) external view returns (bool) {
+        if (ERC20Address == address(0)) {
+            revert InvalidTokenAddress();
+        }
+
+        if (_controlledToAdmin[ERC20Address] == 0)
+            return false;
+
+        return true;
+    }
+
     /// @notice See {IBentureAdmin-checkAdminOfAny}
     function checkAdminOfAny(address user) external view returns (bool) {
         // If user owns any admin token, he is admin of some project

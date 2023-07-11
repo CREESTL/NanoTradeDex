@@ -490,7 +490,13 @@ contract Benture is
         // NOTE The lowest distribution ID is 1
         uint256 distributionId = distributionIds.current();
 
-        emit CustomDividendsDistributed(distributionId, token, count);
+        emit CustomDividendsDistributed(
+            distributionId,
+            token,
+            users,
+            amounts,
+            count
+        );
     }
 
     /// @notice Shows which distributions the user took part in and hasn't claimed them

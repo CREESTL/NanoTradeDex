@@ -49,6 +49,9 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
     ///      .e.g (USDT => DOGE => 420)
     ///      Each price is multiplied by `PRICE_PRECISION`
     mapping(address => mapping(address => uint256)) private _pairPrices;
+    /// @dev Mapping from unquoted token of the pair to the quoted
+    ///      token of the pair to the pair decimals
+    mapping(address => mapping(address => uint8)) private _pairDecimals;
     /// @dev Mapping from address of token to list of IDs of orders
     ///      in which fees were paid in this order
     mapping(address => EnumerableSet.UintSet) private _tokensToFeesIds;
@@ -58,6 +61,9 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
     /// @notice Marks transaction hashes that have been executed already.
     ///         Prevents Replay Attacks
     mapping(bytes32 => bool) private _executed;
+    /// @dev Mapping from token to boolean indicating
+    ///      that token is verified
+    mapping(address => bool) private _isTokenVerified;
 
     /// @dev 100% in basis points (1 bp = 1 / 100 of 1%)
     uint256 private constant HUNDRED_PERCENT = 10000;
@@ -177,6 +183,18 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
             revert NoQuotedTokens();
         address quotedToken = _isQuoted[tokenA][tokenB] ? tokenB : tokenA;
         return (quotedToken, _getPrice(tokenA, tokenB));
+    }
+
+    /// @notice See {IBentureDex-getDecimals}
+    function getDecimals(
+        address tokenA,
+        address tokenB
+    ) public view returns (uint8) {
+        if (_isQuoted[tokenA][tokenB]) {
+            return _pairDecimals[tokenA][tokenB];
+        } else {
+            return _pairDecimals[tokenB][tokenA];
+        }
     }
 
     /// @notice See (IBentureDex-checkMatched)
@@ -435,14 +453,14 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         uint256 lastGasLeft = gasleft();
 
         for (uint256 i = 0; i < amounts.length; i++) {
-            _startSaleSingle(tokenA, tokenB, amounts[i], prices[i]);
+            uint256 orderId = _startSaleSingle(tokenA, tokenB, amounts[i], prices[i]);
 
             lastGasLeft = gasleft();
             // Increase the total amount of gas spent
             gasSpent += lastGasLeft - gasleft();
             // Check that no more than 2/3 of block gas limit was spent
             if (gasSpent >= gasThreshold) {
-                emit GasLimitReached(gasSpent, block.gaslimit);
+                emit GasLimitReached(orderId, gasSpent, block.gaslimit);
                 break;
             }
         }
@@ -484,6 +502,19 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         if (token == address(0)) revert ZeroAddress();
         emit AdminTokenChanged(adminToken, token);
         adminToken = token;
+    }
+
+    /// @notice See {IBentureDex-setIsTokenVerified}
+    function setIsTokenVerified(address token, bool verified) external onlyOwner {
+        if (token == address(0)) revert ZeroAddress();
+        emit IsTokenVerifiedChanged(token, verified);
+        _isTokenVerified[token] = verified;
+    }
+
+    /// @notice See {IBentureDex-setDecimals}
+    function setDecimals(address tokenA, address tokenB, uint8 decimals) external onlyOwner {
+        if (tokenA == address(0)) revert InvalidFirstTokenAddress();
+        _setDecimals(tokenA, tokenB, decimals);
     }
 
     /// @notice See {IBentureDex-getLockAmount}
@@ -540,6 +571,11 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         }
     }
 
+    /// @notice See {IBentureDex-getIsTokenVerified}
+    function getIsTokenVerified(address token) external view returns (bool) {
+        return _isTokenVerified[token];
+    }
+
     /// @notice See {IBentureDex-checkOrderExists}
     function checkOrderExists(uint256 id) public view returns (bool) {
         // First order has ID1
@@ -572,7 +608,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
                 // Delete order from IDs array to reduce iteration
                 _tokensToFeesIds[lockedToken].remove(ids[j]);
 
-                emit FeesWithdrawn(lockedToken, transferAmount);
+                emit FeesWithdrawn(order.id, lockedToken, transferAmount);
 
                 // Transfer all withdraw fees to the owner
                 if (lockedToken != address(0)) {
@@ -592,7 +628,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
                 gasSpent += lastGasLeft - gasleft();
                 // Check that no more than 2/3 of block gas limit was spent
                 if (gasSpent >= gasThreshold) {
-                    emit GasLimitReached(gasSpent, block.gaslimit);
+                    emit GasLimitReached(order.id, gasSpent, block.gaslimit);
                     break;
                 }
             }
@@ -610,18 +646,14 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
     }
 
     /// @dev Calculates price slippage in basis points
+    /// @param priceDif Difference between old and new price
     /// @param oldPrice Old price of pair of tokens
-    /// @param newPrice New price of pair of tokens
-    /// @return Price slippage in basis points
+    /// @return slippage Price slippage in basis points
     function _calcSlippage(
-        uint256 oldPrice,
-        uint256 newPrice
-    ) private pure returns (uint256) {
-        uint256 minPrice = newPrice > oldPrice ? oldPrice : newPrice;
-        uint256 maxPrice = newPrice > oldPrice ? newPrice : oldPrice;
-        uint256 priceDif = maxPrice - minPrice;
-        uint256 slippage = (priceDif * HUNDRED_PERCENT) / maxPrice;
-        return slippage;
+        uint256 priceDif,
+        uint256 oldPrice
+    ) private pure returns (uint256 slippage) {
+        slippage = (priceDif * HUNDRED_PERCENT) / oldPrice;
     }
 
     /// @dev Checks that price slippage is not too high
@@ -631,9 +663,21 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
     function _checkSlippage(
         uint256 oldPrice,
         uint256 newPrice,
-        uint256 allowedSlippage
+        uint256 allowedSlippage,
+        OrderSide side
     ) private pure {
-        uint256 slippage = _calcSlippage(oldPrice, newPrice);
+        uint256 slippage = 0;
+
+        if (side == OrderSide.Buy) {
+            if (newPrice > oldPrice) {
+                slippage = _calcSlippage(newPrice - oldPrice, oldPrice);
+            }
+        } else {
+            if (newPrice < oldPrice) {
+                slippage = _calcSlippage(oldPrice - newPrice, oldPrice);
+            }
+        }
+
         if (slippage > allowedSlippage) {
             revert SlippageTooBig(slippage);
         }
@@ -950,7 +994,8 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
                     // Expressed in pair's quoted tokens
                     _getPrice(initOrder.tokenA, initOrder.tokenB),
                     _getNewPrice(initOrder, matchedOrder),
-                    matchedOrder.slippage
+                    matchedOrder.slippage,
+                    matchedOrder.side
                 );
             }
 
@@ -997,7 +1042,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
             gasSpent += lastGasLeft - gasleft();
             // Check that no more than 2/3 of block gas limit was spent
             if (gasSpent >= (block.gaslimit * 2) / 3) {
-                emit GasLimitReached(gasSpent, block.gaslimit);
+                emit GasLimitReached(initOrder.id, gasSpent, block.gaslimit);
                 // No revert here. Part of changes will take place
                 break;
             }
@@ -1275,16 +1320,57 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         }
     }
 
+    function _setDecimals(address tokenA, address tokenB, uint8 decimals) private {
+        if (decimals < 4) revert InvalidDecimals();
+        if (!_isQuoted[tokenA][tokenB] && !_isQuoted[tokenB][tokenA])
+            revert PairNotCreated();
+        
+        emit DecimalsChanged(tokenA, tokenB, decimals);
+
+        if (_isQuoted[tokenA][tokenB]) {
+            _pairDecimals[tokenA][tokenB] = decimals;
+        } else {
+            _pairDecimals[tokenB][tokenA] = decimals;
+        }
+    }
+
+    function _checkAndInitPairDecimals(address tokenA, address tokenB) private {
+        if (getDecimals(tokenA, tokenB) == 0)
+            _setDecimals(tokenA, tokenB, 4);
+    }
+
+    function _checkAdminOfControlledTokens(address user, address tokenA, address tokenB) private view {
+        if (adminToken == address(0)) revert AdminTokenNotSet();
+        bool isAdminA = true;
+        bool isAdminB = true;
+        if (tokenA != address(0) && IBentureAdmin(adminToken).checkIsControlled(tokenA)) {
+            if (!IBentureAdmin(adminToken).checkAdminOfProject(user, tokenA)) {
+                isAdminA = false;
+            }
+        }
+        if (tokenB != address(0) && IBentureAdmin(adminToken).checkIsControlled(tokenB)) {
+            if (!IBentureAdmin(adminToken).checkAdminOfProject(user, tokenB)) {
+                isAdminB = false;
+            }
+        }
+
+        if (!isAdminA && !isAdminB) revert NotAdmin();
+    }
+
     function _startSaleSingle(
         address tokenA,
         address tokenB,
         uint256 amount,
         uint256 price
-    ) private updateQuotes(tokenA, tokenB) onlyAdminOfAny(msg.sender) {
+    ) 
+        private
+        updateQuotes(tokenA, tokenB)
+        onlyAdminOfAny(msg.sender)
+        returns(uint256)
+    {
+        _checkAdminOfControlledTokens(msg.sender, tokenA, tokenB);
         // Native tokens cannot be sold by admins
         if (tokenA == address(0)) revert InvalidFirstTokenAddress();
-
-        emit SaleStarted(tokenA, tokenB, amount, price);
 
         Order memory order = _prepareOrder(
             tokenA,
@@ -1298,7 +1384,11 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
             false
         );
 
+        emit SaleStarted(order.id, tokenA, tokenB, amount, price);
+
         _updatePairPriceOnLimit(order);
+
+        _checkAndInitPairDecimals(tokenA, tokenB);
 
         // User has to lock exactly the amount of `tokenB` he is selling
         uint256 lockAmount = amount;
@@ -1316,5 +1406,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         order.feeAmount = feeAmount;
 
         _createOrder(order, lockAmount);
+
+        return order.id;
     }
 }

@@ -48,6 +48,10 @@ contract BentureSalary is
     mapping(address => mapping(address => EnumerableSetUpgradeable.UintSet))
         private employeeToAdminToSalaryId;
 
+    /// @dev Mapping from employee address to project token address to salary ID
+    mapping(address => mapping(address => EnumerableSetUpgradeable.UintSet))
+        private employeeToProjectTokenToSalaryId;
+
     /// @dev Mapping from employee address to the project tokens addresses
     ///      of the projects he works on
     // One employee can work on multiple projects
@@ -105,6 +109,15 @@ contract BentureSalary is
     ) external view returns (uint256[] memory ids) {
         return
             employeeToAdminToSalaryId[employeeAddress][adminAddress].values();
+    }
+
+    /// @notice See {IBentureSalary-getSalariesIdByEmployeeAndProjectToken}
+    function getSalariesIdByEmployeeAndProjectToken(
+        address employeeAddress,
+        address projectTokenAddress
+    ) external view returns (uint256[] memory ids) {
+        return
+            employeeToProjectTokenToSalaryId[employeeAddress][projectTokenAddress].values();
     }
 
     /// @notice See {IBentureSalary-getSalaryById}
@@ -199,8 +212,10 @@ contract BentureSalary is
         employeeToProjectTokens[employeeAddress].remove(projectToken);
         projectTokenToEmployees[projectToken].remove(employeeAddress);
 
-        adminToEmployees[msg.sender].remove(employeeAddress);
-        employeeToAdmins[employeeAddress].remove(msg.sender);
+        if (!_checkEmployeeInAnotherProject(employeeAddress)) {
+            adminToEmployees[msg.sender].remove(employeeAddress);
+            employeeToAdmins[employeeAddress].remove(msg.sender);
+        }
 
         emit EmployeeRemoved(employeeAddress, projectToken, msg.sender);
     }
@@ -314,6 +329,7 @@ contract BentureSalary is
     /// @notice See {IBentureSalary-addSalaryToEmployee}
     function addSalaryToEmployee(
         address employeeAddress,
+        address projectTokenAddress,
         uint256 periodDuration,
         uint256 amountOfPeriods,
         address tokenAddress,
@@ -325,6 +341,14 @@ contract BentureSalary is
 
         if (!checkIfUserIsAdminOfEmployee(employeeAddress, msg.sender)) {
             revert NotAdminForEmployee();
+        }
+
+        if (!checkIfAdminOfProject(msg.sender, projectTokenAddress)) {
+            revert NotAdminOfProject();
+        }
+
+        if (!checkIfUserInProject(employeeAddress, projectTokenAddress)) {
+            revert EmployeeNotInProject();
         }
 
         uint256 totalTokenAmount;
@@ -351,7 +375,9 @@ contract BentureSalary is
         _salary.salaryStartTime = block.timestamp;
         _salary.employer = msg.sender;
         _salary.employee = employeeAddress;
+        _salary.projectToken = projectTokenAddress;
         employeeToAdminToSalaryId[employeeAddress][msg.sender].add(_salary.id);
+        employeeToProjectTokenToSalaryId[employeeAddress][projectTokenAddress].add(_salary.id);
         salaryById[_salary.id] = _salary;
         emit EmployeeSalaryAdded(_salary.id, employeeAddress, msg.sender);
     }
@@ -463,6 +489,9 @@ contract BentureSalary is
         employeeToAdminToSalaryId[_salary.employee][msg.sender].remove(
             salaryId
         );
+        employeeToProjectTokenToSalaryId[_salary.employee][_salary.projectToken].remove(
+            salaryId
+        );
         delete salaryById[_salary.id];
 
         emit EmployeeSalaryRemoved(
@@ -530,6 +559,17 @@ contract BentureSalary is
                 toPay
             );
         }
+    }
+
+    /// @dev The function checks if there is an employee on another project of current(msg.sender = project admin) admin
+    function _checkEmployeeInAnotherProject(address employeeAddress) private view returns (bool) {
+        address[] memory projects = employeeToProjectTokens[employeeAddress].values();
+
+        for (uint256 i = 0; i < projects.length; i++) {
+            if (checkIfAdminOfProject(msg.sender, projects[i])) return true;
+        }
+
+        return false;
     }
 
     function _payingPeriodsCounter(

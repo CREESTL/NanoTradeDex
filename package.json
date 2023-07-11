@@ -1,5 +1,5 @@
 {
-  "name": "Benture DEX",
+  "name": "BentureDEX",
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "1.0.3",
     "@nomicfoundation/hardhat-toolbox": "1.0.2",
@@ -14,14 +14,13 @@
     "hardhat-tracer": "^2.0.0",
     "prettier": "2.8.1",
     "prettier-plugin-solidity": "1.1.0",
-    "solidity-coverage": "^0.7.21"
+    "solidity-coverage": "^0.8.3"
   },
   "dependencies": {
     "@openzeppelin/contracts": "4.7.3",
     "chai": "4.3.6",
     "delay": "5.0.0",
     "dotenv": "16.0.1",
-    "hardhat-gas-reporter": "1.0.8",
-    "slither": "0.2.2"
+    "hardhat-gas-reporter": "1.0.8"
   }
 }

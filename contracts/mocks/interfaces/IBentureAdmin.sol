@@ -18,6 +18,13 @@ interface IBentureAdmin is IBentureAdminErrors {
         address ERC20Address
     ) external view returns (bool);
 
+    /// @notice Checks if the provided token address is controlled ERC20 token
+    /// @param ERC20Address The address of the potentially controlled ERC20 token
+    /// @return True if provided token is an ERC20 controlled token. Otherwise - false.
+    function checkIsControlled(
+        address ERC20Address
+    ) external view returns (bool);
+
     /// @notice Checks if the provided user is an admin of any project
     /// @param user The address of the user to check
     /// @return True if user is admin of any project. Otherwise - false

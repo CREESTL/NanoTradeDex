@@ -228,18 +228,56 @@ describe("Benture DEX", () => {
             tokenBAddress
         );
 
+        // Deploy another ERC20 in order to have a tokenC
+        await factory.createERC20Token(
+            "tokenC",
+            "tokenC",
+            18,
+            true,
+            maxSupply,
+            adminToken.address
+        );
+
+        let tokenCAddress = await factory.lastProducedToken();
+        let tokenC = await ethers.getContractAt(
+            "BentureProducedToken",
+            tokenCAddress
+        );
+
+        // Deploy another ERC20 in order to have a tokenD
+        await factory.connect(clientAcc2).createERC20Token(
+            "tokenD",
+            "tokenD",
+            18,
+            true,
+            maxSupply,
+            adminToken.address
+        );
+
+        let tokenDAddress = await factory.lastProducedToken();
+        let tokenD = await ethers.getContractAt(
+            "BentureProducedToken",
+            tokenDAddress
+        );
+
         // Premint tokens to owner and allow dex to spend all tokens
         let mintAmount = parseEther("1000000");
         await tokenA.mint(ownerAcc.address, mintAmount);
         await tokenB.mint(ownerAcc.address, mintAmount);
+        await tokenC.mint(ownerAcc.address, mintAmount);
+        await tokenD.connect(clientAcc2).mint(clientAcc2.address, mintAmount);
         await tokenA.approve(dex.address, mintAmount);
         await tokenB.approve(dex.address, mintAmount);
+        await tokenC.approve(dex.address, mintAmount);
+        await tokenD.connect(clientAcc2).approve(dex.address, mintAmount);
 
         return {
             dex,
             adminToken,
             tokenA,
             tokenB,
+            tokenC,
+            tokenD
         };
     }
 
@@ -2166,7 +2204,7 @@ describe("Benture DEX", () => {
     describe("Sale", () => {
         // #SS
         describe("Single sale", () => {
-            it("Should start a single sale", async () => {
+            it("Should start a single sale by first token admin", async () => {
                 let { dex, adminToken, tokenA, tokenB } = await loadFixture(
                     deploysQuotedB
                 );
@@ -2174,6 +2212,9 @@ describe("Benture DEX", () => {
                 let sellAmount = parseEther("10");
                 let limitPrice = parseEther("1.5");
                 let mintAmount = parseEther("1000000");
+                let expectedOrderId = 3;
+
+                expect(await dex.checkOrderExists(expectedOrderId)).to.be.false;
 
                 let startOwnerBalance = await tokenB.balanceOf(
                     ownerAcc.address
@@ -2192,6 +2233,7 @@ describe("Benture DEX", () => {
                 )
                     .to.emit(dex, "SaleStarted")
                     .withArgs(
+                        expectedOrderId,
                         tokenA.address,
                         tokenB.address,
                         sellAmount,
@@ -2214,7 +2256,7 @@ describe("Benture DEX", () => {
                 );
 
                 // Check that order was really created
-                let order = await dex.getOrder(3);
+                let order = await dex.getOrder(expectedOrderId);
 
                 let user = order[0];
                 let firstToken = order[1];
@@ -2243,27 +2285,140 @@ describe("Benture DEX", () => {
                 expect(status).to.eq(0);
             });
 
-            it("Should fail to start a single sale of native token", async () => {
-                let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                    deploysQuotedB
+            it("Should start a single sale by second token admin", async () => {
+                let { dex, adminToken, tokenA, tokenB, tokenD } = await loadFixture(
+                    deploysNoQuoted
                 );
 
                 let sellAmount = parseEther("10");
                 let limitPrice = parseEther("1.5");
+                let expectedOrderId = 1;
+
+                await expect(
+                    dex
+                        .connect(clientAcc2)
+                        .startSaleSingle(
+                            tokenA.address,
+                            tokenD.address,
+                            sellAmount,
+                            limitPrice
+                        )
+                )
+                    .to.emit(dex, "SaleStarted")
+                    .withArgs(
+                        expectedOrderId,
+                        tokenA.address,
+                        tokenD.address,
+                        sellAmount,
+                        limitPrice
+                    );
+            });
+
+            it("Should start a single sale(two uncontrolled tokens)", async () => {
+                let { dex } = await loadFixture(
+                    deploysNoQuoted
+                );
+
+                const tokenTx = await ethers.getContractFactory("ERC20Mintable");
+                const token1 = await tokenTx.deploy("Token 1", "T1");
+                await token1.deployed();
+                const token2 = await tokenTx.deploy("Token 2", "T2");
+                await token2.deployed();
+
+                let mintAmount = parseEther("1000000");
+                await token1.mint(ownerAcc.address, mintAmount);
+                await token1.approve(dex.address, mintAmount);
+                await token2.mint(ownerAcc.address, mintAmount);
+                await token2.approve(dex.address, mintAmount);
+
+                let sellAmount = parseEther("10");
+                let limitPrice = parseEther("1.5");
+                let expectedOrderId = 1;
 
                 await expect(
                     dex
                         .connect(ownerAcc)
                         .startSaleSingle(
-                            zeroAddress,
-                            tokenB.address,
+                            token1.address,
+                            token2.address,
                             sellAmount,
                             limitPrice
                         )
-                ).to.be.revertedWithCustomError(
-                    dex,
-                    "InvalidFirstTokenAddress"
-                );
+                )
+                    .to.emit(dex, "SaleStarted")
+                    .withArgs(
+                        expectedOrderId,
+                        token1.address,
+                        token2.address,
+                        sellAmount,
+                        limitPrice
+                    );
+            });
+
+            describe("Reverts", () => {
+                let params;
+                beforeEach(async () => {
+                    params = await loadFixture(
+                        deploysNoQuoted
+                    );
+                });
+
+                it("Should fail to start a single sale of native token", async () => {
+                    let { dex, adminToken, tokenA, tokenB } = await loadFixture(
+                        deploysQuotedB
+                    );
+    
+                    let sellAmount = parseEther("10");
+                    let limitPrice = parseEther("1.5");
+    
+                    await expect(
+                        dex
+                            .connect(ownerAcc)
+                            .startSaleSingle(
+                                zeroAddress,
+                                tokenB.address,
+                                sellAmount,
+                                limitPrice
+                            )
+                    ).to.be.revertedWithCustomError(
+                        dex,
+                        "InvalidFirstTokenAddress"
+                    );
+                });
+
+                it("Should revert if user NOT admin of any", async () => {
+                    let sellAmount = parseEther("10");
+                    let limitPrice = parseEther("1.5");
+
+                    await expect(
+                        params.dex
+                            .connect(clientAcc1)
+                            .startSaleSingle(
+                                params.tokenA.address,
+                                params.tokenB.address,
+                                sellAmount,
+                                limitPrice
+                            )
+                    )
+                        .to.be.revertedWithCustomError(params.dex, "NotAdmin");
+                });
+
+                it("Should revert if user NOT admin of tokenA or TokenB", async () => {
+                    let sellAmount = parseEther("10");
+                    let limitPrice = parseEther("1.5");
+
+                    await expect(
+                        params.dex
+                            .connect(clientAcc2)
+                            .startSaleSingle(
+                                params.tokenA.address,
+                                params.tokenB.address,
+                                sellAmount,
+                                limitPrice
+                            )
+                    )
+                        .to.be.revertedWithCustomError(params.dex, "NotAdmin");
+                });
             });
         });
 
@@ -4073,7 +4228,7 @@ describe("Benture DEX", () => {
 
             // #MAR
             describe("Reverts", () => {
-                it("Should revert if slippage was too high", async () => {
+                it("Should revert if slippage was too high(Buy side)", async () => {
                     let { dex, adminToken, tokenA, tokenB } = await loadFixture(
                         deploysQuotedB
                     );
@@ -4128,6 +4283,78 @@ describe("Benture DEX", () => {
                             tokenB.address,
                             tokenA.address,
                             buyAmount,
+                            slippage,
+                            nonce,
+                            signatureMarket
+                        );
+
+                    let signatureMatch = await hashAndSignMatch(
+                        dex.address,
+                        4,
+                        [3],
+                        nonce
+                    );
+
+                    await expect(
+                        dex.matchOrders(4, [3], nonce, signatureMatch)
+                    ).to.be.revertedWithCustomError(dex, "SlippageTooBig");
+                });
+
+                it("Should revert if slippage was too high(Sell side)", async () => {
+                    let { dex, adminToken, tokenA, tokenB } = await loadFixture(
+                        deploysQuotedB
+                    );
+
+                    let mintAmount = parseEther("1000000");
+                    let sellAmount = parseEther("10");
+                    let buyAmount = sellAmount;
+                    // Make slippage 10%. Revert in any case
+                    let slippage = 10;
+                    // Initial price to be set in the first order
+                    let initialPrice = parseEther("1");
+                    // Price of the second order should be lower to cause slippage
+                    let limitPrice = initialPrice.mul(5);
+                    let nonce = 777;
+
+                    // Mint some tokens to sell
+                    await tokenB.mint(clientAcc1.address, mintAmount);
+                    await tokenB
+                        .connect(clientAcc1)
+                        .approve(dex.address, mintAmount);
+
+                    // Mint some tokens to pay for purchase
+                    await tokenA.mint(clientAcc2.address, mintAmount);
+                    await tokenA
+                        .connect(clientAcc2)
+                        .approve(dex.address, mintAmount);
+
+                    // Create another limit order to be matched later
+                    // ID3
+                    await dex
+                        .connect(clientAcc1)
+                        .buyLimit(
+                            tokenA.address,
+                            tokenB.address,
+                            buyAmount,
+                            limitPrice
+                        );
+
+                    let signatureMarket = await hashAndSignMarket(
+                        dex.address,
+                        tokenB.address,
+                        tokenA.address,
+                        sellAmount,
+                        slippage,
+                        nonce
+                    );
+
+                    // ID4
+                    await dex
+                        .connect(clientAcc2)
+                        .sellMarket(
+                            tokenB.address,
+                            tokenA.address,
+                            sellAmount,
                             slippage,
                             nonce,
                             signatureMarket
@@ -5869,6 +6096,174 @@ describe("Benture DEX", () => {
                     .add(buyerShouldBeLocked)
                     .sub(buyerShouldBeSpent)
             );
+        });
+    });
+
+    describe("Test pair decimals", () => {
+        it("Should set decimals for new pair", async () => {
+            let { dex, adminToken, tokenA, tokenB, tokenC } = await loadFixture(
+                deploysNoQuoted
+            );
+
+            expect(await dex.getDecimals(tokenA.address, tokenC.address)).to.be.equal(0);
+
+            let buyAmount = parseEther("10");
+            let limitPrice = parseEther("1.5");
+
+            await expect(dex
+                .connect(ownerAcc)
+                .startSaleSingle(
+                    tokenA.address,
+                    tokenC.address,
+                    buyAmount,
+                    limitPrice,
+                )).to.be.emit(dex, "DecimalsChanged")
+                .withArgs(
+                    tokenA.address,
+                    tokenC.address,
+                    4
+                );
+
+            expect(await dex.getDecimals(tokenA.address, tokenC.address)).to.be.equal(4);
+        });
+
+        it("Should set decimals for pair by admin", async () => {
+            let { dex, adminToken, tokenA, tokenB, tokenC } = await loadFixture(
+                deploysNoQuoted
+            );
+
+            let buyAmount = parseEther("10");
+            let limitPrice = parseEther("1.5");
+
+            await expect(dex
+                .connect(ownerAcc)
+                .startSaleSingle(
+                    tokenA.address,
+                    tokenC.address,
+                    buyAmount,
+                    limitPrice,
+                )).to.be.emit(dex, "DecimalsChanged")
+                .withArgs(
+                    tokenA.address,
+                    tokenC.address,
+                    4
+                );
+
+            expect(await dex.getDecimals(tokenA.address, tokenC.address)).to.be.equal(4);
+
+            await expect(dex.setDecimals(tokenA.address, tokenC.address, 6))
+                .to.be.emit(dex, "DecimalsChanged")
+                .withArgs(
+                    tokenA.address,
+                    tokenC.address,
+                    6
+                );
+
+            expect(await dex.getDecimals(tokenA.address, tokenC.address)).to.be.equal(6);
+        });
+
+        it("Should revert set decimals for pair by NOT admin", async () => {
+            let { dex, adminToken, tokenA, tokenB, tokenC } = await loadFixture(
+                deploysNoQuoted
+            );
+
+            expect(await dex.getDecimals(tokenA.address, tokenC.address)).to.be.equal(0);
+
+            await expect(dex.connect(clientAcc1).setDecimals(tokenA.address, tokenC.address, 6)).to.be.revertedWith(
+                "Ownable: caller is not the owner"
+            );
+        });
+
+        it("Should revert set decimals if decimals < 4", async () => {
+            let { dex, adminToken, tokenA, tokenB, tokenC } = await loadFixture(
+                deploysNoQuoted
+            );
+
+            expect(await dex.getDecimals(tokenA.address, tokenC.address)).to.be.equal(0);
+
+            await expect(dex.setDecimals(tokenA.address, tokenC.address, 3))
+                .to.be.revertedWithCustomError(dex, "InvalidDecimals");
+        });
+
+        it("Should revert if pair not created", async () => {
+            let { dex, adminToken, tokenA, tokenB, tokenC } = await loadFixture(
+                deploysNoQuoted
+            );
+
+            await expect(dex.setDecimals(tokenA.address, tokenC.address, 6))
+                .to.be.revertedWithCustomError(dex, "PairNotCreated");
+        });
+
+        it("Should revert if first token address = 0", async () => {
+            let { dex, adminToken, tokenA, tokenB, tokenC } = await loadFixture(
+                deploysNoQuoted
+            );
+
+            await expect(dex.setDecimals(zeroAddress, tokenC.address, 6))
+                .to.be.revertedWithCustomError(dex, "InvalidFirstTokenAddress");
+        });
+
+        it("Should NOT set decimals for pair if already setted default", async () => {
+            let { dex, adminToken, tokenA, tokenB } = await loadFixture(
+                deploysQuotedB
+            );
+
+            expect(await dex.getDecimals(tokenA.address, tokenB.address)).to.be.equal(4);
+
+            // Create a pair with native tokens
+            let limitPriceForNative = parseEther("1.5");
+            let sellAmountNative = parseEther("4");
+            let feeRate = await dex.feeRate();
+            let feeNative = sellAmountNative.mul(feeRate).div(10000);
+            let totalLockNative = sellAmountNative.add(feeNative);
+            await expect(dex
+                .connect(ownerAcc)
+                .startSaleSingle(
+                    tokenA.address,
+                    tokenB.address,
+                    sellAmountNative,
+                    limitPriceForNative,
+                    { value: totalLockNative }
+                )).to.be.not.emit(dex, "DecimalsChanged");
+
+            expect(await dex.getDecimals(tokenA.address, tokenB.address)).to.be.equal(4);
+        });
+    });
+
+    describe("Test token verify", () => {
+        it("Should mark token as verify by admin", async () => {
+            let { dex, adminToken, tokenA, tokenB } = await loadFixture(
+                deploysQuotedB
+            );
+
+            expect(await dex.getIsTokenVerified(tokenA.address)).to.be.false;
+
+            await expect(dex.setIsTokenVerified(tokenA.address, true))
+                .to.be.emit(dex, "IsTokenVerifiedChanged")
+                .withArgs(
+                    tokenA.address,
+                    true
+                );
+
+            expect(await dex.getIsTokenVerified(tokenA.address)).to.be.true;
+        });
+
+        it("Should revert mark token as verify by NOT admin", async () => {
+            let { dex, adminToken, tokenA, tokenB } = await loadFixture(
+                deploysQuotedB
+            );
+
+            await expect(dex.connect(clientAcc1).setIsTokenVerified(tokenA.address, true))
+                .to.be.rejectedWith("Ownable: caller is not the owner");
+        });
+
+        it("Should revert mark token if token address = 0", async () => {
+            let { dex, adminToken, tokenA, tokenB } = await loadFixture(
+                deploysQuotedB
+            );
+
+            await expect(dex.setIsTokenVerified(zeroAddress, true))
+                .to.be.revertedWithCustomError(dex, "ZeroAddress");;
         });
     });
 });

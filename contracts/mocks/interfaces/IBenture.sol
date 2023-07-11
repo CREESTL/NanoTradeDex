@@ -254,9 +254,17 @@ interface IBenture is IBentureErrors {
     /// @dev Indicates that custom dividends were sent to the list of users
     /// @param id The ID of custom distribution
     /// @param token The token distributed
+    /// @param users The list of address of dividends receivers
+    /// @param amounts The list of amounts each user receives
     /// @param count The total number of users who received their shares
     ///              Counting starts from the first user and does not skip any users
-    event CustomDividendsDistributed(uint256 id, address token, uint256 count);
+    event CustomDividendsDistributed(
+        uint256 id,
+        address token,
+        address[] users,
+        uint256[] amounts,
+        uint256 count
+    );
 
     /// @dev Indicates that 2/3 of block gas limit was spent during the
     ///      iteration inside the contract method
