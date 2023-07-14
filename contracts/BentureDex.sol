@@ -1060,10 +1060,6 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
                 _pairPrices[order.tokenA][order.tokenB] = order.limitPrice;
 
                 emit PriceChanged(order.tokenA, order.tokenB, order.limitPrice);
-            } else {
-                _pairPrices[order.tokenB][order.tokenA] = order.limitPrice;
-
-                emit PriceChanged(order.tokenB, order.tokenA, order.limitPrice);
             }
         }
     }
