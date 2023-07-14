@@ -152,7 +152,7 @@ async function main() {
     await delay(10000);
 
     // get distribution ID
-    const distributionIds = await benture.getDistributions(adminAcc.address);
+    let distributionIds = await benture.getDistributions(adminAcc.address);
 
     // Event DividendsClaimed
     await benture.claimDividends(distributionIds[0]);
@@ -185,8 +185,16 @@ async function main() {
     console.log("Additional dividents distributed");
     await delay(10000);
 
+    distributionIds = await benture.getDistributions(adminAcc.address);
+    let notClaimedIds = [];
+    for (let i = 0; i < distributionIds.length; i++) {
+        if (!(await benture.hasClaimed(distributionIds[i], adminAcc.address))) {
+            notClaimedIds.push(distributionIds[i]);
+        }
+    }
+
     // Event MultipleDividendsClaimed
-    await benture.claimMultipleDividends(await benture.getDistributions(adminAcc.address));
+    await benture.claimMultipleDividends(notClaimedIds);
     console.log("Multiple dividents claimed");
     await delay(10000);
     console.log("Finish emit Benture events....");
@@ -261,10 +269,10 @@ async function main() {
     await delay(10000);
 
     // Event EmployeeSalaryClaimed
-    await bentureSalary.withdrawSalary(1);
+    await bentureSalary.connect(employeeAcc).withdrawSalary(1);
     console.log("Salary withdrawn");
     await delay(10000);
-    await bentureSalary.withdrawAllSalaries();
+    await bentureSalary.connect(employeeAcc).withdrawAllSalaries();
     console.log("All salary withdrawn");
     await delay(10000);
 
@@ -310,20 +318,13 @@ async function main() {
     let limitPrice = ethers.utils.parseUnits("1.5", 6);
     let bigLimitPrice = ethers.utils.parseUnits("10", 6);
 
-    await origToken.approve(bentureDex.address, mintAmount);
-    console.log("OrigToken approved");
-    await delay(10000);
-    await distToken.approve(bentureDex.address, mintAmount);
-    console.log("DistToken approved");
-    await delay(10000);
-
     let signatureMarketBuy = await hashAndSignMarket(
         bentureDex.address,
         origToken.address,
         distToken.address,
         buyAmount,
         slippage,
-        4
+        7
     );
 
     let signatureMarketSell = await hashAndSignMarket(
@@ -332,63 +333,18 @@ async function main() {
         distToken.address,
         buyAmount,
         slippage,
-        5
+        8
     );
 
     let signatureMatch = await hashAndSignMatch(
         bentureDex.address,
         3,
         [4],
-        6
+        9
     );
-
-    // Event OrderCreated
-    // ID1
-    await bentureDex.buyMarket(
-        origToken.address,
-        distToken.address,
-        buyAmount,
-        slippage,
-        4,
-        signatureMarketBuy
-    );
-    console.log("Buy market order created");
-    await delay(10000);
-
-    // ID2
-    await bentureDex.sellMarket(
-        origToken.address,
-        distToken.address,
-        buyAmount,
-        slippage,
-        5,
-        signatureMarketSell
-    );
-    console.log("Sell market order created");
-    await delay(10000);
-    
-    // ID3
-    await bentureDex.buyLimit(
-        origToken.address,
-        distToken.address,
-        buyAmount,
-        limitPrice
-    );
-    console.log("Buy limit order created");
-    await delay(10000);
-
-    // ID4
-    await bentureDex.sellLimit(
-        origToken.address,
-        distToken.address,
-        sellAmount,
-        limitPrice
-    );
-    console.log("Sell limit order created");
-    await delay(10000);
 
     // Event SaleStarted and event OrderCreated
-    // ID5
+    // ID1
     await bentureDex.startSaleSingle(
         origToken.address,
         distToken.address,
@@ -398,7 +354,7 @@ async function main() {
     console.log("Single sale started");
     await delay(10000);
 
-    // ID6
+    // ID2
     await bentureDex.startSaleMultiple(
         origToken.address,
         distToken.address,
@@ -408,8 +364,53 @@ async function main() {
     console.log("Multiple sale started");
     await delay(10000);
 
+    // Event OrderCreated
+    // ID3
+    await bentureDex.buyMarket(
+        origToken.address,
+        distToken.address,
+        buyAmount,
+        slippage,
+        7,
+        signatureMarketBuy
+    );
+    console.log("Buy market order created");
+    await delay(10000);
+
+    // ID4
+    await bentureDex.sellMarket(
+        origToken.address,
+        distToken.address,
+        buyAmount,
+        slippage,
+        8,
+        signatureMarketSell
+    );
+    console.log("Sell market order created");
+    await delay(10000);
+    
+    // ID5
+    await bentureDex.buyLimit(
+        origToken.address,
+        distToken.address,
+        buyAmount,
+        limitPrice
+    );
+    console.log("Buy limit order created");
+    await delay(10000);
+
+    // ID6
+    await bentureDex.sellLimit(
+        origToken.address,
+        distToken.address,
+        sellAmount,
+        limitPrice
+    );
+    console.log("Sell limit order created");
+    await delay(10000);
+
     // Event OrdersMatched
-    await bentureDex.matchOrders(3, [4], 6, signatureMatch);
+    await bentureDex.matchOrders(3, [4], 9, signatureMatch);
     console.log("Orders matched");
     await delay(10000);
 
@@ -437,7 +438,6 @@ async function main() {
     // Event DecimalsChanged
     await bentureDex.setDecimals(origToken.address, distToken.address, 6);
     console.log("Decimals setted");
-    await delay(10000);
     console.log("Finish emit BentureDex events....");
 
     // ====================================================
@@ -450,14 +450,16 @@ async function main() {
     await delay(10000);
 
     // Event AdminTokenTransferred
-    await bentureAdmin.transderFrom(adminAcc.address, employeeAddress, 1);
+    await bentureAdmin.transferFrom(adminAcc.address, employeeAddress, 1);
     console.log("AdminToken transfered");
     await delay(10000);
 
     console.log("Finish emit BentureAdmin events....");
 }
 
-main().catch((error) => {
-    console.error(error);
-    process.exitCode = 1;
-  });
+main()
+    .then(() => process.exit(0))
+    .catch((error) => {
+        console.error(error);
+        process.exit(1);
+    });

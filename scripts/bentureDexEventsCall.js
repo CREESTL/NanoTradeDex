@@ -44,25 +44,25 @@ async function main() {
     // Call BentureDex contract functions
 
     console.log("Start emit BentureDex events....");
-    // // Event BackendChanged
-    // await bentureDex.setBackend(adminAcc.address);
-    // console.log("Backend setted");
-    // await delay(10000);
+    // Event BackendChanged
+    await bentureDex.setBackend(adminAcc.address);
+    console.log("Backend setted");
+    await delay(10000);
 
-    // // Event FeeRateChanged
-    // await bentureDex.setFee(10);
-    // console.log("Fee setted");
-    // await delay(10000);
+    // Event FeeRateChanged
+    await bentureDex.setFee(10);
+    console.log("Fee setted");
+    await delay(10000);
 
-    // // Event AdminTokenChanged
-    // await bentureDex.setAdminToken(bentureAdmin.address);
-    // console.log("AdminToken setted");
-    // await delay(10000);
+    // Event AdminTokenChanged
+    await bentureDex.setAdminToken(bentureAdmin.address);
+    console.log("AdminToken setted");
+    await delay(10000);
 
-    // // Event IsTokenVerifiedChanged
-    // await bentureDex.setIsTokenVerified(erc20Mintable.address, true);
-    // console.log("Token verify setted");
-    // await delay(10000);
+    // Event IsTokenVerifiedChanged
+    await bentureDex.setIsTokenVerified(erc20Mintable.address, true);
+    console.log("Token verify setted");
+    await delay(10000);
 
     // Set variables for function calls
     let mintAmount = ethers.utils.parseUnits("1000000", 6);
@@ -78,7 +78,7 @@ async function main() {
         distToken.address,
         buyAmount,
         slippage,
-        4
+        7
     );
 
     let signatureMarketSell = await hashAndSignMarket(
@@ -87,63 +87,18 @@ async function main() {
         distToken.address,
         buyAmount,
         slippage,
-        5
+        8
     );
 
     let signatureMatch = await hashAndSignMatch(
         bentureDex.address,
         3,
         [4],
-        6
+        9
     );
-
-    // Event OrderCreated
-    // ID1
-    await bentureDex.buyMarket(
-        origToken.address,
-        distToken.address,
-        buyAmount,
-        slippage,
-        4,
-        signatureMarketBuy
-    );
-    console.log("Buy market order created");
-    await delay(10000);
-
-    // ID2
-    await bentureDex.sellMarket(
-        origToken.address,
-        distToken.address,
-        buyAmount,
-        slippage,
-        5,
-        signatureMarketSell
-    );
-    console.log("Sell market order created");
-    await delay(10000);
-    
-    // ID3
-    await bentureDex.buyLimit(
-        origToken.address,
-        distToken.address,
-        buyAmount,
-        limitPrice
-    );
-    console.log("Buy limit order created");
-    await delay(10000);
-
-    // ID4
-    await bentureDex.sellLimit(
-        origToken.address,
-        distToken.address,
-        sellAmount,
-        limitPrice
-    );
-    console.log("Sell limit order created");
-    await delay(10000);
 
     // Event SaleStarted and event OrderCreated
-    // ID5
+    // ID1
     await bentureDex.startSaleSingle(
         origToken.address,
         distToken.address,
@@ -153,7 +108,7 @@ async function main() {
     console.log("Single sale started");
     await delay(10000);
 
-    // ID6
+    // ID2
     await bentureDex.startSaleMultiple(
         origToken.address,
         distToken.address,
@@ -163,8 +118,53 @@ async function main() {
     console.log("Multiple sale started");
     await delay(10000);
 
+    // Event OrderCreated
+    // ID3
+    await bentureDex.buyMarket(
+        origToken.address,
+        distToken.address,
+        buyAmount,
+        slippage,
+        7,
+        signatureMarketBuy
+    );
+    console.log("Buy market order created");
+    await delay(10000);
+
+    // ID4
+    await bentureDex.sellMarket(
+        origToken.address,
+        distToken.address,
+        buyAmount,
+        slippage,
+        8,
+        signatureMarketSell
+    );
+    console.log("Sell market order created");
+    await delay(10000);
+    
+    // ID5
+    await bentureDex.buyLimit(
+        origToken.address,
+        distToken.address,
+        buyAmount,
+        limitPrice
+    );
+    console.log("Buy limit order created");
+    await delay(10000);
+
+    // ID6
+    await bentureDex.sellLimit(
+        origToken.address,
+        distToken.address,
+        sellAmount,
+        limitPrice
+    );
+    console.log("Sell limit order created");
+    await delay(10000);
+
     // Event OrdersMatched
-    await bentureDex.matchOrders(3, [4], 6, signatureMatch);
+    await bentureDex.matchOrders(3, [4], 9, signatureMatch);
     console.log("Orders matched");
     await delay(10000);
 
@@ -195,7 +195,9 @@ async function main() {
     console.log("Finish emit BentureDex events....");
 }
 
-main().catch((error) => {
-    console.error(error);
-    process.exitCode = 1;
-  });
+main()
+    .then(() => process.exit(0))
+    .catch((error) => {
+        console.error(error);
+        process.exit(1);
+    });
