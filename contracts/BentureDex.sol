@@ -452,8 +452,16 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         uint256 gasThreshold = (block.gaslimit * 2) / 3;
         uint256 lastGasLeft = gasleft();
 
+        uint256 usedNativeAmount = 0;
+
         for (uint256 i = 0; i < amounts.length; i++) {
             uint256 orderId = _startSaleSingle(tokenA, tokenB, amounts[i], prices[i]);
+
+            if (tokenB == address(0)) {
+                usedNativeAmount += _orders[orderId].amountLocked + _orders[orderId].feeAmount;
+            }
+
+            if (usedNativeAmount > msg.value) revert NotEnoughNativeTokens();
 
             lastGasLeft = gasleft();
             // Increase the total amount of gas spent
