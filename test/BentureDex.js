@@ -5988,6 +5988,29 @@ describe("Benture DEX", () => {
                     )
             ).to.be.revertedWithCustomError(dex, "NotEnoughNativeTokens");
         });
+
+        it("Should fail to create multiple sales with native tokens", async () => {
+            let { dex, adminToken, tokenA, tokenB } = await loadFixture(
+                deploysQuotedB
+            );
+
+            // Create a pair with native tokens
+            let limitPriceForNative = parseEther("1.5");
+            let sellAmountNative = parseEther("4");
+            let feeRate = await dex.feeRate();
+            let feeNative = sellAmountNative.mul(feeRate).div(10000);
+            let totalLockNative = sellAmountNative.add(feeNative);
+            await expect(dex
+                .connect(ownerAcc)
+                .startSaleMultiple(
+                    tokenA.address,
+                    zeroAddress,
+                    [sellAmountNative, sellAmountNative],
+                    [limitPriceForNative, limitPriceForNative],
+                    { value: totalLockNative }
+                )).to.be.revertedWithCustomError(dex, "NotEnoughNativeTokens");
+        });
+
         it("Should cancel orders with native tokens", async () => {
             let { dex, adminToken, tokenA, tokenB } = await loadFixture(
                 deploysQuotedB
