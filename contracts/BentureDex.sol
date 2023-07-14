@@ -594,7 +594,6 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
 
         for (uint256 i = 0; i < tokens.length; i++) {
             address lockedToken = tokens[i];
-            if (lockedToken == address(0)) revert ZeroAddress();
             // IDs of orders fees for which were paid in this token
             uint256[] memory ids = _tokensToFeesIds[lockedToken].values();
             for (uint256 j = 0; j < ids.length; j++) {
