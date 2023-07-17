@@ -7,7 +7,7 @@
     "@openzeppelin/contracts-upgradeable": "^4.9.2",
     "@openzeppelin/hardhat-upgrades": "^1.28.0",
     "@primitivefi/hardhat-dodoc": "0.2.3",
-    "hardhat": "^2.16.1",
+    "hardhat": "^2.14.1",
     "hardhat-contract-sizer": "^2.10.0",
     "hardhat-deploy": "0.11.18",
     "hardhat-tracer": "^2.5.1",
