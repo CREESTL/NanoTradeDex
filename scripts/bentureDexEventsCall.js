@@ -92,8 +92,8 @@ async function main() {
 
     let signatureMatch = await hashAndSignMatch(
         bentureDex.address,
-        3,
-        [4],
+        5,
+        [6],
         9
     );
 
@@ -133,8 +133,8 @@ async function main() {
 
     // ID4
     await bentureDex.sellMarket(
-        origToken.address,
         distToken.address,
+        origToken.address,
         buyAmount,
         slippage,
         8,
@@ -155,8 +155,8 @@ async function main() {
 
     // ID6
     await bentureDex.sellLimit(
-        origToken.address,
         distToken.address,
+        origToken.address,
         sellAmount,
         limitPrice
     );
@@ -164,7 +164,7 @@ async function main() {
     await delay(10000);
 
     // Event OrdersMatched
-    await bentureDex.matchOrders(3, [4], 9, signatureMatch);
+    await bentureDex.matchOrders(5, [6], 9, signatureMatch);
     console.log("Orders matched");
     await delay(10000);
 

@@ -14,7 +14,7 @@ const erc20MintableAddress = "0x93d0D42c236992733beC01949B41D576D230f8E5";
 async function main() {
     console.log(`[NOTICE!] Run on chain: ${network.name}`);
     const adminAcc = new ethers.Wallet(process.env.ACC_PRIVATE_KEY);
-    const employeeAcc = new ethers.Wallet(process.env.EMPLOYEE_PRIVATE_KEY);
+    const employeeAcc = new ethers.Wallet(process.env.EMPLOYEE_PRIVATE_KEY, ethers.provider);
     const employeeAddress = employeeAcc.address;
     console.log(`[NOTICE!] Executed by: ${adminAcc.address}`);
 
@@ -107,7 +107,7 @@ async function main() {
     await delay(10000);
 
     // Event EmployeeSalaryClaimed
-    await bentureSalary.connect(employeeAcc).withdrawSalary(salaryId);
+    await bentureSalary.connect(employeeAcc).withdrawSalary(salaryId.toString());
     console.log("Salary withdrawn");
     await delay(10000);
     await bentureSalary.connect(employeeAcc).withdrawAllSalaries();
@@ -115,7 +115,7 @@ async function main() {
     await delay(10000);
 
     // Event EmployeeSalaryRemoved
-    await bentureSalary.removeSalaryFromEmployee(salaryId);
+    await bentureSalary.removeSalaryFromEmployee(salaryId.toString());
     console.log("Salary removed from employee");
     await delay(10000);
 
