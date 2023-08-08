@@ -183,6 +183,7 @@ interface IBentureDex is IBentureDexErrors {
     /// @return The type of the order
     /// @return The side of the order
     /// @return The limit price of the order in quoted tokens
+    /// @return The allowed price slippage in Basis Points
     /// @return True if order is cancellable. Otherwise - false
     /// @return The fee paid for order creation
     /// @return The locked amount of tokens
@@ -200,6 +201,7 @@ interface IBentureDex is IBentureDexErrors {
             uint256,
             OrderType,
             OrderSide,
+            uint256,
             uint256,
             bool,
             uint256,
