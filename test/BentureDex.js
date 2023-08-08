@@ -694,17 +694,18 @@ describe("Benture DEX", () => {
 
                 let order = await dex.getOrder(3);
 
-                let user = order[0];
-                let firstToken = order[1];
-                let secondToken = order[2];
-                let amount = order[3];
-                let amountFilled = order[4];
-                let type = order[5];
-                let side = order[6];
-                let price = order[7];
-                let isCancellable = order[8];
-                let feeAmount = order[9];
-                let lockedAmount = order[10];
+                let user = order[1];
+                let firstToken = order[2];
+                let secondToken = order[3];
+                let amount = order[4];
+                let amountFilled = order[5];
+                let type = order[6];
+                let side = order[7];
+                let price = order[8];
+                let slippage = order[9];
+                let isCancellable = order[10];
+                let feeAmount = order[12];
+                let lockedAmount = order[13];
                 let status = order[11];
 
                 let shouldBeLocked = buyAmount;
@@ -718,6 +719,7 @@ describe("Benture DEX", () => {
                 expect(type).to.eq(1);
                 expect(side).to.eq(1);
                 expect(price).to.eq(limitPrice);
+                expect(slippage).to.eq(0);
                 expect(isCancellable).to.eq(true);
                 expect(feeAmount).to.eq(shouldBeFee);
                 expect(lockedAmount).to.eq(shouldBeLocked);
@@ -1374,17 +1376,18 @@ describe("Benture DEX", () => {
                 // Check that order was really created
                 let order = await dex.getOrder(3);
 
-                let user = order[0];
-                let firstToken = order[1];
-                let secondToken = order[2];
-                let amount = order[3];
-                let amountFilled = order[4];
-                let type = order[5];
-                let side = order[6];
-                let price = order[7];
-                let isCancellable = order[8];
-                let feeAmount = order[9];
-                let lockedAmount = order[10];
+                let user = order[1];
+                let firstToken = order[2];
+                let secondToken = order[3];
+                let amount = order[4];
+                let amountFilled = order[5];
+                let type = order[6];
+                let side = order[7];
+                let price = order[8];
+                let orderSlippage = order[9];
+                let isCancellable = order[10];
+                let feeAmount = order[12];
+                let lockedAmount = order[13];
                 let status = order[11];
 
                 expect(user).to.eq(clientAcc1.address);
@@ -1395,6 +1398,7 @@ describe("Benture DEX", () => {
                 expect(type).to.eq(0);
                 expect(side).to.eq(0);
                 expect(price).to.eq(0);
+                expect(orderSlippage).to.eq(slippage);
                 expect(isCancellable).to.eq(false);
                 expect(feeAmount).to.eq(shouldBeFee);
                 expect(lockedAmount).to.eq(shouldBeLocked);
@@ -1553,17 +1557,18 @@ describe("Benture DEX", () => {
                 // Check that order was really created
                 let order = await dex.getOrder(3);
 
-                let user = order[0];
-                let firstToken = order[1];
-                let secondToken = order[2];
-                let amount = order[3];
-                let amountFilled = order[4];
-                let type = order[5];
-                let side = order[6];
-                let price = order[7];
-                let isCancellable = order[8];
-                let feeAmount = order[9];
-                let lockedAmount = order[10];
+                let user = order[1];
+                let firstToken = order[2];
+                let secondToken = order[3];
+                let amount = order[4];
+                let amountFilled = order[5];
+                let type = order[6];
+                let side = order[7];
+                let price = order[8];
+                let orderSlippage = order[9];
+                let isCancellable = order[10];
+                let feeAmount = order[12];
+                let lockedAmount = order[13];
                 let status = order[11];
 
                 expect(user).to.eq(clientAcc1.address);
@@ -1574,6 +1579,7 @@ describe("Benture DEX", () => {
                 expect(type).to.eq(0);
                 expect(side).to.eq(1);
                 expect(price).to.eq(0);
+                expect(orderSlippage).to.eq(slippage);
                 expect(isCancellable).to.eq(false);
                 expect(feeAmount).to.eq(shouldBeFee);
                 expect(lockedAmount).to.eq(shouldBeLocked);
@@ -1732,17 +1738,18 @@ describe("Benture DEX", () => {
                 // Check that order was really created
                 let order = await dex.getOrder(3);
 
-                let user = order[0];
-                let firstToken = order[1];
-                let secondToken = order[2];
-                let amount = order[3];
-                let amountFilled = order[4];
-                let type = order[5];
-                let side = order[6];
-                let price = order[7];
-                let isCancellable = order[8];
-                let feeAmount = order[9];
-                let lockedAmount = order[10];
+                let user = order[1];
+                let firstToken = order[2];
+                let secondToken = order[3];
+                let amount = order[4];
+                let amountFilled = order[5];
+                let type = order[6];
+                let side = order[7];
+                let price = order[8];
+                let orderSlippage = order[9];
+                let isCancellable = order[10];
+                let feeAmount = order[12];
+                let lockedAmount = order[13];
                 let status = order[11];
 
                 expect(user).to.eq(clientAcc1.address);
@@ -1753,6 +1760,7 @@ describe("Benture DEX", () => {
                 expect(type).to.eq(1);
                 expect(side).to.eq(0);
                 expect(price).to.eq(limitPrice);
+                expect(orderSlippage).to.eq(0);
                 expect(isCancellable).to.eq(true);
                 expect(feeAmount).to.eq(shouldBeFee);
                 expect(lockedAmount).to.eq(shouldBeLocked);
@@ -1837,17 +1845,18 @@ describe("Benture DEX", () => {
                 // Check that order was really created
                 let order = await dex.getOrder(3);
 
-                let user = order[0];
-                let firstToken = order[1];
-                let secondToken = order[2];
-                let amount = order[3];
-                let amountFilled = order[4];
-                let type = order[5];
-                let side = order[6];
-                let price = order[7];
-                let isCancellable = order[8];
-                let feeAmount = order[9];
-                let lockedAmount = order[10];
+                let user = order[1];
+                let firstToken = order[2];
+                let secondToken = order[3];
+                let amount = order[4];
+                let amountFilled = order[5];
+                let type = order[6];
+                let side = order[7];
+                let price = order[8];
+                let orderSlippage = order[9];
+                let isCancellable = order[10];
+                let feeAmount = order[12];
+                let lockedAmount = order[13];
                 let status = order[11];
 
                 expect(user).to.eq(clientAcc1.address);
@@ -1858,6 +1867,7 @@ describe("Benture DEX", () => {
                 expect(type).to.eq(1);
                 expect(side).to.eq(0);
                 expect(price).to.eq(limitPrice);
+                expect(orderSlippage).to.eq(0);
                 expect(isCancellable).to.eq(true);
                 expect(feeAmount).to.eq(shouldBeFee);
                 expect(lockedAmount).to.eq(shouldBeLocked);
@@ -1964,17 +1974,18 @@ describe("Benture DEX", () => {
                 // Check that order was really created
                 let order = await dex.getOrder(3);
 
-                let user = order[0];
-                let firstToken = order[1];
-                let secondToken = order[2];
-                let amount = order[3];
-                let amountFilled = order[4];
-                let type = order[5];
-                let side = order[6];
-                let price = order[7];
-                let isCancellable = order[8];
-                let feeAmount = order[9];
-                let lockedAmount = order[10];
+                let user = order[1];
+                let firstToken = order[2];
+                let secondToken = order[3];
+                let amount = order[4];
+                let amountFilled = order[5];
+                let type = order[6];
+                let side = order[7];
+                let price = order[8];
+                let orderSlippage = order[9];
+                let isCancellable = order[10];
+                let feeAmount = order[12];
+                let lockedAmount = order[13];
                 let status = order[11];
 
                 expect(user).to.eq(clientAcc1.address);
@@ -2131,17 +2142,18 @@ describe("Benture DEX", () => {
 
             // Check that order is cancelled
             order = await dex.getOrder(3);
-            let user = order[0];
-            let firstToken = order[1];
-            let secondToken = order[2];
-            let amount = order[3];
-            let amountFilled = order[4];
-            let type = order[5];
-            let side = order[6];
-            let price = order[7];
-            let isCancellable = order[8];
-            let feeAmount = order[9];
-            let lockedAmount = order[10];
+            let user = order[1];
+            let firstToken = order[2];
+            let secondToken = order[3];
+            let amount = order[4];
+            let amountFilled = order[5];
+            let type = order[6];
+            let side = order[7];
+            let price = order[8];
+            let orderSlippage = order[9];
+            let isCancellable = order[10];
+            let feeAmount = order[12];
+            let lockedAmount = order[13];
             status = order[11];
 
             expect(user).to.eq(clientAcc1.address);
@@ -2287,17 +2299,18 @@ describe("Benture DEX", () => {
                 // Check that order was really created
                 let order = await dex.getOrder(expectedOrderId);
 
-                let user = order[0];
-                let firstToken = order[1];
-                let secondToken = order[2];
-                let amount = order[3];
-                let amountFilled = order[4];
-                let type = order[5];
-                let side = order[6];
-                let price = order[7];
-                let isCancellable = order[8];
-                let feeAmount = order[9];
-                let lockedAmount = order[10];
+                let user = order[1];
+                let firstToken = order[2];
+                let secondToken = order[3];
+                let amount = order[4];
+                let amountFilled = order[5];
+                let type = order[6];
+                let side = order[7];
+                let price = order[8];
+                let orderSlippage = order[9];
+                let isCancellable = order[10];
+                let feeAmount = order[12];
+                let lockedAmount = order[13];
                 let status = order[11];
 
                 expect(user).to.eq(ownerAcc.address);
@@ -2536,17 +2549,18 @@ describe("Benture DEX", () => {
                 let order3 = await dex.getOrder(5);
                 let order4 = await dex.getOrder(6);
 
-                let user = order1[0];
-                let firstToken = order1[1];
-                let secondToken = order1[2];
-                let amount = order1[3];
-                let amountFilled = order1[4];
-                let type = order1[5];
-                let side = order1[6];
-                let price = order1[7];
-                let isCancellable = order1[8];
-                let feeAmount = order1[9];
-                let lockedAmount = order1[10];
+                let user = order1[1];
+                let firstToken = order1[2];
+                let secondToken = order1[3];
+                let amount = order1[4];
+                let amountFilled = order1[5];
+                let type = order1[6];
+                let side = order1[7];
+                let price = order1[8];
+                let orderSlippage = order1[9];
+                let isCancellable = order1[10];
+                let feeAmount = order1[12];
+                let lockedAmount = order1[13];
                 let status = order1[11];
 
                 expect(user).to.eq(ownerAcc.address);
@@ -2562,17 +2576,18 @@ describe("Benture DEX", () => {
                 expect(lockedAmount).to.eq(shouldBeLocked1);
                 expect(status).to.eq(0);
 
-                user = order2[0];
-                firstToken = order2[1];
-                secondToken = order2[2];
-                amount = order2[3];
-                amountFilled = order2[4];
-                type = order2[5];
-                side = order2[6];
-                price = order2[7];
-                isCancellable = order2[8];
-                feeAmount = order2[9];
-                lockedAmount = order2[10];
+                user = order2[1];
+                firstToken = order2[2];
+                secondToken = order2[3];
+                amount = order2[4];
+                amountFilled = order2[5];
+                type = order2[6];
+                side = order2[7];
+                price = order2[8];
+                orderSlippage = order2[9];
+                isCancellable = order2[10];
+                feeAmount = order2[12];
+                lockedAmount = order2[13];
                 status = order2[11];
 
                 expect(user).to.eq(ownerAcc.address);
@@ -2588,17 +2603,18 @@ describe("Benture DEX", () => {
                 expect(lockedAmount).to.eq(shouldBeLocked2);
                 expect(status).to.eq(0);
 
-                user = order3[0];
-                firstToken = order3[1];
-                secondToken = order3[2];
-                amount = order3[3];
-                amountFilled = order3[4];
-                type = order3[5];
-                side = order3[6];
-                price = order3[7];
-                isCancellable = order3[8];
-                feeAmount = order3[9];
-                lockedAmount = order3[10];
+                user = order3[1];
+                firstToken = order3[2];
+                secondToken = order3[3];
+                amount = order3[4];
+                amountFilled = order3[5];
+                type = order3[6];
+                side = order3[7];
+                price = order3[8];
+                orderSlippage = order3[9];
+                isCancellable = order3[10];
+                feeAmount = order3[12];
+                lockedAmount = order3[13];
                 status = order3[11];
 
                 expect(user).to.eq(ownerAcc.address);
@@ -2614,17 +2630,18 @@ describe("Benture DEX", () => {
                 expect(lockedAmount).to.eq(shouldBeLocked3);
                 expect(status).to.eq(0);
 
-                user = order4[0];
-                firstToken = order4[1];
-                secondToken = order4[2];
-                amount = order4[3];
-                amountFilled = order4[4];
-                type = order4[5];
-                side = order4[6];
-                price = order4[7];
-                isCancellable = order4[8];
-                feeAmount = order4[9];
-                lockedAmount = order4[10];
+                user = order4[1];
+                firstToken = order4[2];
+                secondToken = order4[3];
+                amount = order4[4];
+                amountFilled = order4[5];
+                type = order4[6];
+                side = order4[7];
+                price = order4[8];
+                orderSlippage = order4[9];
+                isCancellable = order4[10];
+                feeAmount = order4[12];
+                lockedAmount = order4[13];
                 status = order4[11];
 
                 expect(user).to.eq(ownerAcc.address);
@@ -2832,15 +2849,15 @@ describe("Benture DEX", () => {
                         // Both orders had the same amount so they both
                         // have to be filled
                         let initOrder = await dex.getOrder(4);
-                        let initOrderAmount = initOrder[3];
-                        let initOrderAmountFilled = initOrder[4];
-                        let initOrderAmountLocked = initOrder[10];
+                        let initOrderAmount = initOrder[4];
+                        let initOrderAmountFilled = initOrder[5];
+                        let initOrderAmountLocked = initOrder[13];
                         let initOrderStatus = initOrder[11];
 
                         let matchedOrder = await dex.getOrder(3);
-                        let matchedOrderAmount = matchedOrder[3];
-                        let matchedOrderAmountFilled = matchedOrder[4];
-                        let matchedOrderAmountLocked = matchedOrder[10];
+                        let matchedOrderAmount = matchedOrder[4];
+                        let matchedOrderAmountFilled = matchedOrder[5];
+                        let matchedOrderAmountLocked = matchedOrder[13];
                         let matchedOrderStatus = matchedOrder[11];
 
                         // Both orders should have a `Closed` status
@@ -2962,7 +2979,7 @@ describe("Benture DEX", () => {
                             );
 
                         let a = await dex.getOrder(4);
-                        let b = a[10];
+                        let b = a[13];
                         expect(b).to.eq(buyerShouldBeLocked);
 
                         let signatureMatch = await hashAndSignMatch(
@@ -3021,15 +3038,15 @@ describe("Benture DEX", () => {
                         ).to.eq(buyerShouldBeSpent);
 
                         let initOrder = await dex.getOrder(4);
-                        let initOrderAmount = initOrder[3];
-                        let initOrderAmountFilled = initOrder[4];
-                        let initOrderAmountLocked = initOrder[10];
+                        let initOrderAmount = initOrder[4];
+                        let initOrderAmountFilled = initOrder[5];
+                        let initOrderAmountLocked = initOrder[13];
                         let initOrderStatus = initOrder[11];
 
                         let matchedOrder = await dex.getOrder(3);
-                        let matchedOrderAmount = matchedOrder[3];
-                        let matchedOrderAmountFilled = matchedOrder[4];
-                        let matchedOrderAmountLocked = matchedOrder[10];
+                        let matchedOrderAmount = matchedOrder[4];
+                        let matchedOrderAmountFilled = matchedOrder[5];
+                        let matchedOrderAmountLocked = matchedOrder[13];
                         let matchedOrderStatus = matchedOrder[11];
 
                         // Buy order should be partially filled because
@@ -3218,15 +3235,15 @@ describe("Benture DEX", () => {
                         // Both orders had the same amount so they both
                         // have to be filled
                         let initOrder = await dex.getOrder(4);
-                        let initOrderAmount = initOrder[3];
-                        let initOrderAmountFilled = initOrder[4];
-                        let initOrderAmountLocked = initOrder[10];
+                        let initOrderAmount = initOrder[4];
+                        let initOrderAmountFilled = initOrder[5];
+                        let initOrderAmountLocked = initOrder[13];
                         let initOrderStatus = initOrder[11];
 
                         let matchedOrder = await dex.getOrder(3);
-                        let matchedOrderAmount = matchedOrder[3];
-                        let matchedOrderAmountFilled = matchedOrder[4];
-                        let matchedOrderAmountLocked = matchedOrder[10];
+                        let matchedOrderAmount = matchedOrder[4];
+                        let matchedOrderAmountFilled = matchedOrder[5];
+                        let matchedOrderAmountLocked = matchedOrder[13];
                         let matchedOrderStatus = matchedOrder[11];
 
                         // Both orders should have a `Closed` status
@@ -3409,15 +3426,15 @@ describe("Benture DEX", () => {
                         ).to.eq(buyerShouldBeSpent);
 
                         let initOrder = await dex.getOrder(4);
-                        let initOrderAmount = initOrder[3];
-                        let initOrderAmountFilled = initOrder[4];
-                        let initOrderAmountLocked = initOrder[10];
+                        let initOrderAmount = initOrder[4];
+                        let initOrderAmountFilled = initOrder[5];
+                        let initOrderAmountLocked = initOrder[13];
                         let initOrderStatus = initOrder[11];
 
                         let matchedOrder = await dex.getOrder(3);
-                        let matchedOrderAmount = matchedOrder[3];
-                        let matchedOrderAmountFilled = matchedOrder[4];
-                        let matchedOrderAmountLocked = matchedOrder[10];
+                        let matchedOrderAmount = matchedOrder[4];
+                        let matchedOrderAmountFilled = matchedOrder[5];
+                        let matchedOrderAmountLocked = matchedOrder[13];
                         let matchedOrderStatus = matchedOrder[11];
 
                         // Buy order should be partially filled because
@@ -3611,15 +3628,15 @@ describe("Benture DEX", () => {
                             // Both orders had the same amount so they both
                             // have to be filled
                             let initOrder = await dex.getOrder(4);
-                            let initOrderAmount = initOrder[3];
-                            let initOrderAmountFilled = initOrder[4];
-                            let initOrderAmountLocked = initOrder[10];
+                            let initOrderAmount = initOrder[4];
+                            let initOrderAmountFilled = initOrder[5];
+                            let initOrderAmountLocked = initOrder[13];
                             let initOrderStatus = initOrder[11];
 
                             let matchedOrder = await dex.getOrder(3);
-                            let matchedOrderAmount = matchedOrder[3];
-                            let matchedOrderAmountFilled = matchedOrder[4];
-                            let matchedOrderAmountLocked = matchedOrder[10];
+                            let matchedOrderAmount = matchedOrder[4];
+                            let matchedOrderAmountFilled = matchedOrder[5];
+                            let matchedOrderAmountLocked = matchedOrder[13];
                             let matchedOrderStatus = matchedOrder[11];
 
                             // Both orders should have a `Closed` status
@@ -3810,15 +3827,15 @@ describe("Benture DEX", () => {
                             ).to.eq(buyerShouldBeSpent);
 
                             let initOrder = await dex.getOrder(4);
-                            let initOrderAmount = initOrder[3];
-                            let initOrderAmountFilled = initOrder[4];
-                            let initOrderAmountLocked = initOrder[10];
+                            let initOrderAmount = initOrder[4];
+                            let initOrderAmountFilled = initOrder[5];
+                            let initOrderAmountLocked = initOrder[13];
                             let initOrderStatus = initOrder[11];
 
                             let matchedOrder = await dex.getOrder(3);
-                            let matchedOrderAmount = matchedOrder[3];
-                            let matchedOrderAmountFilled = matchedOrder[4];
-                            let matchedOrderAmountLocked = matchedOrder[10];
+                            let matchedOrderAmount = matchedOrder[4];
+                            let matchedOrderAmountFilled = matchedOrder[5];
+                            let matchedOrderAmountLocked = matchedOrder[13];
                             let matchedOrderStatus = matchedOrder[11];
 
                             // Buy order should be partially filled because
@@ -4019,15 +4036,15 @@ describe("Benture DEX", () => {
                             // Both orders had the same amount so they both
                             // have to be filled
                             let initOrder = await dex.getOrder(4);
-                            let initOrderAmount = initOrder[3];
-                            let initOrderAmountFilled = initOrder[4];
-                            let initOrderAmountLocked = initOrder[10];
+                            let initOrderAmount = initOrder[4];
+                            let initOrderAmountFilled = initOrder[5];
+                            let initOrderAmountLocked = initOrder[13];
                             let initOrderStatus = initOrder[11];
 
                             let matchedOrder = await dex.getOrder(3);
-                            let matchedOrderAmount = matchedOrder[3];
-                            let matchedOrderAmountFilled = matchedOrder[4];
-                            let matchedOrderAmountLocked = matchedOrder[10];
+                            let matchedOrderAmount = matchedOrder[4];
+                            let matchedOrderAmountFilled = matchedOrder[5];
+                            let matchedOrderAmountLocked = matchedOrder[13];
                             let matchedOrderStatus = matchedOrder[11];
 
                             // Both orders should have a `Closed` status
@@ -4222,15 +4239,15 @@ describe("Benture DEX", () => {
                             // Both orders had the same amount so they both
                             // have to be filled
                             let initOrder = await dex.getOrder(4);
-                            let initOrderAmount = initOrder[3];
-                            let initOrderAmountFilled = initOrder[4];
-                            let initOrderAmountLocked = initOrder[10];
+                            let initOrderAmount = initOrder[4];
+                            let initOrderAmountFilled = initOrder[5];
+                            let initOrderAmountLocked = initOrder[13];
                             let initOrderStatus = initOrder[11];
 
                             let matchedOrder = await dex.getOrder(3);
-                            let matchedOrderAmount = matchedOrder[3];
-                            let matchedOrderAmountFilled = matchedOrder[4];
-                            let matchedOrderAmountLocked = matchedOrder[10];
+                            let matchedOrderAmount = matchedOrder[4];
+                            let matchedOrderAmountFilled = matchedOrder[5];
+                            let matchedOrderAmountLocked = matchedOrder[13];
                             let matchedOrderStatus = matchedOrder[11];
 
                             // Buy order should be partially filled because
@@ -4592,15 +4609,15 @@ describe("Benture DEX", () => {
                         ).to.eq(buyerShouldBeSpent);
 
                         let initOrder = await dex.getOrder(4);
-                        let initOrderAmount = initOrder[3];
-                        let initOrderAmountFilled = initOrder[4];
-                        let initOrderAmountLocked = initOrder[10];
+                        let initOrderAmount = initOrder[4];
+                        let initOrderAmountFilled = initOrder[5];
+                        let initOrderAmountLocked = initOrder[13];
                         let initOrderStatus = initOrder[11];
 
                         let matchedOrder = await dex.getOrder(3);
-                        let matchedOrderAmount = matchedOrder[3];
-                        let matchedOrderAmountFilled = matchedOrder[4];
-                        let matchedOrderAmountLocked = matchedOrder[10];
+                        let matchedOrderAmount = matchedOrder[4];
+                        let matchedOrderAmountFilled = matchedOrder[5];
+                        let matchedOrderAmountLocked = matchedOrder[13];
                         let matchedOrderStatus = matchedOrder[11];
 
                         expect(initOrderAmountFilled).to.eq(
@@ -4807,15 +4824,15 @@ describe("Benture DEX", () => {
                         ).to.eq(buyerShouldBeSpent);
 
                         let initOrder = await dex.getOrder(4);
-                        let initOrderAmount = initOrder[3];
-                        let initOrderAmountFilled = initOrder[4];
-                        let initOrderAmountLocked = initOrder[10];
+                        let initOrderAmount = initOrder[4];
+                        let initOrderAmountFilled = initOrder[5];
+                        let initOrderAmountLocked = initOrder[13];
                         let initOrderStatus = initOrder[11];
 
                         let matchedOrder = await dex.getOrder(3);
-                        let matchedOrderAmount = matchedOrder[3];
-                        let matchedOrderAmountFilled = matchedOrder[4];
-                        let matchedOrderAmountLocked = matchedOrder[10];
+                        let matchedOrderAmount = matchedOrder[4];
+                        let matchedOrderAmountFilled = matchedOrder[5];
+                        let matchedOrderAmountLocked = matchedOrder[13];
                         let matchedOrderStatus = matchedOrder[11];
 
                         // Buy order should be closed
@@ -5015,15 +5032,15 @@ describe("Benture DEX", () => {
                         ).to.eq(buyerShouldBeSpent);
 
                         let initOrder = await dex.getOrder(4);
-                        let initOrderAmount = initOrder[3];
-                        let initOrderAmountFilled = initOrder[4];
-                        let initOrderAmountLocked = initOrder[10];
+                        let initOrderAmount = initOrder[4];
+                        let initOrderAmountFilled = initOrder[5];
+                        let initOrderAmountLocked = initOrder[13];
                         let initOrderStatus = initOrder[11];
 
                         let matchedOrder = await dex.getOrder(3);
-                        let matchedOrderAmount = matchedOrder[3];
-                        let matchedOrderAmountFilled = matchedOrder[4];
-                        let matchedOrderAmountLocked = matchedOrder[10];
+                        let matchedOrderAmount = matchedOrder[4];
+                        let matchedOrderAmountFilled = matchedOrder[5];
+                        let matchedOrderAmountLocked = matchedOrder[13];
                         let matchedOrderStatus = matchedOrder[11];
 
                         // Buy order should be closed
@@ -5212,15 +5229,15 @@ describe("Benture DEX", () => {
                     ).to.eq(buyerShouldBeSpent);
 
                     let initOrder = await dex.getOrder(4);
-                    let initOrderAmount = initOrder[3];
-                    let initOrderAmountFilled = initOrder[4];
-                    let initOrderAmountLocked = initOrder[10];
+                    let initOrderAmount = initOrder[4];
+                    let initOrderAmountFilled = initOrder[5];
+                    let initOrderAmountLocked = initOrder[13];
                     let initOrderStatus = initOrder[11];
 
                     let matchedOrder = await dex.getOrder(3);
-                    let matchedOrderAmount = matchedOrder[3];
-                    let matchedOrderAmountFilled = matchedOrder[4];
-                    let matchedOrderAmountLocked = matchedOrder[10];
+                    let matchedOrderAmount = matchedOrder[4];
+                    let matchedOrderAmountFilled = matchedOrder[5];
+                    let matchedOrderAmountLocked = matchedOrder[13];
                     let matchedOrderStatus = matchedOrder[11];
 
                     // Buy order should be closed
@@ -5408,15 +5425,15 @@ describe("Benture DEX", () => {
                     ).to.eq(buyerShouldBeSpent);
 
                     let initOrder = await dex.getOrder(4);
-                    let initOrderAmount = initOrder[3];
-                    let initOrderAmountFilled = initOrder[4];
-                    let initOrderAmountLocked = initOrder[10];
+                    let initOrderAmount = initOrder[4];
+                    let initOrderAmountFilled = initOrder[5];
+                    let initOrderAmountLocked = initOrder[13];
                     let initOrderStatus = initOrder[11];
 
                     let matchedOrder = await dex.getOrder(3);
-                    let matchedOrderAmount = matchedOrder[3];
-                    let matchedOrderAmountFilled = matchedOrder[4];
-                    let matchedOrderAmountLocked = matchedOrder[10];
+                    let matchedOrderAmount = matchedOrder[4];
+                    let matchedOrderAmountFilled = matchedOrder[5];
+                    let matchedOrderAmountLocked = matchedOrder[13];
                     let matchedOrderStatus = matchedOrder[11];
 
                     // Sell order should be closed
@@ -5918,17 +5935,18 @@ describe("Benture DEX", () => {
             // Check that order was really created
             let order = await dex.getOrder(4);
 
-            let user = order[0];
-            let firstToken = order[1];
-            let secondToken = order[2];
-            let amount = order[3];
-            let amountFilled = order[4];
-            let type = order[5];
-            let side = order[6];
-            let price = order[7];
-            let isCancellable = order[8];
-            let feeAmount = order[9];
-            let lockedAmount = order[10];
+            let user = order[1];
+            let firstToken = order[2];
+            let secondToken = order[3];
+            let amount = order[4];
+            let amountFilled = order[5];
+            let type = order[6];
+            let side = order[7];
+            let price = order[8];
+            let slippage = order[9];
+            let isCancellable = order[10];
+            let feeAmount = order[12];
+            let lockedAmount = order[13];
             let status = order[11];
 
             expect(user).to.eq(clientAcc1.address);
@@ -6260,15 +6278,15 @@ describe("Benture DEX", () => {
             // Both orders had the same amount so they both
             // have to be filled
             let initOrder = await dex.getOrder(5);
-            let initOrderAmount = initOrder[3];
-            let initOrderAmountFilled = initOrder[4];
-            let initOrderAmountLocked = initOrder[10];
+            let initOrderAmount = initOrder[4];
+            let initOrderAmountFilled = initOrder[5];
+            let initOrderAmountLocked = initOrder[13];
             let initOrderStatus = initOrder[11];
 
             let matchedOrder = await dex.getOrder(4);
-            let matchedOrderAmount = matchedOrder[3];
-            let matchedOrderAmountFilled = matchedOrder[4];
-            let matchedOrderAmountLocked = matchedOrder[10];
+            let matchedOrderAmount = matchedOrder[4];
+            let matchedOrderAmountFilled = matchedOrder[5];
+            let matchedOrderAmountLocked = matchedOrder[13];
             let matchedOrderStatus = matchedOrder[11];
 
             // Both orders should have a `Closed` status
@@ -6468,15 +6486,15 @@ describe("Benture DEX", () => {
             // Both orders had the same amount so they both
             // have to be filled
             let initOrder = await dex.getOrder(5);
-            let initOrderAmount = initOrder[3];
-            let initOrderAmountFilled = initOrder[4];
-            let initOrderAmountLocked = initOrder[10];
+            let initOrderAmount = initOrder[4];
+            let initOrderAmountFilled = initOrder[5];
+            let initOrderAmountLocked = initOrder[13];
             let initOrderStatus = initOrder[11];
 
             let matchedOrder = await dex.getOrder(4);
-            let matchedOrderAmount = matchedOrder[3];
-            let matchedOrderAmountFilled = matchedOrder[4];
-            let matchedOrderAmountLocked = matchedOrder[10];
+            let matchedOrderAmount = matchedOrder[4];
+            let matchedOrderAmountFilled = matchedOrder[5];
+            let matchedOrderAmountLocked = matchedOrder[13];
             let matchedOrderStatus = matchedOrder[11];
 
             // Both orders should have a `Closed` status
