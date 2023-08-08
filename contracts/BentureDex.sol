@@ -119,40 +119,14 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         external
         view
         returns (
-            address,
-            address,
-            address,
-            uint256,
-            uint256,
-            OrderType,
-            OrderSide,
-            uint256,
-            uint256,
-            bool,
-            uint256,
-            uint256,
-            OrderStatus
+            Order memory
         )
     {
         if (!checkOrderExists(_id)) revert OrderDoesNotExist();
 
         Order memory order = _orders[_id];
 
-        return (
-            order.user,
-            order.tokenA,
-            order.tokenB,
-            order.amount,
-            order.amountFilled,
-            order.type_,
-            order.side,
-            order.limitPrice,
-            order.slippage,
-            order.isCancellable,
-            order.feeAmount,
-            order.amountLocked,
-            order.status
-        );
+        return order;
     }
 
     /// @notice See {IBentureDex-getOrdersByTokens}

@@ -175,38 +175,14 @@ interface IBentureDex is IBentureDexErrors {
 
     /// @notice Returns information about the given order
     /// @param _id The ID of the order to search
-    /// @return The creator of the order
-    /// @return The address of the token that is purchased
-    /// @return The address of the token that is sold
-    /// @return The initial amount of active tokens
-    /// @return The current increasing amount of active tokens
-    /// @return The type of the order
-    /// @return The side of the order
-    /// @return The limit price of the order in quoted tokens
-    /// @return The allowed price slippage in Basis Points
-    /// @return True if order is cancellable. Otherwise - false
-    /// @return The fee paid for order creation
-    /// @return The locked amount of tokens
-    /// @return The current status of the order
+    /// @return The order struct
     function getOrder(
         uint256 _id
     )
         external
         view
         returns (
-            address,
-            address,
-            address,
-            uint256,
-            uint256,
-            OrderType,
-            OrderSide,
-            uint256,
-            uint256,
-            bool,
-            uint256,
-            uint256,
-            OrderStatus
+            Order memory
         );
 
     /// @notice Returns the lisf of IDs of orders containing given tokens
