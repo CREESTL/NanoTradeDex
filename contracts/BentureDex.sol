@@ -30,6 +30,8 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
     address public adminToken;
     /// @dev Incrementing IDs of orders
     Counters.Counter private _orderId;
+    /// @dev Incrementing IDs of sales
+    Counters.Counter private _saleId;
     /// @dev Mapping from order ID to order
     mapping(uint256 => Order) private _orders;
     /// @dev Mapping from order ID to matched order ID to boolean
@@ -409,8 +411,10 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         uint256 amount,
         uint256 price
     ) external payable nonReentrant {
+        _saleId.increment();
+        uint256 id = _saleId.current();
         // Prevent reentrancy
-        _startSaleSingle(tokenA, tokenB, amount, price);
+        _startSaleSingle(tokenA, tokenB, amount, price, id);
     }
 
     /// @notice See {IBentureDex-startSaleMultiple}
@@ -428,10 +432,13 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         uint256 gasThreshold = (block.gaslimit * 2) / 3;
         uint256 lastGasLeft = gasleft();
 
+        _saleId.increment();
+        uint256 id = _saleId.current();
+
         uint256 usedNativeAmount = 0;
 
         for (uint256 i = 0; i < amounts.length; i++) {
-            uint256 orderId = _startSaleSingle(tokenA, tokenB, amounts[i], prices[i]);
+            uint256 orderId = _startSaleSingle(tokenA, tokenB, amounts[i], prices[i], id);
 
             if (tokenB == address(0)) {
                 usedNativeAmount += _orders[orderId].amountLocked + _orders[orderId].feeAmount;
@@ -1340,7 +1347,8 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         address tokenA,
         address tokenB,
         uint256 amount,
-        uint256 price
+        uint256 price,
+        uint256 saleId
     ) 
         private
         updateQuotes(tokenA, tokenB)
@@ -1363,7 +1371,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
             false
         );
 
-        emit SaleStarted(order.id, tokenA, tokenB, amount, price);
+        emit SaleStarted(saleId, order.id, tokenA, tokenB, amount, price);
 
         _updatePairPriceOnLimit(order);
 

@@ -112,11 +112,14 @@ interface IBentureDex is IBentureDexErrors {
     event AdminTokenChanged(address oldAdminToken, address newAdminToken);
 
     /// @notice Indicates that a single series sale has started
+    /// @param saleId The ID of the sale
+    /// @param orderId The ID of the created order
     /// @param tokenA The purchased token
     /// @param tokenB The sold token
     /// @param amount The amount of sold tokens
     /// @param price The price at which the sell is made
     event SaleStarted(
+        uint256 saleId,
         uint256 orderId,
         address tokenA,
         address tokenB,
