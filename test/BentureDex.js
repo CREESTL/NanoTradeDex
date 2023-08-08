@@ -2253,6 +2253,7 @@ describe("Benture DEX", () => {
                 let sellAmount = parseEther("10");
                 let limitPrice = parseEther("1.5");
                 let mintAmount = parseEther("1000000");
+                let expectedSaleId = 3;
                 let expectedOrderId = 3;
 
                 expect(await dex.checkOrderExists(expectedOrderId)).to.be.false;
@@ -2274,6 +2275,7 @@ describe("Benture DEX", () => {
                 )
                     .to.emit(dex, "SaleStarted")
                     .withArgs(
+                        expectedSaleId,
                         expectedOrderId,
                         tokenA.address,
                         tokenB.address,
@@ -2334,6 +2336,7 @@ describe("Benture DEX", () => {
 
                 let sellAmount = parseEther("10");
                 let limitPrice = parseEther("1.5");
+                let expectedSaleId = 1;
                 let expectedOrderId = 1;
 
                 await expect(
@@ -2348,6 +2351,7 @@ describe("Benture DEX", () => {
                 )
                     .to.emit(dex, "SaleStarted")
                     .withArgs(
+                        expectedSaleId,
                         expectedOrderId,
                         tokenA.address,
                         tokenD.address,
@@ -2375,6 +2379,7 @@ describe("Benture DEX", () => {
 
                 let sellAmount = parseEther("10");
                 let limitPrice = parseEther("1.5");
+                let expectedSaleId = 1;
                 let expectedOrderId = 1;
 
                 await expect(
@@ -2389,6 +2394,7 @@ describe("Benture DEX", () => {
                 )
                     .to.emit(dex, "SaleStarted")
                     .withArgs(
+                        expectedSaleId,
                         expectedOrderId,
                         token1.address,
                         token2.address,
