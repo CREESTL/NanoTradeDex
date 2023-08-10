@@ -10,6 +10,7 @@ interface IBentureProducedTokenErrors {
     error EmptyTokenDecimals();
     error InvalidAdminTokenAddress();
     error NotZeroMaxTotalSupply();
+    error ZeroMintAmount();
     error InvalidUserAddress();
     error SupplyExceedsMaximumSupply();
     error InvalidBurnAmount();

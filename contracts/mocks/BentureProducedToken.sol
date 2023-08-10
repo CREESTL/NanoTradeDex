@@ -54,7 +54,7 @@ contract BentureProducedToken is ERC20, IBentureProducedToken {
     /// @param name_ The name of the token
     /// @param symbol_ The symbol of the token
     /// @param decimals_ Number of decimals of the token
-    /// @param mintable_ Token may be either mintable or not. Can be changed later.
+    /// @param mintable_ Token may be either mintable or not
     /// @param maxTotalSupply_ Maximum amount of tokens to be minted
     ///        Use `0` to create a token with no maximum amount
     /// @param adminToken_ Address of the admin token for controlled token
@@ -66,7 +66,9 @@ contract BentureProducedToken is ERC20, IBentureProducedToken {
         uint8 decimals_,
         bool mintable_,
         uint256 maxTotalSupply_,
-        address adminToken_
+        uint256 mintAmount,
+        address adminToken_,
+        address receiver
     ) ERC20(name_, symbol_) {
         if (bytes(name_).length == 0) {
             revert EmptyTokenName();
@@ -88,19 +90,32 @@ contract BentureProducedToken is ERC20, IBentureProducedToken {
                 // If 0 value was provided by the user, that means he wants to create
                 // a token with an "infinite" max total supply
                 maxTotalSupply_ = type(uint256).max;
-            }
+            } 
         } else {
             if (maxTotalSupply_ != 0) {
                 revert NotZeroMaxTotalSupply();
             }
+            if (mintAmount == 0) {
+                revert ZeroMintAmount();
+            }
+            maxTotalSupply_ = mintAmount;
         }
+        if (mintAmount > maxTotalSupply_) {
+            revert SupplyExceedsMaximumSupply();
+        }
+
+        _maxTotalSupply = maxTotalSupply_;
         _tokenName = name_;
         _tokenSymbol = symbol_;
         _ipfsUrl = ipfsUrl_;
         _decimals = decimals_;
         _mintable = mintable_;
-        _maxTotalSupply = maxTotalSupply_;
         _adminToken = adminToken_;
+        if (mintAmount > 0) {
+            // Add receiver of tokens to holders list if he isn't there already
+            _holders.add(receiver);
+            _mint(receiver, mintAmount);
+        }
     }
 
     /// @notice See {IBentureProducedToken-mintable}
@@ -111,6 +126,16 @@ contract BentureProducedToken is ERC20, IBentureProducedToken {
     /// @notice See {IBentureProducedToken-holders}
     function holders() external view returns (address[] memory) {
         return _holders.values();
+    }
+
+    /// @notice See {IBentureProducedToken-holders}
+    function getHolder(uint256 holderId) external view returns (address) {
+        return _holders.values()[holderId];
+    }
+
+    /// @notice See {IBentureProducedToken-holdersLength}
+    function holdersLength() external view returns (uint256) {
+        return _holders.values().length;
     }
 
     /// @notice See {IBentureProducedTokne-ipfsUrl}

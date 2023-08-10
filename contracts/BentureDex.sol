@@ -1371,8 +1371,6 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
             false
         );
 
-        emit SaleStarted(saleId, order.id, tokenA, tokenB, amount, price);
-
         _updatePairPriceOnLimit(order);
 
         _checkAndInitPairDecimals(tokenA, tokenB);
@@ -1393,6 +1391,8 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         order.feeAmount = feeAmount;
 
         _createOrder(order, lockAmount);
+
+        emit SaleStarted(saleId, order.id, tokenA, tokenB, amount, price);
 
         return order.id;
     }
