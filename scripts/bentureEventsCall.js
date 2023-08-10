@@ -68,7 +68,7 @@ async function main() {
     // Event CustomDividendsDistributed
     await benture.distributeDividendsCustom(
         distToken.address,
-        [employeeAddress.address],
+        [employeeAddress],
         [lockAmount]
     );
     console.log("Custom dividents distributed");

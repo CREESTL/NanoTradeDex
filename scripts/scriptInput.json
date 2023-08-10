@@ -1,25 +1,25 @@
 {
   "polygon_testnet": {
     "Benture": {
-      "address": "0xd98C20859E75a679d6671110f5Eb06fEEd73e898"
+      "address": "0x7b0be8103eD04c9F6A3FD6a1084a0dEb00AE85Bd"
     },
     "BentureAdmin": {
-      "address": "0x251B4373508a4227a3cdA20b76dfD9197174f3B7"
+      "address": "0xC14d72233D26fAB626C9d71c599F1E3D158E1c13"
     },
     "BentureFactory": {
-      "address": "0x08578E7F4ac2AAe882123c23F9A4f0566c9CCbee"
+      "address": "0x6a10f9e8BeFbAE8Bb2586aeb711aeA5e7aCdb962"
     },
     "BentureSalary": {
-      "address": "0xfBd53D319340D2Daa537BfF3769bB3722FFCa5C6"
+      "address": "0x8323fD97B803429103Aa60ca1DC9f52Df7f6839B"
     },
     "BentureDex": {
-      "address": "0xC0dB205A0F0Aa17D57CF651a55714304354ac92c"
+      "address": "0xfA3Edc9db7bb5458695Ad99651bbDbFa5470BD14"
     },
     "OrigToken": {
-      "address": "0x931772089288c9cEde8223856a8Ac017e23f7E24"
+      "address": "0xD8952a0169fEC57A634e1c01030306B99775c132"
     },
     "DistToken": {
-      "address": "0xb8EF4CB3056d1DAf0b87280b83C1375F3B50a4a6"
+      "address": "0xB709f7b980c11a9003144C84F7d9B64da6af6AaD"
     }
   },
   "polygon_mainnet": {

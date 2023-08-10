@@ -82,12 +82,12 @@ async function main() {
     await delay(10000);
 
     // Event EmployeeNameChanged
-    await bentureSalary.setNameToEmployee(employeeAddress, "Test");
+    await bentureSalary.setNameToEmployee(employeeAddress, origToken.address, "Test");
     console.log("Amployee name setted");
     await delay(10000);
 
     // Event EmployeeNameRemoved
-    await bentureSalary.removeNameFromEmployee(employeeAddress);
+    await bentureSalary.removeNameFromEmployee(employeeAddress, origToken.address);
     console.log("Amployee name removed");
     await delay(10000);
 
@@ -97,17 +97,17 @@ async function main() {
         origToken.address
     );
     // Event SalaryPeriodsAdded
-    await bentureSalary.addPeriodsToSalary(salaryId, [110, 120, 130]);
+    await bentureSalary.addPeriodsToSalary(salaryId[0], [110, 120, 130]);
     console.log("Periods added to salary");
     await delay(10000);
 
     // Event SalaryPeriodsRemoved
-    await bentureSalary.removePeriodsFromSalary(salaryId, 3);
+    await bentureSalary.removePeriodsFromSalary(salaryId[0], 3);
     console.log("Periods removed from salary");
     await delay(10000);
 
     // Event EmployeeSalaryClaimed
-    await bentureSalary.connect(employeeAcc).withdrawSalary(salaryId.toString());
+    await bentureSalary.connect(employeeAcc).withdrawSalary(salaryId[0]);
     console.log("Salary withdrawn");
     await delay(10000);
     await bentureSalary.connect(employeeAcc).withdrawAllSalaries();
@@ -115,7 +115,7 @@ async function main() {
     await delay(10000);
 
     // Event EmployeeSalaryRemoved
-    await bentureSalary.removeSalaryFromEmployee(salaryId.toString());
+    await bentureSalary.removeSalaryFromEmployee(salaryId[0]);
     console.log("Salary removed from employee");
     await delay(10000);
 

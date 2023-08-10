@@ -40,6 +40,7 @@ async function main() {
         18,
         true,
         ethers.utils.parseUnits("1000000000", 18),
+        0,
         bentureAdmin.address
     );
     console.log("OrigToken created");
@@ -57,6 +58,7 @@ async function main() {
         18,
         true,
         ethers.utils.parseUnits("1000000000", 18),
+        0,
         bentureAdmin.address
     );
     console.log("DistToken created");
