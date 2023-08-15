@@ -11,6 +11,7 @@ interface IBentureDexErrors {
     error NoQuotedTokens();
     error AdminTokenNotSet();
     error ZeroPrice();
+    error ZeroLockAmount();
     error NoFeesToWithdraw();
     error NotAdmin();
     error DifferentLength();

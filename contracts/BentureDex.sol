@@ -836,6 +836,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
     }
 
     function _createOrder(Order memory order, uint256 lockAmount) private {
+        if (lockAmount == 0) revert ZeroLockAmount(); 
         // Mark that new ID corresponds to the pair of tokens
         _tokensToOrders[order.tokenA][order.tokenB].push(order.id);
 
@@ -956,8 +957,6 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         for (uint256 i = 0; i < matchedIds.length; i++) {
             Order memory matchedOrder = _orders[matchedIds[i]];
 
-            emit OrdersMatched(initOrder.id, matchedOrder.id);
-
             // Mark that both orders matched
             _matchedOrders[initOrder.id][matchedOrder.id] = true;
             _matchedOrders[matchedOrder.id][initOrder.id] = true;
@@ -974,6 +973,8 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
                     // Price of the executed limit order
                     _getNewPrice(initOrder, matchedOrder)
                 );
+
+            emit OrdersMatched(initOrder.id, matchedOrder.id, amountToInit, amountToMatched);
 
             // Revert if slippage is too big for any of the orders
             // Slippage is only allowed for market orders.
@@ -1327,20 +1328,17 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
 
     function _checkAdminOfControlledTokens(address user, address tokenA, address tokenB) private view {
         if (adminToken == address(0)) revert AdminTokenNotSet();
-        bool isAdminA = true;
-        bool isAdminB = true;
+
         if (tokenA != address(0) && IBentureAdmin(adminToken).checkIsControlled(tokenA)) {
             if (!IBentureAdmin(adminToken).checkAdminOfProject(user, tokenA)) {
-                isAdminA = false;
+                revert NotAdmin();
             }
         }
         if (tokenB != address(0) && IBentureAdmin(adminToken).checkIsControlled(tokenB)) {
             if (!IBentureAdmin(adminToken).checkAdminOfProject(user, tokenB)) {
-                isAdminB = false;
+                revert NotAdmin();
             }
         }
-
-        if (!isAdminA && !isAdminB) revert NotAdmin();
     }
 
     function _startSaleSingle(

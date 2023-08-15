@@ -133,7 +133,14 @@ interface IBentureDex is IBentureDexErrors {
     /// @notice Indicates that orders were matched
     /// @param initId The ID of first matched order
     /// @param matchedId The ID of the second matched order
-    event OrdersMatched(uint256 initId, uint256 matchedId);
+    /// @param amountToInit The amount of tokens matched to init order
+    /// @param amountToMatched The amount of tokens matched to matched order
+    event OrdersMatched(
+        uint256 initId,
+        uint256 matchedId,
+        uint256 amountToInit,
+        uint256 amountToMatched
+    );
 
     /// @notice Indicates that price of the pair was changed
     /// @param tokenA The address of the first token of the pair
