@@ -24,17 +24,34 @@ The Benture is an investing marketplace, connecting entrepreneurs with investors
 - Install [Node.js](https://nodejs.org/en/download/)
 - Clone this repository with `git clone https://git.sfxdx.ru/nano-trade/nano-trade-sc.git`
 - Navigate to the directory with the cloned code
-- Install [Hardhat](https://hardhat.org/) with `npm install --save-dev hardhat`
-- Install all required dependencies with `npm install`
+- Install all required dependencies with `npm install --force`
 - Create a file called `.env` in the root of the project with the same contents as `.env.example`
 - Create an account on [Polygonscan](https://polygonscan.com/). Go to `Account -> API Keys`. Create a new API key. Copy it to `.env` file
   ```
   POLYGONSCAN_API_KEY=<your polygonscan API key>
   ```
+
+- Create an account on [Alchemy](https://www.alchemy.com/). Create a new app for chain `Polygon Pos` and network `Polygon mumbai`. Copy API key to `.env` file
+  ```
+  ALCHEMY_MUMBAI=<your alchemy mumbai API key>
+  ```
+
 - Copy your wallet's private key (see [Wallets](#wallets)) to `.env` file
 
   ```
   ACC_PRIVATE_KEY=<your private key>
+  ```
+
+- Copy backend wallet's private key (see [Wallets](#wallets)) to `.env` file
+
+  ```
+  BACKEND_PRIVATE_KEY=<backend private key>
+  ```
+
+- Copy employee wallet's private key (see [Wallets](#wallets)) to `.env` file if you plan to run the `allEventsCall` (see [Run scripts](#run)) script
+
+  ```
+  EMPLOYEE_PRIVATE_KEY=<employee private key>
   ```
 
   :warning:**DO NOT SHARE YOUR .env FILE IN ANY WAY OR YOU RISK TO LOSE ALL YOUR FUNDS**:warning:
@@ -61,6 +78,34 @@ npx hardhat test
 
 ```
 npx hardhat run <script file name here> --network <network name here>
+```
+- `allEventsCall` calls all functions in all contracts that emit events. Before running it, you must fill the `scriptInput.json` file like this:
+```
+{
+"polygon_testnet": {
+    "Benture": {
+      "address": <Benture contract address>
+    },
+    "BentureAdmin": {
+      "address": <BentureAdmin contract address>
+    },
+    "BentureFactory": {
+      "address": <BentureFactory contract address>
+    },
+    "BentureSalary": {
+      "address": <BentureSalary contract address>
+    },
+    "BentureDex": {
+      "address": <BentureDex contract address>
+    },
+    "OrigToken": {
+      "address": ""<This item will be generated automatically>
+    },
+    "DistToken": {
+      "address": ""<This item will be generated automatically>
+    }
+  }
+}
 ```
 
 <a name="deploy"/>
@@ -158,6 +203,14 @@ Wallet's address and private key should be pasted into the `.env` file (see [Pre
 - ERC20 tokens can be sold and bought (except native tokens in Sell orders)
 
 ---
+
+**Superadmin side**
+
+_Decimals_
+Superadmin can change pair decimals. Default pair decimals is 4.
+
+_Token verify_
+Superadmin can mark tokens as verified.
 
 **Admin side**
 

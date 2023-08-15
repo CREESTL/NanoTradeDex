@@ -31,7 +31,7 @@ async function main() {
 
     console.log("Start emit BentureProducedToken events....");
     // Event ProjectTokenMinted
-    let mintAmount = ethers.utils.parseUnits("10000000", 6);
+    let mintAmount = ethers.utils.parseUnits("10000000", 18);
     let burnAmount = ethers.utils.parseUnits("100", 6);
     let transferAmount = ethers.utils.parseUnits("100", 6);
 
@@ -59,15 +59,17 @@ async function main() {
     await origToken.approve(benture.address, ethers.utils.parseUnits("10000000", 6));
     console.log("OrigToken approved for benture");
     await delay(10000);
-    await distToken.approve(bentureDex.address, ethers.utils.parseUnits("10000000", 6));
+    await distToken.approve(bentureDex.address, ethers.utils.parseUnits("10000000", 18));
     console.log("DistToken approved for bentureDex");
     await delay(10000);
-    await origToken.approve(bentureDex.address, ethers.utils.parseUnits("10000000", 6));
+    await origToken.approve(bentureDex.address, ethers.utils.parseUnits("10000000", 18));
     console.log("OrigToken approved for bentureDex");
     console.log("Finish emit BentureProducedToken events....");
 }
 
-main().catch((error) => {
-    console.error(error);
-    process.exitCode = 1;
-  });
+main()
+    .then(() => process.exit(0))
+    .catch((error) => {
+        console.error(error);
+        process.exit(1);
+    });

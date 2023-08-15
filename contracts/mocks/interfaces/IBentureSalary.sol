@@ -23,9 +23,11 @@ interface IBentureSalary is IBentureSalaryErrors {
 
     /// @notice Returns the name of employee.
     /// @param employeeAddress Address of employee.
+    /// @param projectToken The address of the project token
     /// @return name The name of employee.
     function getNameOfEmployee(
-        address employeeAddress
+        address employeeAddress,
+        address projectToken
     ) external view returns (string memory name);
 
     /// @notice Returns the array of admins of employee.
@@ -37,17 +39,36 @@ interface IBentureSalary is IBentureSalaryErrors {
 
     /// @notice Sets new or changes current name of the employee.
     /// @param employeeAddress Address of employee.
+    /// @param projectToken The address of the project token
     /// @param name New name of employee.
     /// @dev Only admin can call this method.
     function setNameToEmployee(
         address employeeAddress,
+        address projectToken,
         string memory name
+    ) external;
+
+    /// @notice Edit employee name and/or address on project
+    /// @param employeeAddress Address of employee
+    /// @param projectToken The address of the project token
+    /// @param newEmployeeName New name of employee
+    /// @param newEmployeeAddress New address of employee
+    /// @dev Only admin can call this method.
+    function editEmployeeInfo(
+        address employeeAddress,
+        address projectToken,
+        string memory newEmployeeName,
+        address newEmployeeAddress
     ) external;
 
     /// @notice Removes name from employee.
     /// @param employeeAddress Address of employee.
+    /// @param projectToken The address of the project token
     /// @dev Only admin can call this method.
-    function removeNameFromEmployee(address employeeAddress) external;
+    function removeNameFromEmployee(
+        address employeeAddress,
+        address projectToken
+    ) external;
 
     /// @notice Adds new employee to admin's project
     /// @param employeeAddress Address of employee
@@ -204,10 +225,10 @@ interface IBentureSalary is IBentureSalaryErrors {
     );
 
     /// @notice Emits when Employee's name was added or changed
-    event EmployeeNameChanged(address employeeAddress, string name);
+    event EmployeeNameChanged(address employeeAddress, address projectToken, string name);
 
     /// @notice Emits when name was removed from Employee
-    event EmployeeNameRemoved(address employeeAddress);
+    event EmployeeNameRemoved(address employeeAddress, address projectToken);
 
     /// @notice Emits when salary was added to Employee
     event EmployeeSalaryAdded(

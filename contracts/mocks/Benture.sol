@@ -846,42 +846,44 @@ contract Benture is
 
         uint256 share;
 
-        // Calculate shares if equal distribution
-        if (distribution.isEqual) {
-            // NOTE: result gets rounded towards zero
-            // If the `amount` is less than `formulaLockers` then share is 0
-            share = distribution.amount / distribution.formulaLockers;
-            // Calculate shares in weighted distribution
-        } else {
-            // Get the amount locked by the user before the given distribution
-            uint256 lock = pool.lockHistory[user][id];
+        // Calculate shares in weighted distribution
+        // Get the amount locked by the user before the given distribution
+        uint256 lock = pool.lockHistory[user][id];
 
-            // If lock is zero, that means:
-            // 1) The user has unlocked all his tokens before the given distribution
-            // OR
-            // 2) The user hasn't called either lock or unlock functions before the given distribution
-            //    and because of that his locked amount was not updated in the mapping
-            // So we have to determine which option is the right one
-            if (lock == 0) {
-                // Check if user has changed his lock amount before the distribution
-                if (pool.changedBeforeId[user][id]) {
-                    // If he did, and his current lock is 0, that means that he has unlocked all his tokens and 0 is a correct lock amount
-                    lock = 0;
+        // If lock is zero, that means:
+        // 1) The user has unlocked all his tokens before the given distribution
+        // OR
+        // 2) The user hasn't called either lock or unlock functions before the given distribution
+        //    and because of that his locked amount was not updated in the mapping
+        // So we have to determine which option is the right one
+        if (lock == 0) {
+            // Check if user has changed his lock amount before the distribution
+            if (pool.changedBeforeId[user][id]) {
+                // If he did, and his current lock is 0, that means that he has unlocked all his tokens and 0 is a correct lock amount
+                lock = 0;
+            } else {
+                // If he didn't, that means that *we have to use his lock from the closest distribution from the past*
+                // We have to find a distribution that has an ID that is less than `id` but greater than all other
+                // IDs less than `id`
+                int256 prevMaxId = _findMaxPrev(user, id);
+                if (prevMaxId != -1) {
+                    lock = pool.lockHistory[user][uint256(prevMaxId)];
                 } else {
-                    // If he didn't, that means that *we have to use his lock from the closest distribution from the past*
-                    // We have to find a distribution that has an ID that is less than `id` but greater than all other
-                    // IDs less than `id`
-                    int256 prevMaxId = _findMaxPrev(user, id);
-                    if (prevMaxId != -1) {
-                        lock = pool.lockHistory[user][uint256(prevMaxId)];
-                    } else {
-                        // If no such an ID exists (i.e. there were no distributions before the current one that had non-zero locks before them)
-                        // that means that a user has *locked and unlocked* his tokens before the very first distribution. In this case 0 is a correct lock amount
-                        lock = 0;
-                    }
+                    // If no such an ID exists (i.e. there were no distributions before the current one that had non-zero locks before them)
+                    // that means that a user has *locked and unlocked* his tokens before the very first distribution. In this case 0 is a correct lock amount
+                    lock = 0;
                 }
             }
+        }
 
+        // Calculate shares if equal distribution
+        if (distribution.isEqual) {
+            if (lock != 0) {
+                // NOTE: result gets rounded towards zero
+                // If the `amount` is less than `formulaLockers` then share is 0
+                share = distribution.amount / distribution.formulaLockers;
+            }
+        } else {
             share = (distribution.amount * lock) / distribution.formulaLocked;
         }
 

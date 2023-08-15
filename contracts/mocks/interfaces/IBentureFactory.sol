@@ -17,6 +17,7 @@ interface IBentureFactory is IBentureFactoryErrors {
     /// @param decimals Number of decimals of the token
     /// @param mintable Token may be either mintable or not. Can be changed later.
     /// @param maxTotalSupply Maximum amount of tokens to be minted
+    /// @param mintAmount Amount of tokens to be minted
     /// @param adminToken_ Address of the admin token for controlled token
     /// @dev Anyone can call this method. No restrictions.
     function createERC20Token(
@@ -26,6 +27,7 @@ interface IBentureFactory is IBentureFactoryErrors {
         uint8 decimals,
         bool mintable,
         uint256 maxTotalSupply,
+        uint256 mintAmount,
         address adminToken_
     ) external;
 

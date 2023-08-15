@@ -58,7 +58,7 @@ async function main() {
     await delay(10000);
 
     // get distribution ID
-    const distributionIds = await benture.getDistributions(adminAcc.address);
+    let distributionIds = await benture.getDistributions(adminAcc.address);
 
     // Event DividendsClaimed
     await benture.claimDividends(distributionIds[0]);
@@ -68,7 +68,7 @@ async function main() {
     // Event CustomDividendsDistributed
     await benture.distributeDividendsCustom(
         distToken.address,
-        [employeeAddress.address],
+        [employeeAddress],
         [lockAmount]
     );
     console.log("Custom dividents distributed");
@@ -91,13 +91,23 @@ async function main() {
     console.log("Additional dividents distributed");
     await delay(10000);
 
+    distributionIds = await benture.getDistributions(adminAcc.address);
+    let notClaimedIds = [];
+    for (let i = 0; i < distributionIds.length; i++) {
+        if (!(await benture.hasClaimed(distributionIds[i], adminAcc.address))) {
+            notClaimedIds.push(distributionIds[i]);
+        }
+    }
+
     // Event MultipleDividendsClaimed
-    await benture.claimMultipleDividends(await benture.getDistributions(adminAcc.address));
+    await benture.claimMultipleDividends(notClaimedIds);
     console.log("Multiple dividents claimed");
     console.log("Finish emit Benture events....");
 }
 
-main().catch((error) => {
-    console.error(error);
-    process.exitCode = 1;
-  });
+main()
+    .then(() => process.exit(0))
+    .catch((error) => {
+        console.error(error);
+        process.exit(1);
+    });

@@ -14,7 +14,7 @@ const erc20MintableAddress = "0x93d0D42c236992733beC01949B41D576D230f8E5";
 async function main() {
     console.log(`[NOTICE!] Run on chain: ${network.name}`);
     const adminAcc = new ethers.Wallet(process.env.ACC_PRIVATE_KEY);
-    const employeeAcc = new ethers.Wallet(process.env.EMPLOYEE_PRIVATE_KEY);
+    const employeeAcc = new ethers.Wallet(process.env.EMPLOYEE_PRIVATE_KEY, ethers.provider);
     const employeeAddress = employeeAcc.address;
     console.log(`[NOTICE!] Executed by: ${adminAcc.address}`);
 
@@ -82,12 +82,12 @@ async function main() {
     await delay(10000);
 
     // Event EmployeeNameChanged
-    await bentureSalary.setNameToEmployee(employeeAddress, "Test");
+    await bentureSalary.setNameToEmployee(employeeAddress, origToken.address, "Test");
     console.log("Amployee name setted");
     await delay(10000);
 
     // Event EmployeeNameRemoved
-    await bentureSalary.removeNameFromEmployee(employeeAddress);
+    await bentureSalary.removeNameFromEmployee(employeeAddress, origToken.address);
     console.log("Amployee name removed");
     await delay(10000);
 
@@ -97,17 +97,17 @@ async function main() {
         origToken.address
     );
     // Event SalaryPeriodsAdded
-    await bentureSalary.addPeriodsToSalary(salaryId, [110, 120, 130]);
+    await bentureSalary.addPeriodsToSalary(salaryId[0], [110, 120, 130]);
     console.log("Periods added to salary");
     await delay(10000);
 
     // Event SalaryPeriodsRemoved
-    await bentureSalary.removePeriodsFromSalary(salaryId, 3);
+    await bentureSalary.removePeriodsFromSalary(salaryId[0], 3);
     console.log("Periods removed from salary");
     await delay(10000);
 
     // Event EmployeeSalaryClaimed
-    await bentureSalary.connect(employeeAcc).withdrawSalary(salaryId);
+    await bentureSalary.connect(employeeAcc).withdrawSalary(salaryId[0]);
     console.log("Salary withdrawn");
     await delay(10000);
     await bentureSalary.connect(employeeAcc).withdrawAllSalaries();
@@ -115,7 +115,7 @@ async function main() {
     await delay(10000);
 
     // Event EmployeeSalaryRemoved
-    await bentureSalary.removeSalaryFromEmployee(salaryId);
+    await bentureSalary.removeSalaryFromEmployee(salaryId[0]);
     console.log("Salary removed from employee");
     await delay(10000);
 
@@ -125,7 +125,9 @@ async function main() {
     console.log("Finish emit BentureSalary events....");
 }
 
-main().catch((error) => {
-    console.error(error);
-    process.exitCode = 1;
-  });
+main()
+    .then(() => process.exit(0))
+    .catch((error) => {
+        console.error(error);
+        process.exit(1);
+    });

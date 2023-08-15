@@ -4,6 +4,17 @@ const path = require("path");
 const delay = require("delay");
 require("dotenv").config();
 
+const {
+    getTxHashMatch,
+    getTxHashMarket,
+    hashAndSignMatch,
+    hashAndSignMarket,
+    calcFeeAmount,
+    calcBuyerLockAmount,
+    calcBuyerSpentAmount,
+    calcSellerSpentAmount,
+} = require("../test/utils.js");
+
 // JSON file to keep information about previous deployments
 const scriptInputFileName = "./scriptInput.json";
 const SCRIPT_INPUT = require(scriptInputFileName);
@@ -26,54 +37,23 @@ async function main() {
     const bentureSalary = await ethers.getContractAt("BentureSalary", SCRIPT_INPUT[network.name]["BentureSalary"].address);
     const bentureDex = await ethers.getContractAt("BentureDex", SCRIPT_INPUT[network.name]["BentureDex"].address);
     const erc20Mintable = await ethers.getContractAt("ERC20Mintable", erc20MintableAddress);
+    const origToken = await ethers.getContractAt("BentureProducedToken", SCRIPT_INPUT[network.name]["OrigToken"].address);
+    const distToken = await ethers.getContractAt("BentureProducedToken", SCRIPT_INPUT[network.name]["DistToken"].address);
 
     // ====================================================
+    // Call BentureAdmin contract functions
 
-    // Call BentureFactory contract functions
-
-    console.log("Start emit BentureFactory events....");
-    // Event CreateERC20Token, event PoolCreated in Benture and event AdminTokenCreated in BentureAdmin
-    await bentureFactory.createERC20Token(
-        "Dummy",
-        "DMM",
-        ipfsUrl,
-        18,
-        true,
-        ethers.utils.parseUnits("1000000000", 18),
-        0,
-        bentureAdmin.address
-    );
-    console.log("OrigToken created");
+    console.log("Start emit BentureAdmin events....");
+    // Event AdminTokenBurnt
+    await bentureAdmin.burn(2);
+    console.log("AdminToken burned");
     await delay(10000);
 
-    // Get the address of the last ERC20 token produced in the factory
-    let origTokenAddress = await bentureFactory.lastProducedToken();
-    SCRIPT_INPUT[network.name]["OrigToken"].address = origTokenAddress;
+    // Event AdminTokenTransferred
+    await bentureAdmin.transferFrom(adminAcc.address, employeeAddress, 1);
+    console.log("AdminToken transfered");
 
-    // Deploy another ERC20 in order to have a distToken
-    await bentureFactory.createERC20Token(
-        "Slummy",
-        "SMM",
-        ipfsUrl,
-        18,
-        true,
-        ethers.utils.parseUnits("1000000000", 18),
-        0,
-        bentureAdmin.address
-    );
-    console.log("DistToken created");
-    await delay(10000);
-    // The address of `lastProducedToken` of factory gets changed here
-    let distTokenAddress = await bentureFactory.lastProducedToken();
-    SCRIPT_INPUT[network.name]["DistToken"].address = distTokenAddress;
-    console.log("Finish emit BentureFactory events....");
-
-    console.log("Write addresses in scriptInput.json");
-
-    fs.writeFileSync(
-        path.resolve(__dirname, scriptInputFileName),
-        JSON.stringify(SCRIPT_INPUT, null, "  ")
-    );
+    console.log("Finish emit BentureAdmin events....");
 }
 
 main()

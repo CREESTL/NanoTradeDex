@@ -112,11 +112,14 @@ interface IBentureDex is IBentureDexErrors {
     event AdminTokenChanged(address oldAdminToken, address newAdminToken);
 
     /// @notice Indicates that a single series sale has started
+    /// @param saleId The ID of the sale
+    /// @param orderId The ID of the created order
     /// @param tokenA The purchased token
     /// @param tokenB The sold token
     /// @param amount The amount of sold tokens
     /// @param price The price at which the sell is made
     event SaleStarted(
+        uint256 saleId,
         uint256 orderId,
         address tokenA,
         address tokenB,
@@ -130,7 +133,14 @@ interface IBentureDex is IBentureDexErrors {
     /// @notice Indicates that orders were matched
     /// @param initId The ID of first matched order
     /// @param matchedId The ID of the second matched order
-    event OrdersMatched(uint256 initId, uint256 matchedId);
+    /// @param amountToInit The amount of tokens matched to init order
+    /// @param amountToMatched The amount of tokens matched to matched order
+    event OrdersMatched(
+        uint256 initId,
+        uint256 matchedId,
+        uint256 amountToInit,
+        uint256 amountToMatched
+    );
 
     /// @notice Indicates that price of the pair was changed
     /// @param tokenA The address of the first token of the pair
@@ -175,36 +185,14 @@ interface IBentureDex is IBentureDexErrors {
 
     /// @notice Returns information about the given order
     /// @param _id The ID of the order to search
-    /// @return The creator of the order
-    /// @return The address of the token that is purchased
-    /// @return The address of the token that is sold
-    /// @return The initial amount of active tokens
-    /// @return The current increasing amount of active tokens
-    /// @return The type of the order
-    /// @return The side of the order
-    /// @return The limit price of the order in quoted tokens
-    /// @return True if order is cancellable. Otherwise - false
-    /// @return The fee paid for order creation
-    /// @return The locked amount of tokens
-    /// @return The current status of the order
+    /// @return The order struct
     function getOrder(
         uint256 _id
     )
         external
         view
         returns (
-            address,
-            address,
-            address,
-            uint256,
-            uint256,
-            OrderType,
-            OrderSide,
-            uint256,
-            bool,
-            uint256,
-            uint256,
-            OrderStatus
+            Order memory
         );
 
     /// @notice Returns the lisf of IDs of orders containing given tokens
