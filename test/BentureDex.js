@@ -82,6 +82,7 @@ describe("Benture DEX", () => {
             18,
             true,
             maxSupply,
+            0,
             // Provide the address of the previously deployed ERC721
             adminToken.address
         );
@@ -101,6 +102,7 @@ describe("Benture DEX", () => {
             18,
             true,
             maxSupply,
+            0,
             adminToken.address
         );
 
@@ -206,6 +208,7 @@ describe("Benture DEX", () => {
             18,
             true,
             maxSupply,
+            0,
             // Provide the address of the previously deployed ERC721
             adminToken.address
         );
@@ -225,6 +228,7 @@ describe("Benture DEX", () => {
             18,
             true,
             maxSupply,
+            0,
             adminToken.address
         );
 
@@ -242,6 +246,7 @@ describe("Benture DEX", () => {
             18,
             true,
             maxSupply,
+            0,
             adminToken.address
         );
 
@@ -259,6 +264,7 @@ describe("Benture DEX", () => {
             18,
             true,
             maxSupply,
+            0,
             adminToken.address
         );
 
@@ -1898,6 +1904,31 @@ describe("Benture DEX", () => {
                         .buyLimit(tokenA.address, tokenB.address, 0, limitPrice)
                 ).to.be.revertedWithCustomError(dex, "ZeroAmount");
             });
+
+            it("Should fail to create limit order with small price and amount", async () => {
+                let { dex, adminToken, tokenA, tokenB } = await loadFixture(
+                    deploysQuotedB
+                );
+
+                let limitPrice = BigNumber.from("1500000");
+                let amount = BigNumber.from("5000000");
+                let mintAmount = parseEther("1000000");
+
+                await tokenA.mint(clientAcc1.address, mintAmount);
+                await tokenB.mint(clientAcc1.address, mintAmount);
+                await tokenA
+                    .connect(clientAcc1)
+                    .approve(dex.address, mintAmount);
+                await tokenB
+                    .connect(clientAcc1)
+                    .approve(dex.address, mintAmount);
+
+                await expect(
+                    dex
+                        .connect(clientAcc1)
+                        .buyLimit(tokenA.address, tokenB.address, amount, limitPrice)
+                ).to.be.revertedWithCustomError(dex, "ZeroLockAmount");
+            });
         });
 
         // #LSO
@@ -2329,37 +2360,6 @@ describe("Benture DEX", () => {
                 expect(status).to.eq(0);
             });
 
-            it("Should start a single sale by second token admin", async () => {
-                let { dex, adminToken, tokenA, tokenB, tokenD } = await loadFixture(
-                    deploysNoQuoted
-                );
-
-                let sellAmount = parseEther("10");
-                let limitPrice = parseEther("1.5");
-                let expectedSaleId = 1;
-                let expectedOrderId = 1;
-
-                await expect(
-                    dex
-                        .connect(clientAcc2)
-                        .startSaleSingle(
-                            tokenA.address,
-                            tokenD.address,
-                            sellAmount,
-                            limitPrice
-                        )
-                )
-                    .to.emit(dex, "SaleStarted")
-                    .withArgs(
-                        expectedSaleId,
-                        expectedOrderId,
-                        tokenA.address,
-                        tokenD.address,
-                        sellAmount,
-                        limitPrice
-                    );
-            });
-
             it("Should start a single sale(two uncontrolled tokens)", async () => {
                 let { dex } = await loadFixture(
                     deploysNoQuoted
@@ -2487,6 +2487,51 @@ describe("Benture DEX", () => {
                             )
                     )
                         .to.be.revertedWithCustomError(params.dex, "NotAdmin");
+                });
+
+                it("Should revert a single sale if not admin of first token", async () => {
+                    let { dex, adminToken, tokenA, tokenB, tokenD } = await loadFixture(
+                        deploysNoQuoted
+                    );
+    
+                    let sellAmount = parseEther("10");
+                    let limitPrice = parseEther("1.5");
+                    let expectedSaleId = 1;
+                    let expectedOrderId = 1;
+    
+                    await expect(
+                        dex
+                            .startSaleSingle(
+                                tokenA.address,
+                                tokenD.address,
+                                sellAmount,
+                                limitPrice
+                            )
+                    )
+                        .to.revertedWithCustomError(dex, "NotAdmin");
+                });
+
+                it("Should revert a single sale if not admin of second token", async () => {
+                    let { dex, adminToken, tokenA, tokenB, tokenD } = await loadFixture(
+                        deploysNoQuoted
+                    );
+    
+                    let sellAmount = parseEther("10");
+                    let limitPrice = parseEther("1.5");
+                    let expectedSaleId = 1;
+                    let expectedOrderId = 1;
+    
+                    await expect(
+                        dex
+                            .connect(clientAcc2)
+                            .startSaleSingle(
+                                tokenD.address,
+                                tokenA.address,
+                                sellAmount,
+                                limitPrice
+                            )
+                    )
+                        .to.revertedWithCustomError(dex, "NotAdmin");
                 });
             });
         });
@@ -2800,7 +2845,7 @@ describe("Benture DEX", () => {
                             dex.matchOrders(4, [3], nonce, signatureMatch)
                         )
                             .to.emit(dex, "OrdersMatched")
-                            .withArgs(4, 3);
+                            .withArgs(4, 3, anyValue, anyValue);
 
                         let sellerEndSellingTokenBalance =
                             await tokenB.balanceOf(clientAcc1.address);
@@ -2999,7 +3044,7 @@ describe("Benture DEX", () => {
                             dex.matchOrders(4, [3], nonce, signatureMatch)
                         )
                             .to.emit(dex, "OrdersMatched")
-                            .withArgs(4, 3);
+                            .withArgs(4, 3, anyValue, anyValue);
 
                         let sellerEndSellingTokenBalance =
                             await tokenB.balanceOf(clientAcc1.address);
@@ -3194,7 +3239,7 @@ describe("Benture DEX", () => {
                             dex.matchOrders(4, [3], nonce, signatureMatch)
                         )
                             .to.emit(dex, "OrdersMatched")
-                            .withArgs(4, 3);
+                            .withArgs(4, 3, anyValue, anyValue);
 
                         let buyerEndPayingTokenBalance = await tokenB.balanceOf(
                             clientAcc1.address
@@ -3387,7 +3432,7 @@ describe("Benture DEX", () => {
                             dex.matchOrders(4, [3], nonce, signatureMatch)
                         )
                             .to.emit(dex, "OrdersMatched")
-                            .withArgs(4, 3);
+                            .withArgs(4, 3, anyValue, anyValue);
 
                         let buyerEndPayingTokenBalance = await tokenB.balanceOf(
                             clientAcc1.address
@@ -3589,7 +3634,7 @@ describe("Benture DEX", () => {
                                 dex.matchOrders(4, [3], nonce, signatureMatch)
                             )
                                 .to.emit(dex, "OrdersMatched")
-                                .withArgs(4, 3);
+                                .withArgs(4, 3, anyValue, anyValue);
 
                             let sellerEndSellingTokenBalance =
                                 await tokenB.balanceOf(clientAcc1.address);
@@ -3790,7 +3835,7 @@ describe("Benture DEX", () => {
                                 dex.matchOrders(4, [3], nonce, signatureMatch)
                             )
                                 .to.emit(dex, "OrdersMatched")
-                                .withArgs(4, 3);
+                                .withArgs(4, 3, anyValue, anyValue);
 
                             let sellerEndSellingTokenBalance =
                                 await tokenB.balanceOf(clientAcc1.address);
@@ -3997,7 +4042,7 @@ describe("Benture DEX", () => {
                                 dex.matchOrders(4, [3], nonce, signatureMatch)
                             )
                                 .to.emit(dex, "OrdersMatched")
-                                .withArgs(4, 3);
+                                .withArgs(4, 3, anyValue, anyValue);
 
                             let buyerEndPayingTokenBalance =
                                 await tokenB.balanceOf(clientAcc1.address);
@@ -4200,7 +4245,7 @@ describe("Benture DEX", () => {
                                 dex.matchOrders(4, [3], nonce, signatureMatch)
                             )
                                 .to.emit(dex, "OrdersMatched")
-                                .withArgs(4, 3);
+                                .withArgs(4, 3, anyValue, anyValue);
 
                             let buyerEndPayingTokenBalance =
                                 await tokenB.balanceOf(clientAcc1.address);
@@ -4570,7 +4615,7 @@ describe("Benture DEX", () => {
                             dex.matchOrders(4, [3], nonce, signatureMatch)
                         )
                             .to.emit(dex, "OrdersMatched")
-                            .withArgs(4, 3);
+                            .withArgs(4, 3, anyValue, anyValue);
 
                         let sellerEndSellingTokenBalance =
                             await tokenB.balanceOf(clientAcc1.address);
@@ -4785,7 +4830,7 @@ describe("Benture DEX", () => {
                             dex.matchOrders(4, [3], nonce, signatureMatch)
                         )
                             .to.emit(dex, "OrdersMatched")
-                            .withArgs(4, 3);
+                            .withArgs(4, 3, anyValue, anyValue);
 
                         let sellerEndSellingTokenBalance =
                             await tokenB.balanceOf(clientAcc1.address);
@@ -4993,7 +5038,7 @@ describe("Benture DEX", () => {
                             dex.matchOrders(4, [3], nonce, signatureMatch)
                         )
                             .to.emit(dex, "OrdersMatched")
-                            .withArgs(4, 3);
+                            .withArgs(4, 3, anyValue, anyValue);
 
                         let buyerEndPayingTokenBalance = await tokenB.balanceOf(
                             clientAcc1.address
@@ -5186,7 +5231,7 @@ describe("Benture DEX", () => {
 
                     await expect(dex.matchOrders(4, [3], nonce, signatureMatch))
                         .to.emit(dex, "OrdersMatched")
-                        .withArgs(4, 3);
+                        .withArgs(4, 3, anyValue, anyValue);
 
                     let buyerEndReceivingTokenBalance = await tokenA.balanceOf(
                         clientAcc1.address
@@ -5382,7 +5427,7 @@ describe("Benture DEX", () => {
 
                     await expect(dex.matchOrders(4, [3], nonce, signatureMatch))
                         .to.emit(dex, "OrdersMatched")
-                        .withArgs(4, 3);
+                        .withArgs(4, 3, anyValue, anyValue);
 
                     let buyerEndPayingTokenBalance = await tokenA.balanceOf(
                         clientAcc1.address
@@ -6227,7 +6272,7 @@ describe("Benture DEX", () => {
 
             await expect(dex.matchOrders(5, [4], nonce, signatureMatch))
                 .to.emit(dex, "OrdersMatched")
-                .withArgs(5, 4);
+                .withArgs(5, 4, anyValue, anyValue);
 
             let sellerEndSellingTokenBalance = await getBalance(
                 clientAcc1.address
@@ -6435,7 +6480,7 @@ describe("Benture DEX", () => {
 
             await expect(dex.matchOrders(5, [4], nonce, signatureMatch))
                 .to.emit(dex, "OrdersMatched")
-                .withArgs(5, 4);
+                .withArgs(5, 4, anyValue, anyValue);
 
             let sellerEndReceivingTokenBalance = await getBalance(
                 clientAcc1.address

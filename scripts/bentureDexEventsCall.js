@@ -65,12 +65,12 @@ async function main() {
     await delay(10000);
 
     // Set variables for function calls
-    let mintAmount = ethers.utils.parseUnits("1000000", 6);
-    let buyAmount = ethers.utils.parseUnits("10", 6);
-    let sellAmount = ethers.utils.parseUnits("10", 6);
+    let mintAmount = ethers.utils.parseUnits("1000000", 18);
+    let buyAmount = ethers.utils.parseUnits("10", 18);
+    let sellAmount = ethers.utils.parseUnits("10", 18);
     let slippage = 10;
-    let limitPrice = ethers.utils.parseUnits("1.5", 6);
-    let bigLimitPrice = ethers.utils.parseUnits("10", 6);
+    let limitPrice = ethers.utils.parseUnits("1.5", 18);
+    let bigLimitPrice = ethers.utils.parseUnits("10", 18);
 
     let signatureMarketBuy = await hashAndSignMarket(
         bentureDex.address,
@@ -83,8 +83,8 @@ async function main() {
 
     let signatureMarketSell = await hashAndSignMarket(
         bentureDex.address,
-        origToken.address,
         distToken.address,
+        origToken.address,
         buyAmount,
         slippage,
         8

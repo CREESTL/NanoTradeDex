@@ -13,13 +13,13 @@
       "address": "0x8323fD97B803429103Aa60ca1DC9f52Df7f6839B"
     },
     "BentureDex": {
-      "address": "0xfA3Edc9db7bb5458695Ad99651bbDbFa5470BD14"
+      "address": "0x8FE7f60aFe314b52e1a3AF83608c95c9149bfF02"
     },
     "OrigToken": {
-      "address": "0xD8952a0169fEC57A634e1c01030306B99775c132"
+      "address": "0x8394619093d0ECFcB2a409975A451a017Bb46b9d"
     },
     "DistToken": {
-      "address": "0xB709f7b980c11a9003144C84F7d9B64da6af6AaD"
+      "address": "0x71Ea7DEce0D30a4E0428d18a2D1740c68D3e3897"
     }
   },
   "polygon_mainnet": {
