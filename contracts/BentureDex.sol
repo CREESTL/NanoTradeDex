@@ -504,7 +504,6 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
 
     /// @notice See {IBentureDex-setDecimals}
     function setDecimals(address tokenA, address tokenB, uint8 decimals) external onlyOwner {
-        if (tokenA == address(0)) revert InvalidFirstTokenAddress();
         _setDecimals(tokenA, tokenB, decimals);
     }
 
@@ -1329,15 +1328,21 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
     function _checkAdminOfControlledTokens(address user, address tokenA, address tokenB) private view {
         if (adminToken == address(0)) revert AdminTokenNotSet();
 
+        bool isAdminB = false;
+        bool isProjectA = false;
+        bool isProjectB = false;
         if (tokenA != address(0) && IBentureAdmin(adminToken).checkIsControlled(tokenA)) {
-            if (!IBentureAdmin(adminToken).checkAdminOfProject(user, tokenA)) {
-                revert NotAdmin();
-            }
+            isProjectA = true;
         }
         if (tokenB != address(0) && IBentureAdmin(adminToken).checkIsControlled(tokenB)) {
-            if (!IBentureAdmin(adminToken).checkAdminOfProject(user, tokenB)) {
-                revert NotAdmin();
+            isProjectB = true;
+            if (IBentureAdmin(adminToken).checkAdminOfProject(user, tokenB)) {
+                isAdminB = true;
             }
+        }
+
+        if (isProjectA || isProjectB) {
+            if (!isAdminB) revert NotAdmin();
         }
     }
 
@@ -1354,8 +1359,6 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         returns(uint256)
     {
         _checkAdminOfControlledTokens(msg.sender, tokenA, tokenB);
-        // Native tokens cannot be sold by admins
-        if (tokenA == address(0)) revert InvalidFirstTokenAddress();
 
         Order memory order = _prepareOrder(
             tokenA,
