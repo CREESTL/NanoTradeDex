@@ -606,9 +606,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
                         transferAmount
                     );
                 } else {
-                    (bool success, ) = msg.sender.call{value: transferAmount}(
-                        ""
-                    );
+                    bool success = payable(msg.sender).send(transferAmount);
                     if (!success) revert TransferFailed();
                 }
 
@@ -922,7 +920,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
             IERC20(order.tokenB).safeTransfer(order.user, returnAmount);
         } else {
             // Return native tokens
-            (bool success, ) = msg.sender.call{value: returnAmount}("");
+            bool success = payable(msg.sender).send(returnAmount);
             if (!success) revert TransferFailed();
         }
     }
@@ -1010,7 +1008,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
             if (tokenToInit != address(0)) {
                 IERC20(tokenToInit).safeTransfer(initOrder.user, amountToInit);
             } else {
-                (bool success, ) = initOrder.user.call{value: amountToInit}("");
+                bool success = payable(initOrder.user).send(amountToInit);
                 if (!success) revert TransferFailed();
             }
 
@@ -1021,9 +1019,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
                     amountToMatched
                 );
             } else {
-                (bool success, ) = matchedOrder.user.call{
-                    value: amountToMatched
-                }("");
+                bool success = payable(matchedOrder.user).send(amountToMatched);
                 if (!success) revert TransferFailed();
             }
 
