@@ -575,7 +575,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
     }
 
     /// @notice See {IBentureDex-withdrawFees}
-    function withdrawFees(address[] memory tokens) public onlyOwner {
+    function withdrawFees(address[] memory tokens) public onlyOwner nonReentrant {
         // The amount of gas spent for all operations below
         uint256 gasSpent = 0;
         // Only 2/3 of block gas limit could be spent.
@@ -879,7 +879,6 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
     function _cancelOrder(uint256 id) private {
         if (!checkOrderExists(id)) revert OrderDoesNotExist();
         Order storage order = _orders[id];
-        if (order.status == OrderStatus.Active) {}
         if (!order.isCancellable) revert NonCancellable();
         // Partially closed orders can be cancelled as well
         if (
