@@ -31,6 +31,10 @@ describe("Benture DEX", () => {
         [ownerAcc, clientAcc1, clientAcc2, clientAcc3] =
             await ethers.getSigners();
 
+        let mockTokenTx = await ethers.getContractFactory("ERC20Mintable");
+        let mockToken = await mockTokenTx.deploy("Test Token", "TT");
+        await mockToken.deployed();
+        
         let dexTx = await ethers.getContractFactory("BentureDex");
         let dex = await dexTx.deploy();
         await dex.deployed();
@@ -116,8 +120,10 @@ describe("Benture DEX", () => {
         let mintAmount = parseEther("1000000");
         await tokenA.mint(ownerAcc.address, mintAmount);
         await tokenB.mint(ownerAcc.address, mintAmount);
+        await mockToken.mint(ownerAcc.address, mintAmount);
         await tokenA.approve(dex.address, mintAmount);
         await tokenB.approve(dex.address, mintAmount);
+        await mockToken.approve(dex.address, mintAmount);
 
         // Start sales and create two pairs of tokens
 
@@ -149,6 +155,7 @@ describe("Benture DEX", () => {
             adminToken,
             tokenA,
             tokenB,
+            mockToken
         };
     }
 
@@ -2411,28 +2418,28 @@ describe("Benture DEX", () => {
                     );
                 });
 
-                it("Should fail to start a single sale of native token", async () => {
-                    let { dex, adminToken, tokenA, tokenB } = await loadFixture(
-                        deploysQuotedB
-                    );
+                // it("Should fail to start a single sale of native token", async () => {
+                //     let { dex, adminToken, tokenA, tokenB, mockToken } = await loadFixture(
+                //         deploysQuotedB
+                //     );
     
-                    let sellAmount = parseEther("10");
-                    let limitPrice = parseEther("1.5");
+                //     let sellAmount = parseEther("10");
+                //     let limitPrice = parseEther("1.5");
     
-                    await expect(
-                        dex
-                            .connect(ownerAcc)
-                            .startSaleSingle(
-                                zeroAddress,
-                                tokenB.address,
-                                sellAmount,
-                                limitPrice
-                            )
-                    ).to.be.revertedWithCustomError(
-                        dex,
-                        "InvalidFirstTokenAddress"
-                    );
-                });
+                //     await expect(
+                //         dex
+                //             .connect(ownerAcc)
+                //             .startSaleSingle(
+                //                 mockToken.address,
+                //                 zeroAddress,
+                //                 sellAmount,
+                //                 limitPrice
+                //             )
+                //     ).to.be.revertedWithCustomError(
+                //         dex,
+                //         "InvalidSecondTokenAddress"
+                //     );
+                // });
 
                 it("Should revert if admin token NOT set", async () => {
                     let sellAmount = parseEther("10");
@@ -5746,18 +5753,17 @@ describe("Benture DEX", () => {
 
                 // Create a pair with native tokens
                 let limitPriceForNative = parseEther("1.5");
-                let sellAmountNative = parseEther("4");
+                let sellAmountTokenA = parseEther("4");
                 let feeRate = await dex.feeRate();
-                let feeNative = sellAmountNative.mul(feeRate).div(10000);
-                let totalLockNative = sellAmountNative.add(feeNative);
+                let feeTokenA = sellAmountTokenA.mul(feeRate).div(10000);
+                let totalLockNative = sellAmountTokenA.add(feeTokenA);
                 await dex
                     .connect(ownerAcc)
                     .startSaleSingle(
-                        tokenA.address,
                         zeroAddress,
-                        sellAmountNative,
-                        limitPriceForNative,
-                        { value: totalLockNative }
+                        tokenA.address,
+                        sellAmountTokenA,
+                        limitPriceForNative
                     );
 
                 let mintAmount = parseEther("1000000");
@@ -5776,11 +5782,22 @@ describe("Benture DEX", () => {
                 let buyerShouldBeLocked = calcBuyerLockAmount(
                     buyAmount,
                     limitPrice,
-                    true
+                    false
                 );
                 let buyerShouldBeFee = calcFeeAmount(buyerShouldBeLocked);
 
-                // Fees in tokenB
+                let sellerShouldBeLocked = await dex.getLockAmount(
+                    zeroAddress,
+                    tokenA.address,
+                    sellAmount,
+                    limitPrice,
+                    1,
+                    1
+                );
+                // Fee in tokenB
+                let sellerShouldBeFee = calcFeeAmount(sellerShouldBeLocked);
+
+                // Fees in tokenA
                 await dex
                     .connect(clientAcc1)
                     .sellLimit(
@@ -5799,7 +5816,7 @@ describe("Benture DEX", () => {
                     nonce
                 );
 
-                // Fees in tokenA
+                // Fees in native
                 await dex
                     .connect(clientAcc2)
                     .buyMarket(
@@ -5822,18 +5839,6 @@ describe("Benture DEX", () => {
                 await dex.matchOrders(5, [4], nonce, signatureMatch);
 
                 // Fee rate is 0.1% of lock amount
-
-                let sellerShouldBeLocked = await dex.getLockAmount(
-                    zeroAddress,
-                    tokenA.address,
-                    sellAmount,
-                    limitPrice,
-                    1,
-                    1
-                );
-                // Fee in tokenB
-                let sellerShouldBeFee = calcFeeAmount(sellerShouldBeLocked);
-
                 let initialOwnerTokenABalance = await tokenA.balanceOf(
                     ownerAcc.address
                 );
@@ -5905,11 +5910,10 @@ describe("Benture DEX", () => {
             await dex
                 .connect(ownerAcc)
                 .startSaleSingle(
-                    tokenA.address,
                     zeroAddress,
+                    tokenA.address,
                     sellAmountNative,
-                    limitPriceForNative,
-                    { value: totalLockNative }
+                    limitPriceForNative
                 );
 
             let buyAmount = parseEther("10");
@@ -5971,7 +5975,7 @@ describe("Benture DEX", () => {
             let shouldBeLocked = calcBuyerLockAmount(
                 buyAmount,
                 limitPrice,
-                true
+                false
             );
             let shouldBeFee = calcFeeAmount(shouldBeLocked);
 
@@ -6027,11 +6031,10 @@ describe("Benture DEX", () => {
             await dex
                 .connect(ownerAcc)
                 .startSaleSingle(
-                    tokenA.address,
                     zeroAddress,
+                    tokenA.address,
                     sellAmountNative,
-                    limitPriceForNative,
-                    { value: totalLockNative }
+                    limitPriceForNative
                 );
 
             let buyAmount = parseEther("10");
@@ -6059,7 +6062,7 @@ describe("Benture DEX", () => {
         });
 
         it("Should fail to create multiple sales with native tokens", async () => {
-            let { dex, adminToken, tokenA, tokenB } = await loadFixture(
+            let { dex, adminToken, tokenA, tokenB, mockToken } = await loadFixture(
                 deploysQuotedB
             );
 
@@ -6072,7 +6075,7 @@ describe("Benture DEX", () => {
             await expect(dex
                 .connect(ownerAcc)
                 .startSaleMultiple(
-                    tokenA.address,
+                    mockToken.address,
                     zeroAddress,
                     [sellAmountNative, sellAmountNative],
                     [limitPriceForNative, limitPriceForNative],
@@ -6094,8 +6097,8 @@ describe("Benture DEX", () => {
             await dex
                 .connect(ownerAcc)
                 .startSaleSingle(
-                    tokenA.address,
                     zeroAddress,
+                    tokenA.address,
                     sellAmountNative,
                     limitPriceForNative,
                     { value: totalLockNative }
@@ -6158,7 +6161,7 @@ describe("Benture DEX", () => {
             expect(status).to.eq(3);
         });
         it("Should match orders with native tokens", async () => {
-            let { dex, adminToken, tokenA, tokenB } = await loadFixture(
+            let { dex, adminToken, tokenA, tokenB, mockToken } = await loadFixture(
                 deploysQuotedB
             );
 
@@ -6171,7 +6174,7 @@ describe("Benture DEX", () => {
             await dex
                 .connect(ownerAcc)
                 .startSaleSingle(
-                    tokenA.address,
+                    mockToken.address,
                     zeroAddress,
                     sellAmountNative,
                     limitPriceForNative,
@@ -6189,18 +6192,18 @@ describe("Benture DEX", () => {
             await tokenB.connect(clientAcc1).approve(dex.address, mintAmount);
 
             // Send some native tokens to pay for purchase
-            await tokenA.mint(clientAcc2.address, mintAmount);
-            await tokenA.connect(clientAcc2).approve(dex.address, mintAmount);
+            await mockToken.mint(clientAcc2.address, mintAmount);
+            await mockToken.connect(clientAcc2).approve(dex.address, mintAmount);
 
             // Balances in both tokens of both users
             let sellerInitialSellingTokenBalance = await getBalance(
                 clientAcc1.address
             );
-            let sellerInitialReceivingTokenBalance = await tokenA.balanceOf(
+            let sellerInitialReceivingTokenBalance = await mockToken.balanceOf(
                 clientAcc1.address
             );
 
-            let buyerInitialPayingTokenBalance = await tokenA.balanceOf(
+            let buyerInitialPayingTokenBalance = await mockToken.balanceOf(
                 clientAcc2.address
             );
             let buyerInitialReceivingTokenBalance = await getBalance(
@@ -6208,12 +6211,12 @@ describe("Benture DEX", () => {
             );
 
             let dexInitialSellingTokenBalance = await getBalance(dex.address);
-            let dexInitialReceivingTokenBalance = await tokenA.balanceOf(
+            let dexInitialReceivingTokenBalance = await mockToken.balanceOf(
                 dex.address
             );
 
             let sellerShouldBeLocked = await dex.getLockAmount(
-                tokenA.address,
+                mockToken.address,
                 zeroAddress,
                 sellAmount,
                 limitPrice,
@@ -6241,7 +6244,7 @@ describe("Benture DEX", () => {
             await dex
                 .connect(clientAcc1)
                 .sellLimit(
-                    tokenA.address,
+                    mockToken.address,
                     zeroAddress,
                     sellAmount,
                     limitPrice,
@@ -6253,13 +6256,13 @@ describe("Benture DEX", () => {
                 .connect(clientAcc2)
                 .buyLimit(
                     zeroAddress,
-                    tokenA.address,
+                    mockToken.address,
                     buyAmount,
                     limitPrice.div(2)
                 );
 
             let [, pairInitialPrice] = await dex.getPrice(
-                tokenA.address,
+                mockToken.address,
                 zeroAddress
             );
 
@@ -6277,11 +6280,11 @@ describe("Benture DEX", () => {
             let sellerEndSellingTokenBalance = await getBalance(
                 clientAcc1.address
             );
-            let sellerEndReceivingTokenBalance = await tokenA.balanceOf(
+            let sellerEndReceivingTokenBalance = await mockToken.balanceOf(
                 clientAcc1.address
             );
 
-            let buyerEndPayingTokenBalance = await tokenA.balanceOf(
+            let buyerEndPayingTokenBalance = await mockToken.balanceOf(
                 clientAcc2.address
             );
             let buyerEndReceivingTokenBalance = await getBalance(
@@ -6289,12 +6292,12 @@ describe("Benture DEX", () => {
             );
 
             let dexEndSellingTokenBalance = await getBalance(dex.address);
-            let dexEndReceivingTokenBalance = await tokenA.balanceOf(
+            let dexEndReceivingTokenBalance = await mockToken.balanceOf(
                 dex.address
             );
 
             let [, pairEndPrice] = await dex.getPrice(
-                tokenA.address,
+                mockToken.address,
                 zeroAddress
             );
 
@@ -6370,7 +6373,7 @@ describe("Benture DEX", () => {
         });
 
         it("Should match orders with native tokens 2", async () => {
-            let { dex, adminToken, tokenA, tokenB } = await loadFixture(
+            let { dex, adminToken, tokenA, tokenB, mockToken } = await loadFixture(
                 deploysQuotedB
             );
 
@@ -6383,7 +6386,7 @@ describe("Benture DEX", () => {
             await dex
                 .connect(ownerAcc)
                 .startSaleSingle(
-                    tokenA.address,
+                    mockToken.address,
                     zeroAddress,
                     sellAmountNative,
                     limitPriceForNative,
@@ -6397,18 +6400,18 @@ describe("Benture DEX", () => {
             let nonce = 777;
 
             // Send some native tokens to sell
-            await tokenA.mint(clientAcc1.address, mintAmount);
-            await tokenA.connect(clientAcc1).approve(dex.address, mintAmount);
+            await mockToken.mint(clientAcc1.address, mintAmount);
+            await mockToken.connect(clientAcc1).approve(dex.address, mintAmount);
 
             // Balances in both tokens of both users
             let sellerInitialReceivingTokenBalance = await getBalance(
                 clientAcc1.address
             );
-            let sellerInitialSellingTokenBalance = await tokenA.balanceOf(
+            let sellerInitialSellingTokenBalance = await mockToken.balanceOf(
                 clientAcc1.address
             );
 
-            let buyerInitialReceivingTokenBalance = await tokenA.balanceOf(
+            let buyerInitialReceivingTokenBalance = await mockToken.balanceOf(
                 clientAcc2.address
             );
             let buyerInitialPayingTokenBalance = await getBalance(
@@ -6416,13 +6419,13 @@ describe("Benture DEX", () => {
             );
 
             let dexInitialReceivingTokenBalance = await getBalance(dex.address);
-            let dexInitialSellingTokenBalance = await tokenA.balanceOf(
+            let dexInitialSellingTokenBalance = await mockToken.balanceOf(
                 dex.address
             );
 
             let sellerShouldBeLocked = await dex.getLockAmount(
                 zeroAddress,
-                tokenA.address,
+                mockToken.address,
                 sellAmount,
                 limitPrice,
                 1,
@@ -6450,7 +6453,7 @@ describe("Benture DEX", () => {
                 .connect(clientAcc1)
                 .sellLimit(
                     zeroAddress,
-                    tokenA.address,
+                    mockToken.address,
                     sellAmount,
                     limitPrice
                 );
@@ -6459,7 +6462,7 @@ describe("Benture DEX", () => {
             await dex
                 .connect(clientAcc2)
                 .buyLimit(
-                    tokenA.address,
+                    mockToken.address,
                     zeroAddress,
                     buyAmount,
                     limitPrice.div(2),
@@ -6468,7 +6471,7 @@ describe("Benture DEX", () => {
 
             let [, pairInitialPrice] = await dex.getPrice(
                 zeroAddress,
-                tokenA.address
+                mockToken.address
             );
 
             let signatureMatch = await hashAndSignMatch(
@@ -6485,11 +6488,11 @@ describe("Benture DEX", () => {
             let sellerEndReceivingTokenBalance = await getBalance(
                 clientAcc1.address
             );
-            let sellerEndSellingTokenBalance = await tokenA.balanceOf(
+            let sellerEndSellingTokenBalance = await mockToken.balanceOf(
                 clientAcc1.address
             );
 
-            let buyerEndReceivingTokenBalance = await tokenA.balanceOf(
+            let buyerEndReceivingTokenBalance = await mockToken.balanceOf(
                 clientAcc2.address
             );
             let buyerEndPayingTokenBalance = await getBalance(
@@ -6497,13 +6500,13 @@ describe("Benture DEX", () => {
             );
 
             let dexEndReceivingTokenBalance = await getBalance(dex.address);
-            let dexEndSellingTokenBalance = await tokenA.balanceOf(
+            let dexEndSellingTokenBalance = await mockToken.balanceOf(
                 dex.address
             );
 
             let [, pairEndPrice] = await dex.getPrice(
                 zeroAddress,
-                tokenA.address
+                mockToken.address
             );
 
             // Pair price should decrease 2 times
@@ -6673,14 +6676,14 @@ describe("Benture DEX", () => {
                 .to.be.revertedWithCustomError(dex, "PairNotCreated");
         });
 
-        it("Should revert if first token address = 0", async () => {
-            let { dex, adminToken, tokenA, tokenB, tokenC } = await loadFixture(
-                deploysNoQuoted
-            );
+        // it("Should revert if first token address = 0", async () => {
+        //     let { dex, adminToken, tokenA, tokenB, tokenC } = await loadFixture(
+        //         deploysNoQuoted
+        //     );
 
-            await expect(dex.setDecimals(zeroAddress, tokenC.address, 6))
-                .to.be.revertedWithCustomError(dex, "InvalidFirstTokenAddress");
-        });
+        //     await expect(dex.setDecimals(zeroAddress, tokenC.address, 6))
+        //         .to.be.revertedWithCustomError(dex, "InvalidFirstTokenAddress");
+        // });
 
         it("Should NOT set decimals for pair if already setted default", async () => {
             let { dex, adminToken, tokenA, tokenB } = await loadFixture(

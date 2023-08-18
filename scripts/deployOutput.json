@@ -1,8 +1,8 @@
 {
   "polygon_testnet": {
     "BentureDex": {
-      "address": "0x8FE7f60aFe314b52e1a3AF83608c95c9149bfF02",
-      "verification": "https://mumbai.polygonscan.com/address/0x8FE7f60aFe314b52e1a3AF83608c95c9149bfF02#code"
+      "address": "0x1401DFa9eA2b3433736B4b580b1BDF0b2Fe24554",
+      "verification": "https://mumbai.polygonscan.com/address/0x1401DFa9eA2b3433736B4b580b1BDF0b2Fe24554#code"
     }
   },
   "polygon_mainnet": {

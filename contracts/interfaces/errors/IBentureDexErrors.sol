@@ -7,7 +7,7 @@ interface IBentureDexErrors {
     error SlippageTooBig(uint256 slippage);
     error InvalidSignature();
     error OrderDoesNotExist();
-    error InvalidFirstTokenAddress();
+    error InvalidSecondTokenAddress();
     error NoQuotedTokens();
     error AdminTokenNotSet();
     error ZeroPrice();

@@ -504,7 +504,6 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
 
     /// @notice See {IBentureDex-setDecimals}
     function setDecimals(address tokenA, address tokenB, uint8 decimals) external onlyOwner {
-        if (tokenA == address(0)) revert InvalidFirstTokenAddress();
         _setDecimals(tokenA, tokenB, decimals);
     }
 
@@ -576,7 +575,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
     }
 
     /// @notice See {IBentureDex-withdrawFees}
-    function withdrawFees(address[] memory tokens) public onlyOwner {
+    function withdrawFees(address[] memory tokens) public onlyOwner nonReentrant {
         // The amount of gas spent for all operations below
         uint256 gasSpent = 0;
         // Only 2/3 of block gas limit could be spent.
@@ -607,9 +606,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
                         transferAmount
                     );
                 } else {
-                    (bool success, ) = msg.sender.call{value: transferAmount}(
-                        ""
-                    );
+                    bool success = payable(msg.sender).send(transferAmount);
                     if (!success) revert TransferFailed();
                 }
 
@@ -882,7 +879,6 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
     function _cancelOrder(uint256 id) private {
         if (!checkOrderExists(id)) revert OrderDoesNotExist();
         Order storage order = _orders[id];
-        if (order.status == OrderStatus.Active) {}
         if (!order.isCancellable) revert NonCancellable();
         // Partially closed orders can be cancelled as well
         if (
@@ -923,7 +919,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
             IERC20(order.tokenB).safeTransfer(order.user, returnAmount);
         } else {
             // Return native tokens
-            (bool success, ) = msg.sender.call{value: returnAmount}("");
+            bool success = payable(msg.sender).send(returnAmount);
             if (!success) revert TransferFailed();
         }
     }
@@ -1011,7 +1007,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
             if (tokenToInit != address(0)) {
                 IERC20(tokenToInit).safeTransfer(initOrder.user, amountToInit);
             } else {
-                (bool success, ) = initOrder.user.call{value: amountToInit}("");
+                bool success = payable(initOrder.user).send(amountToInit);
                 if (!success) revert TransferFailed();
             }
 
@@ -1022,9 +1018,7 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
                     amountToMatched
                 );
             } else {
-                (bool success, ) = matchedOrder.user.call{
-                    value: amountToMatched
-                }("");
+                bool success = payable(matchedOrder.user).send(amountToMatched);
                 if (!success) revert TransferFailed();
             }
 
@@ -1329,15 +1323,21 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
     function _checkAdminOfControlledTokens(address user, address tokenA, address tokenB) private view {
         if (adminToken == address(0)) revert AdminTokenNotSet();
 
+        bool isAdminB = false;
+        bool isProjectA = false;
+        bool isProjectB = false;
         if (tokenA != address(0) && IBentureAdmin(adminToken).checkIsControlled(tokenA)) {
-            if (!IBentureAdmin(adminToken).checkAdminOfProject(user, tokenA)) {
-                revert NotAdmin();
-            }
+            isProjectA = true;
         }
         if (tokenB != address(0) && IBentureAdmin(adminToken).checkIsControlled(tokenB)) {
-            if (!IBentureAdmin(adminToken).checkAdminOfProject(user, tokenB)) {
-                revert NotAdmin();
+            isProjectB = true;
+            if (IBentureAdmin(adminToken).checkAdminOfProject(user, tokenB)) {
+                isAdminB = true;
             }
+        }
+
+        if (isProjectA || isProjectB) {
+            if (!isAdminB) revert NotAdmin();
         }
     }
 
@@ -1354,8 +1354,6 @@ contract BentureDex is IBentureDex, Ownable, ReentrancyGuard {
         returns(uint256)
     {
         _checkAdminOfControlledTokens(msg.sender, tokenA, tokenB);
-        // Native tokens cannot be sold by admins
-        if (tokenA == address(0)) revert InvalidFirstTokenAddress();
 
         Order memory order = _prepareOrder(
             tokenA,
